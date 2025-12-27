@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Facebook Clone</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="navbar">
+    <h1>facebook</h1>
+    <input type="text" placeholder="Search Facebook" />
+  </div>
+
+  <!-- Main Layout -->
+  <div class="container">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <p><strong>Profile</strong></p>
+      <p>Friends</p>
+      <p>Messages</p>
+      <p>Notifications</p>
+    </div>
+
+    <!-- Feed -->
+    <div class="feed">
+      <div class="post-box">
+        <textarea placeholder="What's on your mind?"></textarea>
+        <button onclick="addPost()">Post</button>
+      </div>
+
+      <div id="posts"></div>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
