@@ -75,6 +75,7 @@ body {
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 15px;
+  animation: fadeIn 0.4s ease-in;
 }
 
 .post h4 {
@@ -93,8 +94,53 @@ body {
   border-radius: 5px;
   cursor: pointer;
   background-color: #e4e6eb;
+  transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
 .actions button:hover {
   background-color: #d8dadf;
+  transform: scale(1.05);
+}
+
+/* Comments section */
+.comments {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #e4e6eb;
+}
+
+.comment-list div {
+  background: #f0f2f5;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 14px;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.comment-list small {
+  color: #65676b;
+  font-size: 12px;
+}
+
+/* Comment input */
+.comment-input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 20px;
+  border: 1px solid #ccd0d5;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+/* Fade animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
