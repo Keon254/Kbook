@@ -1,13 +1,27 @@
-function addPost() {
-  const textarea = document.querySelector("textarea");
-  const postText = textarea.value;
+const postInput = document.getElementById("postInput");
+const postBtn = document.getElementById("postBtn");
+const feed = document.getElementById("feed");
 
-  if (postText.trim() === "") return;
+postBtn.addEventListener("click", () => {
+  const text = postInput.value.trim();
 
-  const postDiv = document.createElement("div");
-  postDiv.className = "post";
-  postDiv.innerText = postText;
+  if (text === "") {
+    alert("Write something first.");
+    return;
+  }
 
-  document.getElementById("posts").prepend(postDiv);
-  textarea.value = "";
-}
+  const post = document.createElement("div");
+  post.className = "post";
+
+  post.innerHTML = `
+    <h4>You</h4>
+    <p>${text}</p>
+    <div class="actions">
+      <button class="like-btn">Like</button>
+      <button>Comment</button>
+    </div>
+  `;
+
+  feed.prepend(post);
+  postInput.value = "";
+});
