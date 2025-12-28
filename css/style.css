@@ -1,3 +1,4 @@
+/* Reset */
 * {
   margin: 0;
   padding: 0;
@@ -5,11 +6,12 @@
   font-family: Arial, sans-serif;
 }
 
+/* Body */
 body {
   background-color: #f0f2f5;
 }
 
-/* NAVBAR */
+/* Navbar */
 .navbar {
   background-color: #1877f2;
   color: white;
@@ -19,59 +21,63 @@ body {
   align-items: center;
 }
 
+.navbar a {
+  color: white;
+  text-decoration: none;
+  margin-left: 15px;
+  font-weight: 500;
+}
+
 .logo {
   font-size: 24px;
   font-weight: bold;
 }
 
-.navbar a {
-  color: white;
-  text-decoration: none;
-  margin-left: 15px;
-  font-weight: bold;
-}
-
-/* MAIN CONTAINER */
+/* Main container */
 .container {
   max-width: 600px;
-  margin: 20px auto;
+  margin: 30px auto;
 }
 
-/* CREATE POST */
-.create-post {
+/* Post box */
+.post-box {
   background: white;
   padding: 15px;
-  border-radius: 6px;
+  border-radius: 8px;
   display: flex;
   gap: 10px;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 
-.create-post input {
+.post-box input {
   flex: 1;
   padding: 10px;
+  border-radius: 6px;
   border: 1px solid #ccc;
-  border-radius: 4px;
 }
 
-.create-post button {
+.post-box button {
   background-color: #1877f2;
   color: white;
   border: none;
-  padding: 10px 15px;
-  border-radius: 4px;
+  padding: 0 16px;
+  border-radius: 6px;
   cursor: pointer;
 }
 
-/* POSTS */
+.post-box button:hover {
+  background-color: #155ec4;
+}
+
+/* Feed posts */
 .post {
   background: white;
   padding: 15px;
-  border-radius: 6px;
+  border-radius: 8px;
   margin-bottom: 15px;
 }
 
-.post h3 {
+.post h4 {
   margin-bottom: 5px;
 }
 
@@ -79,12 +85,16 @@ body {
   margin-bottom: 10px;
 }
 
-/* ACTION BUTTONS */
+/* Post actions */
 .actions button {
-  background-color: #e4e6eb;
+  margin-right: 8px;
+  padding: 5px 10px;
   border: none;
-  padding: 6px 10px;
-  margin-right: 10px;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
+  background-color: #e4e6eb;
+}
+
+.actions button:hover {
+  background-color: #d8dadf;
 }
