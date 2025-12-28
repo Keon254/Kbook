@@ -2,40 +2,53 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Kbook</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Kbook | Home</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-  <!-- Top Bar -->
-  <div class="navbar">
-    <h1>Kbook</h1>
-    <input type="text" placeholder="Search Facebook" />
-  </div>
+  <!-- Navbar -->
+  <header class="navbar">
+    <h1 class="logo">Kbook</h1>
+    <nav>
+      <a href="#">Home</a>
+      <a href="#">Profile</a>
+      <a href="#">Logout</a>
+    </nav>
+  </header>
 
-  <!-- Main Layout -->
-  <div class="container">
+  <!-- Main Content -->
+  <main class="container">
 
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <p><strong>Profile</strong></p>
-      <p>Friends</p>
-      <p>Messages</p>
-      <p>Notifications</p>
+    <!-- Create Post -->
+    <div class="create-post">
+      <input type="text" placeholder="What's on your mind?" />
+      <button>Post</button>
     </div>
 
     <!-- Feed -->
     <div class="feed">
-      <div class="post-box">
-        <textarea placeholder="What's on your mind?"></textarea>
-        <button onclick="addPost()">Post</button>
+
+      <div class="post">
+        <h3>John Doe</h3>
+        <p>Hello Kbook! This is my first post.</p>
+        <div class="actions">
+          <button>Like</button>
+          <button>Comment</button>
+        </div>
       </div>
 
-      <div id="posts"></div>
+      <div class="post">
+        <h3>Jane Smith</h3>
+        <p>Kbook looks clean already.</p>
+        <div class="actions">
+          <button>Like</button>
+          <button>Comment</button>
+        </div>
+      </div>
+
     </div>
+  </main>
 
-  </div>
-
-  <script src="script.js"></script>
 </body>
 </html>
