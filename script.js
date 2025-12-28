@@ -2,10 +2,14 @@ const postBtn = document.getElementById("postBtn");
 const postInput = document.getElementById("postInput");
 const feed = document.getElementById("feed");
 
-// Click button to post
+// Load saved posts on page load
+let posts = JSON.parse(localStorage.getItem("posts")) || [];
+renderPosts();
+
+// Button click
 postBtn.addEventListener("click", createPost);
 
-// Press Enter to post
+// Enter key
 postInput.addEventListener("keypress", function (e) {
   if (e.key === "Enter") {
     createPost();
@@ -16,30 +20,47 @@ function createPost() {
   const text = postInput.value.trim();
   if (text === "") return;
 
-  const time = new Date().toLocaleString();
+  const postData = {
+    user: "You",
+    text: text,
+    time: new Date().toLocaleString(),
+    likes: 0
+  };
 
-  const post = document.createElement("div");
-  post.className = "post";
-
-  post.innerHTML = `
-    <h4>You</h4>
-    <small>${time}</small>
-    <p>${text}</p>
-    <div class="actions">
-      <button class="like-btn">Like (<span>0</span>)</button>
-      <button>Comment</button>
-    </div>
-  `;
-
-  feed.prepend(post);
+  posts.unshift(postData);
+  savePosts();
+  renderPosts();
   postInput.value = "";
+}
 
-  const likeBtn = post.querySelector(".like-btn");
-  const countSpan = likeBtn.querySelector("span");
-  let likes = 0;
+function renderPosts() {
+  feed.innerHTML = "";
 
-  likeBtn.addEventListener("click", () => {
-    likes++;
-    countSpan.textContent = likes;
+  posts.forEach((post, index) => {
+    const postDiv = document.createElement("div");
+    postDiv.className = "post";
+
+    postDiv.innerHTML = `
+      <h4>${post.user}</h4>
+      <small>${post.time}</small>
+      <p>${post.text}</p>
+      <div class="actions">
+        <button class="like-btn">Like (<span>${post.likes}</span>)</button>
+        <button>Comment</button>
+      </div>
+    `;
+
+    const likeBtn = postDiv.querySelector(".like-btn");
+    likeBtn.addEventListener("click", () => {
+      posts[index].likes++;
+      savePosts();
+      renderPosts();
+    });
+
+    feed.appendChild(postDiv);
   });
+}
+
+function savePosts() {
+  localStorage.setItem("posts", JSON.stringify(posts));
 }
