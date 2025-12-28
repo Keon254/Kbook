@@ -5,6 +5,7 @@
   <title>Kbook | Home</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
 
   <!-- Navbar -->
@@ -17,38 +18,26 @@
     </nav>
   </header>
 
-  <!-- Main Content -->
-  <main class="container">
+  <!-- Main content -->
+  <div class="container">
 
-    <!-- Create Post -->
-    <div class="create-post">
-      <input type="text" placeholder="What's on your mind?" />
-      <button>Post</button>
+    <div class="post-box">
+      <input
+        type="text"
+        id="postInput"
+        placeholder="What's on your mind?"
+      />
+      <button id="postBtn">Post</button>
     </div>
 
-    <!-- Feed -->
-    <div class="feed">
-
-      <div class="post">
-        <h3>John Doe</h3>
-        <p>Hello Kbook! This is my first post.</p>
-        <div class="actions">
-          <button>Like</button>
-          <button>Comment</button>
-        </div>
-      </div>
-
-      <div class="post">
-        <h3>Jane Smith</h3>
-        <p>Kbook looks clean already.</p>
-        <div class="actions">
-          <button>Like</button>
-          <button>Comment</button>
-        </div>
-      </div>
-
+    <div id="feed">
+      <!-- New posts will appear here -->
     </div>
-  </main>
+
+  </div>
+
+  <!-- JS always at the bottom -->
+  <script src="script.js"></script>
 
 </body>
 </html>
