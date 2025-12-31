@@ -39,6 +39,31 @@
     nav a.login-link, nav a.signup-link {
       cursor: pointer;
     }
+    /* Post styles */
+    .post {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+    }
+    .post .actions button {
+      margin-right: 10px;
+      cursor: pointer;
+    }
+    .comments {
+      margin-top: 10px;
+      border-top: 1px solid #ddd;
+      padding-top: 10px;
+    }
+    .comment-list div {
+      margin-bottom: 5px;
+    }
+    .comment-input {
+      width: 100%;
+      padding: 6px;
+      margin-top: 5px;
+      box-sizing: border-box;
+    }
   </style>
 </head>
 
@@ -60,9 +85,7 @@
   <div id="message"></div>
 
   <!-- Auth Forms -->
-  <div id="auth-forms" style="display:none;">
-    <!-- Will toggle between login and signup -->
-  </div>
+  <div id="auth-forms" style="display:none;"></div>
 
   <!-- Main Content -->
   <div class="container" style="display:none; max-width: 600px; margin: 20px auto;">
@@ -87,7 +110,6 @@
 
   </div>
 
-  <!-- JavaScript -->
   <script>
     // Initialize Supabase client
     const supabaseUrl = 'https://zoipwzvfkbzszpiectzb.supabase.co';
@@ -108,18 +130,129 @@
     const navLogout = document.querySelector('nav a.logout-link');
     const navProfile = document.querySelector('nav a.profile-link');
 
-    // Show a message
+    // Posts storage
+    let posts = JSON.parse(localStorage.getItem("posts")) || [];
+
+    // Utility to show message
     function showMessage(text, color = 'green') {
       message.style.color = color;
       message.textContent = text;
     }
-
-    // Clear message
     function clearMessage() {
       message.textContent = '';
     }
 
-    // Render auth form (login or signup)
+    // Render posts to feed
+    function renderPosts() {
+      feed.innerHTML = "";
+
+      posts.forEach((post, index) => {
+        const postDiv = document.createElement("div");
+        postDiv.className = "post";
+
+        postDiv.innerHTML = `
+          <h4>${post.user}</h4>
+          <small>${post.time}</small>
+          <p>${post.text}</p>
+
+          <div class="actions">
+            <button class="like-btn">Like (<span>${post.likes}</span>)</button>
+            <button class="comment-toggle">Comment</button>
+          </div>
+
+          <div class="comments" style="display:none;">
+            <div class="comment-list"></div>
+            <input type="text" placeholder="Write a comment..." class="comment-input" />
+          </div>
+        `;
+
+        // Like logic
+        postDiv.querySelector(".like-btn").addEventListener("click", () => {
+          posts[index].likes++;
+          savePosts();
+          renderPosts();
+        });
+
+        const commentToggle = postDiv.querySelector(".comment-toggle");
+        const commentsDiv = postDiv.querySelector(".comments");
+        const commentList = postDiv.querySelector(".comment-list");
+        const commentInput = postDiv.querySelector(".comment-input");
+
+        // Toggle comment box visibility
+        commentToggle.addEventListener("click", () => {
+          commentsDiv.style.display = commentsDiv.style.display === "none" ? "block" : "none";
+        });
+
+        // Render comments
+        commentList.innerHTML = "";
+        post.comments.forEach((c) => {
+          const cDiv = document.createElement("div");
+          cDiv.innerHTML = `<strong>${c.user}</strong>: ${c.text} <small>(${c.time})</small>`;
+          commentList.appendChild(cDiv);
+        });
+
+        // Add comment on Enter
+        commentInput.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") {
+            const text = commentInput.value.trim();
+            if (text === "") return;
+
+            post.comments.push({
+              user: post.user,
+              text,
+              time: new Date().toLocaleString()
+            });
+
+            savePosts();
+            renderPosts();
+          }
+        });
+
+        feed.appendChild(postDiv);
+      });
+    }
+
+    // Save posts to localStorage
+    function savePosts() {
+      localStorage.setItem("posts", JSON.stringify(posts));
+    }
+
+    // Get current logged in user email or null
+    async function getCurrentUserEmail() {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user ? user.email : null;
+    }
+
+    // Create a new post
+    async function createPost() {
+      const text = postInput.value.trim();
+      if (text === "") {
+        showMessage('Please enter something to post.', 'red');
+        return;
+      }
+
+      const userEmail = await getCurrentUserEmail();
+      if (!userEmail) {
+        showMessage('You must be logged in to post.', 'red');
+        return;
+      }
+
+      const postData = {
+        user: userEmail,
+        text,
+        time: new Date().toLocaleString(),
+        likes: 0,
+        comments: []
+      };
+
+      posts.unshift(postData);
+      savePosts();
+      renderPosts();
+      postInput.value = "";
+      clearMessage();
+    }
+
+    // Render login/signup forms
     function renderAuthForm(type) {
       authForms.style.display = 'block';
       clearMessage();
@@ -149,4 +282,98 @@
           renderAuthForm('signup');
         };
       } else if (type === 'signup') {
-        authForms.
+        authForms.innerHTML = `
+          <h2>Sign Up</h2>
+          <input type="email" id="email" placeholder="Email" required />
+          <input type="password" id="password" placeholder="Password (min 6 chars)" required minlength="6" />
+          <button id="submitBtn">Sign Up</button>
+          <p>Already have an account? <a href="#" id="showLogin">Log In</a></p>
+        `;
+        document.getElementById('submitBtn').onclick = async () => {
+          const email = document.getElementById('email').value.trim();
+          const password = document.getElementById('password').value;
+          const { data, error } = await supabase.auth.signUp({ email, password });
+          if (error) {
+            showMessage(error.message, 'red');
+          } else {
+            showMessage('Sign up successful! Please check your email for confirmation.');
+            authForms.style.display = 'none';
+          }
+        };
+        document.getElementById('showLogin').onclick = (e) => {
+          e.preventDefault();
+          renderAuthForm('login');
+        };
+      }
+    }
+
+    // After user logs in
+    async function afterLogin() {
+      authForms.style.display = 'none';
+      container.style.display = 'block';
+      navLogin.style.display = 'none';
+      navSignup.style.display = 'none';
+      navLogout.style.display = 'inline-block';
+      navProfile.style.display = 'inline-block';
+
+      const userEmail = await getCurrentUserEmail();
+      welcomeUser.textContent = `Welcome, ${userEmail || ''}`;
+
+      clearMessage();
+      renderPosts();
+    }
+
+    // Logout
+    navLogout.onclick = async (e) => {
+      e.preventDefault();
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        showMessage(error.message, 'red');
+      } else {
+        showMessage('Logged out successfully.');
+        container.style.display = 'none';
+        navLogin.style.display = 'inline-block';
+        navSignup.style.display = 'inline-block';
+        navLogout.style.display = 'none';
+        navProfile.style.display = 'none';
+        renderAuthForm('login');
+      }
+    };
+
+    // Navbar login/signup click handlers
+    navLogin.onclick = (e) => {
+      e.preventDefault();
+      renderAuthForm('login');
+    };
+    navSignup.onclick = (e) => {
+      e.preventDefault();
+      renderAuthForm('signup');
+    };
+
+    // Post button event listener
+    postBtn.addEventListener("click", createPost);
+
+    // Post on Enter key in input
+    postInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") createPost();
+    });
+
+    // On page load: check session
+    window.onload = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        afterLogin();
+      } else {
+        renderAuthForm('login');
+        container.style.display = 'none';
+        navLogin.style.display = 'inline-block';
+        navSignup.style.display = 'inline-block';
+        navLogout.style.display = 'none';
+        navProfile.style.display = 'none';
+      }
+    };
+  </script>
+
+</body>
+</html>
