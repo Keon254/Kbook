@@ -6,7 +6,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
   <style>
-    /* Simple styles for auth forms */
+    /* Basic auth form styles */
     #auth-forms {
       max-width: 400px;
       margin: 20px auto;
@@ -31,38 +31,12 @@
       text-align: center;
       font-weight: bold;
     }
-    /* Hide logout nav link initially */
     nav a.logout-link {
       display: none;
       cursor: pointer;
     }
     nav a.login-link, nav a.signup-link {
       cursor: pointer;
-    }
-    /* Post styles */
-    .post {
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin-bottom: 10px;
-      border-radius: 5px;
-    }
-    .post .actions button {
-      margin-right: 10px;
-      cursor: pointer;
-    }
-    .comments {
-      margin-top: 10px;
-      border-top: 1px solid #ddd;
-      padding-top: 10px;
-    }
-    .comment-list div {
-      margin-bottom: 5px;
-    }
-    .comment-input {
-      width: 100%;
-      padding: 6px;
-      margin-top: 5px;
-      box-sizing: border-box;
     }
   </style>
 </head>
@@ -81,7 +55,6 @@
     </nav>
   </header>
 
-  <!-- Message area -->
   <div id="message"></div>
 
   <!-- Auth Forms -->
@@ -95,161 +68,39 @@
 
     <!-- Post Box -->
     <div class="post-box">
-      <input
-        type="text"
-        id="postInput"
-        placeholder="What's on your mind?"
-      />
+      <input type="text" id="postInput" placeholder="What's on your mind?" />
       <button id="postBtn">Post</button>
     </div>
 
     <!-- Feed -->
-    <div id="feed">
-      <!-- Posts will be added here -->
-    </div>
+    <div id="feed"></div>
 
   </div>
 
   <script>
-    // Initialize Supabase client
-    const supabaseUrl = 'https://zoipwzvfkbzszpiectzb.supabase.co';
-    const supabaseKey = 'sb_publishable_2Hqc6mbl02xNFj8KpMasUA_zVmBdynG';
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    // Supabase client - expose globally for script.js use
+    window.supabase = supabase.createClient(
+      'https://zoipwzvfkbzszpiectzb.supabase.co',
+      'sb_publishable_2Hqc6mbl02xNFj8KpMasUA_zVmBdynG'
+    );
 
-    // DOM elements
+    // DOM elements for auth UI
     const message = document.getElementById('message');
     const authForms = document.getElementById('auth-forms');
     const container = document.querySelector('.container');
     const welcomeUser = document.getElementById('welcomeUser');
-    const postInput = document.getElementById('postInput');
-    const postBtn = document.getElementById('postBtn');
-    const feed = document.getElementById('feed');
 
     const navLogin = document.querySelector('nav a.login-link');
     const navSignup = document.querySelector('nav a.signup-link');
     const navLogout = document.querySelector('nav a.logout-link');
     const navProfile = document.querySelector('nav a.profile-link');
 
-    // Posts storage
-    let posts = JSON.parse(localStorage.getItem("posts")) || [];
-
-    // Utility to show message
     function showMessage(text, color = 'green') {
       message.style.color = color;
       message.textContent = text;
     }
     function clearMessage() {
       message.textContent = '';
-    }
-
-    // Render posts to feed
-    function renderPosts() {
-      feed.innerHTML = "";
-
-      posts.forEach((post, index) => {
-        const postDiv = document.createElement("div");
-        postDiv.className = "post";
-
-        postDiv.innerHTML = `
-          <h4>${post.user}</h4>
-          <small>${post.time}</small>
-          <p>${post.text}</p>
-
-          <div class="actions">
-            <button class="like-btn">Like (<span>${post.likes}</span>)</button>
-            <button class="comment-toggle">Comment</button>
-          </div>
-
-          <div class="comments" style="display:none;">
-            <div class="comment-list"></div>
-            <input type="text" placeholder="Write a comment..." class="comment-input" />
-          </div>
-        `;
-
-        // Like logic
-        postDiv.querySelector(".like-btn").addEventListener("click", () => {
-          posts[index].likes++;
-          savePosts();
-          renderPosts();
-        });
-
-        const commentToggle = postDiv.querySelector(".comment-toggle");
-        const commentsDiv = postDiv.querySelector(".comments");
-        const commentList = postDiv.querySelector(".comment-list");
-        const commentInput = postDiv.querySelector(".comment-input");
-
-        // Toggle comment box visibility
-        commentToggle.addEventListener("click", () => {
-          commentsDiv.style.display = commentsDiv.style.display === "none" ? "block" : "none";
-        });
-
-        // Render comments
-        commentList.innerHTML = "";
-        post.comments.forEach((c) => {
-          const cDiv = document.createElement("div");
-          cDiv.innerHTML = `<strong>${c.user}</strong>: ${c.text} <small>(${c.time})</small>`;
-          commentList.appendChild(cDiv);
-        });
-
-        // Add comment on Enter
-        commentInput.addEventListener("keypress", (e) => {
-          if (e.key === "Enter") {
-            const text = commentInput.value.trim();
-            if (text === "") return;
-
-            post.comments.push({
-              user: post.user,
-              text,
-              time: new Date().toLocaleString()
-            });
-
-            savePosts();
-            renderPosts();
-          }
-        });
-
-        feed.appendChild(postDiv);
-      });
-    }
-
-    // Save posts to localStorage
-    function savePosts() {
-      localStorage.setItem("posts", JSON.stringify(posts));
-    }
-
-    // Get current logged in user email or null
-    async function getCurrentUserEmail() {
-      const { data: { user } } = await supabase.auth.getUser();
-      return user ? user.email : null;
-    }
-
-    // Create a new post
-    async function createPost() {
-      const text = postInput.value.trim();
-      if (text === "") {
-        showMessage('Please enter something to post.', 'red');
-        return;
-      }
-
-      const userEmail = await getCurrentUserEmail();
-      if (!userEmail) {
-        showMessage('You must be logged in to post.', 'red');
-        return;
-      }
-
-      const postData = {
-        user: userEmail,
-        text,
-        time: new Date().toLocaleString(),
-        likes: 0,
-        comments: []
-      };
-
-      posts.unshift(postData);
-      savePosts();
-      renderPosts();
-      postInput.value = "";
-      clearMessage();
     }
 
     // Render login/signup forms
@@ -274,7 +125,7 @@
           } else {
             showMessage(`Welcome back, ${data.user.email}`);
             authForms.style.display = 'none';
-            afterLogin();
+            afterLogin(data.user.email);
           }
         };
         document.getElementById('showSignup').onclick = (e) => {
@@ -307,8 +158,8 @@
       }
     }
 
-    // After user logs in
-    async function afterLogin() {
+    // After login UI updates
+    function afterLogin(userEmail) {
       authForms.style.display = 'none';
       container.style.display = 'block';
       navLogin.style.display = 'none';
@@ -316,14 +167,15 @@
       navLogout.style.display = 'inline-block';
       navProfile.style.display = 'inline-block';
 
-      const userEmail = await getCurrentUserEmail();
-      welcomeUser.textContent = `Welcome, ${userEmail || ''}`;
+      welcomeUser.textContent = `Welcome, ${userEmail}`;
 
       clearMessage();
-      renderPosts();
+
+      // Tell script.js to render posts etc.
+      if (window.afterLogin) window.afterLogin(userEmail);
     }
 
-    // Logout
+    // Logout handler
     navLogout.onclick = async (e) => {
       e.preventDefault();
       const { error } = await supabase.auth.signOut();
@@ -337,10 +189,13 @@
         navLogout.style.display = 'none';
         navProfile.style.display = 'none';
         renderAuthForm('login');
+
+        // Tell script.js about logout
+        if (window.afterLogout) window.afterLogout();
       }
     };
 
-    // Navbar login/signup click handlers
+    // Navbar login/signup clicks
     navLogin.onclick = (e) => {
       e.preventDefault();
       renderAuthForm('login');
@@ -350,20 +205,12 @@
       renderAuthForm('signup');
     };
 
-    // Post button event listener
-    postBtn.addEventListener("click", createPost);
-
-    // Post on Enter key in input
-    postInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") createPost();
-    });
-
-    // On page load: check session
+    // On load: check session and set UI accordingly
     window.onload = async () => {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session) {
-        afterLogin();
+        afterLogin(session.user.email);
       } else {
         renderAuthForm('login');
         container.style.display = 'none';
@@ -375,5 +222,7 @@
     };
   </script>
 
+  <!-- Your script.js -->
+  <script src="script.js"></script>
 </body>
 </html>
