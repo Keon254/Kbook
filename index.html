@@ -4,6 +4,42 @@
   <meta charset="UTF-8" />
   <title>Kbook | Home</title>
   <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+  <style>
+    /* Simple styles for auth forms */
+    #auth-forms {
+      max-width: 400px;
+      margin: 20px auto;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    #auth-forms input {
+      width: 100%;
+      padding: 8px;
+      margin: 8px 0;
+      box-sizing: border-box;
+    }
+    #auth-forms button {
+      padding: 10px;
+      width: 100%;
+      cursor: pointer;
+    }
+    #message {
+      max-width: 400px;
+      margin: 10px auto;
+      text-align: center;
+      font-weight: bold;
+    }
+    /* Hide logout nav link initially */
+    nav a.logout-link {
+      display: none;
+      cursor: pointer;
+    }
+    nav a.login-link, nav a.signup-link {
+      cursor: pointer;
+    }
+  </style>
 </head>
 
 <body>
@@ -12,14 +48,27 @@
   <header class="navbar">
     <h1 class="logo">Kbook</h1>
     <nav>
-      <a href="#">Home</a>
-      <a href="#">Profile</a>
-      <a href="#">Logout</a>
+      <a href="#" class="home-link">Home</a>
+      <a href="#" class="profile-link" style="display:none;">Profile</a>
+      <a href="#" class="login-link">Login</a>
+      <a href="#" class="signup-link">Sign Up</a>
+      <a class="logout-link">Logout</a>
     </nav>
   </header>
 
+  <!-- Message area -->
+  <div id="message"></div>
+
+  <!-- Auth Forms -->
+  <div id="auth-forms" style="display:none;">
+    <!-- Will toggle between login and signup -->
+  </div>
+
   <!-- Main Content -->
-  <div class="container">
+  <div class="container" style="display:none; max-width: 600px; margin: 20px auto;">
+
+    <!-- Welcome message -->
+    <p id="welcomeUser"></p>
 
     <!-- Post Box -->
     <div class="post-box">
@@ -39,6 +88,65 @@
   </div>
 
   <!-- JavaScript -->
-  <script src="script.js"></script>
-</body>
-</html>
+  <script>
+    // Initialize Supabase client
+    const supabaseUrl = 'https://zoipwzvfkbzszpiectzb.supabase.co';
+    const supabaseKey = 'sb_publishable_2Hqc6mbl02xNFj8KpMasUA_zVmBdynG';
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+    // DOM elements
+    const message = document.getElementById('message');
+    const authForms = document.getElementById('auth-forms');
+    const container = document.querySelector('.container');
+    const welcomeUser = document.getElementById('welcomeUser');
+    const postInput = document.getElementById('postInput');
+    const postBtn = document.getElementById('postBtn');
+    const feed = document.getElementById('feed');
+
+    const navLogin = document.querySelector('nav a.login-link');
+    const navSignup = document.querySelector('nav a.signup-link');
+    const navLogout = document.querySelector('nav a.logout-link');
+    const navProfile = document.querySelector('nav a.profile-link');
+
+    // Show a message
+    function showMessage(text, color = 'green') {
+      message.style.color = color;
+      message.textContent = text;
+    }
+
+    // Clear message
+    function clearMessage() {
+      message.textContent = '';
+    }
+
+    // Render auth form (login or signup)
+    function renderAuthForm(type) {
+      authForms.style.display = 'block';
+      clearMessage();
+
+      if (type === 'login') {
+        authForms.innerHTML = `
+          <h2>Log In</h2>
+          <input type="email" id="email" placeholder="Email" required />
+          <input type="password" id="password" placeholder="Password" required />
+          <button id="submitBtn">Log In</button>
+          <p>Don't have an account? <a href="#" id="showSignup">Sign Up</a></p>
+        `;
+        document.getElementById('submitBtn').onclick = async () => {
+          const email = document.getElementById('email').value.trim();
+          const password = document.getElementById('password').value;
+          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) {
+            showMessage(error.message, 'red');
+          } else {
+            showMessage(`Welcome back, ${data.user.email}`);
+            authForms.style.display = 'none';
+            afterLogin();
+          }
+        };
+        document.getElementById('showSignup').onclick = (e) => {
+          e.preventDefault();
+          renderAuthForm('signup');
+        };
+      } else if (type === 'signup') {
+        authForms.
