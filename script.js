@@ -2,22 +2,50 @@ const postBtn = document.getElementById("postBtn");
 const postInput = document.getElementById("postInput");
 const feed = document.getElementById("feed");
 
-// Load posts
-let posts = JSON.parse(localStorage.getItem("posts")) || [];
-renderPosts();
+let posts = [];
+let currentUserEmail = null;
 
-// Post actions
-postBtn.addEventListener("click", createPost);
-postInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") createPost();
-});
+// Expose a function called after successful login
+window.afterLoginPost = (userEmail) => {
+  currentUserEmail = userEmail;
+  loadPosts();
+  renderPosts();
+
+  // Show post input and attach event listeners
+  postBtn.addEventListener("click", createPost);
+  postInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") createPost();
+  });
+};
+
+// Expose a function called after logout
+window.afterLogoutPost = () => {
+  currentUserEmail = null;
+  posts = [];
+  feed.innerHTML = "";
+  postInput.value = "";
+
+  // Remove event listeners to prevent memory leaks
+  postBtn.removeEventListener("click", createPost);
+  postInput.removeEventListener("keypress", createPost);
+};
+
+function loadPosts() {
+  // For now, posts are stored per user in localStorage using email key
+  const stored = localStorage.getItem(`posts_${currentUserEmail}`);
+  posts = stored ? JSON.parse(stored) : [];
+}
+
+function savePosts() {
+  localStorage.setItem(`posts_${currentUserEmail}`, JSON.stringify(posts));
+}
 
 function createPost() {
   const text = postInput.value.trim();
   if (text === "") return;
 
   const postData = {
-    user: "You",
+    user: currentUserEmail,
     text,
     time: new Date().toLocaleString(),
     likes: 0,
@@ -77,7 +105,7 @@ function renderPosts() {
         if (text === "") return;
 
         post.comments.push({
-          user: "You",
+          user: currentUserEmail,
           text,
           time: new Date().toLocaleString()
         });
@@ -89,8 +117,4 @@ function renderPosts() {
 
     feed.appendChild(postDiv);
   });
-}
-
-function savePosts() {
-  localStorage.setItem("posts", JSON.stringify(posts));
 }
