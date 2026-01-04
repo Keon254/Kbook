@@ -2,184 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Kbook | Home</title>
-  <link rel="stylesheet" href="css/style.css" />
-
-  <!-- Load Supabase JS library -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+  <title>Kbook</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
   <!-- Navbar -->
-  <header class="navbar">
-    <h1 class="logo">Kbook</h1>
-    <nav>
-      <a href="#" class="home-link">Home</a>
-      <a href="#" class="profile-link" style="display:none;">Profile</a>
-      <a href="#" class="login-link">Login</a>
-      <a href="#" class="signup-link">Sign Up</a>
-      <a href="#" class="logout-link" style="display:none;">Logout</a>
+  <div class="navbar">
+    <div class="logo">Kbook</div>
+    <nav id="navLinks">
+      <button id="loginBtn">Login with Google</button>
+      <button id="logoutBtn" style="display:none;">Logout</button>
     </nav>
-  </header>
+  </div>
 
-  <!-- Message -->
-  <div id="message" style="max-width:400px; margin:10px auto; text-align:center;"></div>
+  <!-- Main -->
+  <div class="container" id="app" style="display:none;">
 
-  <!-- Auth Forms -->
-  <div id="auth-forms" style="max-width:400px; margin:10px auto;"></div>
-
-  <!-- Main Content -->
-  <div class="container" style="display:none; max-width: 600px; margin: 20px auto;">
-    <p id="welcomeUser"></p>
-
+    <!-- Post box -->
     <div class="post-box">
       <input type="text" id="postInput" placeholder="What's on your mind?" />
       <button id="postBtn">Post</button>
     </div>
 
+    <!-- Feed -->
     <div id="feed"></div>
+
   </div>
 
-  <!-- Initialize Supabase client -->
-  <script>
-    window.supabase = supabase.createClient(
-      'https://zoipwzvfkbzszpiectzb.supabase.co',
-      'sb_publishable_2Hqc6mbl02xNFj8KpMasUA_zVmBdynG'
-    );
-  </script>
-
-  <!-- Auth & UI logic -->
-  <script>
-    const message = document.getElementById('message');
-    const authForms = document.getElementById('auth-forms');
-    const container = document.querySelector('.container');
-    const welcomeUser = document.getElementById('welcomeUser');
-
-    const navLogin = document.querySelector('nav a.login-link');
-    const navSignup = document.querySelector('nav a.signup-link');
-    const navLogout = document.querySelector('nav a.logout-link');
-    const navProfile = document.querySelector('nav a.profile-link');
-
-    function showMessage(text, color = 'green') {
-      message.style.color = color;
-      message.textContent = text;
-    }
-    function clearMessage() {
-      message.textContent = '';
-    }
-
-    function renderAuthForm(type) {
-      authForms.style.display = 'block';
-      clearMessage();
-
-      if (type === 'login') {
-        authForms.innerHTML = `
-          <h2>Log In</h2>
-          <input type="email" id="email" placeholder="Email" required />
-          <input type="password" id="password" placeholder="Password" required />
-          <button id="submitBtn">Log In</button>
-          <p>Don't have an account? <a href="#" id="showSignup">Sign Up</a></p>
-        `;
-        document.getElementById('submitBtn').onclick = async () => {
-          const email = document.getElementById('email').value.trim();
-          const password = document.getElementById('password').value;
-          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-          if (error) {
-            showMessage(error.message, 'red');
-          } else {
-            showMessage(`Welcome back, ${data.user.email}`);
-            authForms.style.display = 'none';
-            afterLogin(data.user.email);
-          }
-        };
-        document.getElementById('showSignup').onclick = (e) => {
-          e.preventDefault();
-          renderAuthForm('signup');
-        };
-      } else if (type === 'signup') {
-        authForms.innerHTML = `
-          <h2>Sign Up</h2>
-          <input type="email" id="email" placeholder="Email" required />
-          <input type="password" id="password" placeholder="Password (min 6 chars)" required minlength="6" />
-          <button id="submitBtn">Sign Up</button>
-          <p>Already have an account? <a href="#" id="showLogin">Log In</a></p>
-        `;
-        document.getElementById('submitBtn').onclick = async () => {
-          const email = document.getElementById('email').value.trim();
-          const password = document.getElementById('password').value;
-          const { data, error } = await supabase.auth.signUp({ email, password });
-          if (error) {
-            showMessage(error.message, 'red');
-          } else {
-            showMessage('Sign up successful! Please check your email for confirmation.');
-            authForms.style.display = 'none';
-          }
-        };
-        document.getElementById('showLogin').onclick = (e) => {
-          e.preventDefault();
-          renderAuthForm('login');
-        };
-      }
-    }
-
-    function afterLogin(userEmail) {
-      authForms.style.display = 'none';
-      container.style.display = 'block';
-      navLogin.style.display = 'none';
-      navSignup.style.display = 'none';
-      navLogout.style.display = 'inline-block';
-      navProfile.style.display = 'inline-block';
-
-      welcomeUser.textContent = `Welcome, ${userEmail}`;
-      clearMessage();
-
-      if (window.afterLoginPost) window.afterLoginPost(userEmail);
-    }
-
-    navLogout.onclick = async (e) => {
-      e.preventDefault();
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        showMessage(error.message, 'red');
-      } else {
-        showMessage('Logged out successfully.');
-        container.style.display = 'none';
-        navLogin.style.display = 'inline-block';
-        navSignup.style.display = 'inline-block';
-        navLogout.style.display = 'none';
-        navProfile.style.display = 'none';
-        renderAuthForm('login');
-        if (window.afterLogoutPost) window.afterLogoutPost();
-      }
-    };
-
-    navLogin.onclick = (e) => {
-      e.preventDefault();
-      renderAuthForm('login');
-    };
-    navSignup.onclick = (e) => {
-      e.preventDefault();
-      renderAuthForm('signup');
-    };
-
-    window.onload = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (session) {
-        afterLogin(session.user.email);
-      } else {
-        renderAuthForm('login');
-        container.style.display = 'none';
-        navLogin.style.display = 'inline-block';
-        navSignup.style.display = 'inline-block';
-        navLogout.style.display = 'none';
-        navProfile.style.display = 'none';
-      }
-    };
-  </script>
-
-  <!-- Your post handling script -->
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
-
 </body>
 </html>
