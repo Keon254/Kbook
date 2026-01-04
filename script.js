@@ -1,120 +1,37 @@
-const postBtn = document.getElementById("postBtn");
-const postInput = document.getElementById("postInput");
-const feed = document.getElementById("feed");
+const SUPABASE_URL = "https://zoipwzvfkbzszpiectzb.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4";
 
-let posts = [];
-let currentUserEmail = null;
+const supabase = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
 
-// Expose a function called after successful login
-window.afterLoginPost = (userEmail) => {
-  currentUserEmail = userEmail;
-  loadPosts();
-  renderPosts();
+// Elements
+const loginBtn = document.getElementById("loginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const app = document.getElementById("app");
 
-  // Show post input and attach event listeners
-  postBtn.addEventListener("click", createPost);
-  postInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") createPost();
+// Google login
+loginBtn.onclick = async () => {
+  await supabase.auth.signInWithOAuth({
+    provider: "google",
   });
 };
 
-// Expose a function called after logout
-window.afterLogoutPost = () => {
-  currentUserEmail = null;
-  posts = [];
-  feed.innerHTML = "";
-  postInput.value = "";
-
-  // Remove event listeners to prevent memory leaks
-  postBtn.removeEventListener("click", createPost);
-  postInput.removeEventListener("keypress", createPost);
+// Logout
+logoutBtn.onclick = async () => {
+  await supabase.auth.signOut();
 };
 
-function loadPosts() {
-  // For now, posts are stored per user in localStorage using email key
-  const stored = localStorage.getItem(`posts_${currentUserEmail}`);
-  posts = stored ? JSON.parse(stored) : [];
-}
-
-function savePosts() {
-  localStorage.setItem(`posts_${currentUserEmail}`, JSON.stringify(posts));
-}
-
-function createPost() {
-  const text = postInput.value.trim();
-  if (text === "") return;
-
-  const postData = {
-    user: currentUserEmail,
-    text,
-    time: new Date().toLocaleString(),
-    likes: 0,
-    comments: []
-  };
-
-  posts.unshift(postData);
-  savePosts();
-  renderPosts();
-  postInput.value = "";
-}
-
-function renderPosts() {
-  feed.innerHTML = "";
-
-  posts.forEach((post, index) => {
-    const postDiv = document.createElement("div");
-    postDiv.className = "post";
-
-    postDiv.innerHTML = `
-      <h4>${post.user}</h4>
-      <small>${post.time}</small>
-      <p>${post.text}</p>
-
-      <div class="actions">
-        <button class="like-btn">Like (<span>${post.likes}</span>)</button>
-        <button class="comment-toggle">Comment</button>
-      </div>
-
-      <div class="comments">
-        <div class="comment-list"></div>
-        <input type="text" placeholder="Write a comment..." class="comment-input" />
-      </div>
-    `;
-
-    // Like logic
-    postDiv.querySelector(".like-btn").addEventListener("click", () => {
-      posts[index].likes++;
-      savePosts();
-      renderPosts();
-    });
-
-    const commentList = postDiv.querySelector(".comment-list");
-    const commentInput = postDiv.querySelector(".comment-input");
-
-    // Render comments
-    post.comments.forEach((c) => {
-      const cDiv = document.createElement("div");
-      cDiv.innerHTML = `<strong>${c.user}</strong>: ${c.text} <small>(${c.time})</small>`;
-      commentList.appendChild(cDiv);
-    });
-
-    // Add comment on Enter
-    commentInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") {
-        const text = commentInput.value.trim();
-        if (text === "") return;
-
-        post.comments.push({
-          user: currentUserEmail,
-          text,
-          time: new Date().toLocaleString()
-        });
-
-        savePosts();
-        renderPosts();
-      }
-    });
-
-    feed.appendChild(postDiv);
-  });
-}
+// Auth state listener
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    loginBtn.style.display = "none";
+    logoutBtn.style.display = "inline-block";
+    app.style.display = "block";
+  } else {
+    loginBtn.style.display = "inline-block";
+    logoutBtn.style.display = "none";
+    app.style.display = "none";
+  }
+});
