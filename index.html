@@ -4,35 +4,100 @@
   <meta charset="UTF-8" />
   <title>Kbook</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+    }
+
+    .navbar {
+      background: #1877f2;
+      padding: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: white;
+    }
+
+    .navbar input {
+      padding: 6px;
+      margin-right: 5px;
+    }
+
+    .navbar button {
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+    }
+
+    .post-box {
+      background: white;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+
+    .post-box input {
+      width: 80%;
+      padding: 8px;
+    }
+
+    .post {
+      background: white;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    .deleteBtn {
+      background: red;
+      color: white;
+      border: none;
+      padding: 5px 8px;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+
+    #app {
+      display: none;
+    }
+  </style>
 </head>
+
 <body>
 
-  <!-- Navbar -->
   <div class="navbar">
-    <div class="logo">Kbook</div>
-    <nav id="navLinks">
-      <button id="loginBtn">Login with Google</button>
+    <div><strong>Kbook</strong></div>
+
+    <div id="authArea">
+      <input type="email" id="email" placeholder="Email" />
+      <input type="password" id="password" placeholder="Password" />
+      <button id="signupBtn">Sign Up</button>
+      <button id="loginEmailBtn">Login</button>
+      <button id="loginBtn">Google</button>
       <button id="logoutBtn" style="display:none;">Logout</button>
-    </nav>
+    </div>
   </div>
 
-  <!-- Main -->
-  <div class="container" id="app" style="display:none;">
+  <div class="container" id="app">
 
-    <!-- Post box -->
     <div class="post-box">
       <input type="text" id="postInput" placeholder="What's on your mind?" />
       <button id="postBtn">Post</button>
     </div>
 
-    <!-- Feed -->
     <div id="feed"></div>
 
   </div>
 
-  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
+
 </body>
 </html>
