@@ -1,19 +1,20 @@
-// ===============================
-// SUPABASE CONFIG (REPLACE THESE)
-// ===============================
-const SUPABASE_URL = "https://zoipwzvfkbzszpiectzb.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4";
+// ========================================
+// KBOOK v2 – PRODUCTION READY
+// ========================================
 
 // ===============================
-// INIT
+// SUPABASE CONFIG
 // ===============================
+const SUPABASE_URL = "https://zoipwzvfkbzszpiectzb.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4"; // keep your real key
+
 const supabase = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
 
 // ===============================
-// ELEMENTS
+// DOM ELEMENTS (SAFE LOAD)
 // ===============================
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -23,48 +24,87 @@ const postInput = document.getElementById("postInput");
 const feed = document.getElementById("feed");
 
 let currentUser = null;
+let realtimeChannel = null;
 
-// ===============================
-// GOOGLE LOGIN (FIXED FOR GITHUB)
-// ===============================
-loginBtn.onclick = async () => {
-  await supabase.auth.signInWithOAuth({
+// ========================================
+// UI STATE MANAGEMENT
+// ========================================
+function showApp() {
+  app.style.display = "block";
+  loginBtn.style.display = "none";
+  logoutBtn.style.display = "inline-block";
+}
+
+function showLogin() {
+  app.style.display = "none";
+  loginBtn.style.display = "inline-block";
+  logoutBtn.style.display = "none";
+}
+
+// ========================================
+// GOOGLE LOGIN
+// ========================================
+loginBtn?.addEventListener("click", async () => {
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: "https://keon254.github.io/Kbook/"
+      redirectTo: "https://keon254.github.io/Kbook"
     }
   });
-};
 
-// ===============================
+  if (error) console.error("Login Error:", error.message);
+});
+
+// ========================================
 // LOGOUT
-// ===============================
-logoutBtn.onclick = async () => {
+// ========================================
+logoutBtn?.addEventListener("click", async () => {
   await supabase.auth.signOut();
-};
+  location.reload();
+});
 
-// ===============================
-// AUTH STATE
-// ===============================
+// ========================================
+// SESSION CHECK ON PAGE LOAD
+// ========================================
+async function initializeAuth() {
+  const { data, error } = await supabase.auth.getSession();
+
+  if (error) {
+    console.error("Session Error:", error.message);
+    return;
+  }
+
+  if (data.session) {
+    currentUser = data.session.user;
+    showApp();
+    loadPosts();
+    subscribeToPosts();
+  } else {
+    showLogin();
+  }
+}
+
+initializeAuth();
+
+// ========================================
+// AUTH STATE LISTENER
+// ========================================
 supabase.auth.onAuthStateChange((event, session) => {
   if (session) {
     currentUser = session.user;
-    loginBtn.style.display = "none";
-    logoutBtn.style.display = "inline-block";
-    app.style.display = "block";
+    showApp();
     loadPosts();
+    subscribeToPosts();
   } else {
     currentUser = null;
-    loginBtn.style.display = "inline-block";
-    logoutBtn.style.display = "none";
-    app.style.display = "none";
+    showLogin();
   }
 });
 
-// ===============================
+// ========================================
 // CREATE POST
-// ===============================
-postBtn.onclick = async () => {
+// ========================================
+postBtn?.addEventListener("click", async () => {
   const text = postInput.value.trim();
   if (!text || !currentUser) return;
 
@@ -75,32 +115,65 @@ postBtn.onclick = async () => {
     }
   ]);
 
-  if (!error) {
-    postInput.value = "";
-    loadPosts();
+  if (error) {
+    console.error("Post Error:", error.message);
+    return;
   }
-};
 
-// ===============================
+  postInput.value = "";
+});
+
+// ========================================
 // LOAD POSTS
-// ===============================
+// ========================================
 async function loadPosts() {
   const { data, error } = await supabase
     .from("posts")
     .select("*")
     .order("created_at", { ascending: false });
 
-  if (error) return;
+  if (error) {
+    console.error("Load Error:", error.message);
+    return;
+  }
 
+  renderPosts(data);
+}
+
+// ========================================
+// RENDER POSTS
+// ========================================
+function renderPosts(posts) {
   feed.innerHTML = "";
 
-  data.forEach(post => {
+  posts.forEach(post => {
     const div = document.createElement("div");
     div.className = "post";
+
     div.innerHTML = `
-      <h4>User</h4>
+      <h4>${post.user_id}</h4>
       <p>${post.content}</p>
+      <small>${new Date(post.created_at).toLocaleString()}</small>
     `;
+
     feed.appendChild(div);
   });
+}
+
+// ========================================
+// REALTIME SUBSCRIPTION
+// ========================================
+function subscribeToPosts() {
+  if (realtimeChannel) return;
+
+  realtimeChannel = supabase
+    .channel("posts-channel")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "posts" },
+      () => {
+        loadPosts();
+      }
+    )
+    .subscribe();
 }
