@@ -5,77 +5,160 @@
   <title>Kbook</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- ====== STYLE ====== -->
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f0f2f5;
+    :root {
+      --primary: #1877f2;
+      --bg: #f0f2f5;
+      --card: #ffffff;
+      --text: #050505;
+      --muted: #65676b;
     }
 
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+    }
+
+    /* ===== NAVBAR ===== */
     .navbar {
-      background: #1877f2;
-      padding: 15px;
+      background: var(--primary);
+      padding: 12px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       color: white;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
 
-    .navbar input {
+    .logo {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .auth input {
       padding: 6px;
       margin-right: 5px;
+      border: none;
+      border-radius: 4px;
     }
 
-    .navbar button {
+    .auth button {
       padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
       cursor: pointer;
-    }
-
-    .container {
-      max-width: 600px;
-      margin: 20px auto;
-    }
-
-    .post-box {
       background: white;
+      color: var(--primary);
+      font-weight: bold;
+    }
+
+    .auth button:hover {
+      opacity: 0.9;
+    }
+
+    /* ===== LAYOUT ===== */
+    .layout {
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .main {
+      width: 100%;
+      max-width: 600px;
+    }
+
+    /* ===== CARD ===== */
+    .card {
+      background: var(--card);
+      border-radius: 10px;
       padding: 15px;
-      border-radius: 6px;
-      margin-bottom: 20px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    }
+
+    /* ===== POST BOX ===== */
+    .post-box {
+      display: flex;
+      gap: 10px;
     }
 
     .post-box input {
-      width: 80%;
-      padding: 8px;
+      flex: 1;
+      padding: 10px;
+      border-radius: 20px;
+      border: 1px solid #ddd;
+      outline: none;
     }
 
-    .post {
-      background: white;
-      padding: 15px;
-      border-radius: 6px;
-      margin-bottom: 10px;
+    .post-box button {
+      padding: 10px 15px;
+      border-radius: 20px;
+      border: none;
+      background: var(--primary);
+      color: white;
+      cursor: pointer;
+    }
+
+    /* ===== POST ===== */
+    .post h4 {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .post p {
+      margin: 8px 0;
+      font-size: 16px;
+    }
+
+    .post small {
+      color: var(--muted);
+    }
+
+    .post-actions {
+      margin-top: 10px;
     }
 
     .deleteBtn {
-      background: red;
+      background: #e41e3f;
       color: white;
       border: none;
-      padding: 5px 8px;
+      padding: 5px 10px;
+      border-radius: 5px;
       cursor: pointer;
-      margin-top: 5px;
     }
 
+    /* ===== HIDDEN ===== */
     #app {
       display: none;
+    }
+
+    /* ===== LOADER ===== */
+    .loader {
+      text-align: center;
+      padding: 20px;
+      color: var(--muted);
     }
   </style>
 </head>
 
 <body>
 
+  <!-- ===== NAVBAR ===== -->
   <div class="navbar">
-    <div><strong>Kbook</strong></div>
+    <div class="logo">Kbook</div>
 
-    <div id="authArea">
+    <div class="auth">
       <input type="email" id="email" placeholder="Email" />
       <input type="password" id="password" placeholder="Password" />
       <button id="signupBtn">Sign Up</button>
@@ -85,17 +168,32 @@
     </div>
   </div>
 
-  <div class="container" id="app">
+  <!-- ===== MAIN LAYOUT ===== -->
+  <div class="layout">
 
-    <div class="post-box">
-      <input type="text" id="postInput" placeholder="What's on your mind?" />
-      <button id="postBtn">Post</button>
+    <div class="main" id="app">
+
+      <!-- CREATE POST -->
+      <div class="card">
+        <div class="post-box">
+          <input type="text" id="postInput" placeholder="What's on your mind?" />
+          <button id="postBtn">Post</button>
+        </div>
+      </div>
+
+      <!-- FEED -->
+      <div id="feed"></div>
+
+      <!-- LOADER -->
+      <div id="loader" class="loader" style="display:none;">
+        Loading posts...
+      </div>
+
     </div>
-
-    <div id="feed"></div>
 
   </div>
 
+  <!-- ===== SCRIPTS ===== -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
 
