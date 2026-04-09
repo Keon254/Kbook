@@ -1,5 +1,5 @@
 // ========================================
-// KBOOK v5 — SOCIAL + EARNING CORE
+// KBOOK v6 — REAL MONEY SYSTEM (SECURE)
 // ========================================
 
 // ====== CONFIG ======
@@ -48,35 +48,6 @@ const safe = async (fn) => {
     state.loading = false;
   }
 };
-
-// ====== LOCAL USER (GUEST MODE) ======
-function getLocalUser() {
-  let user = localStorage.getItem("kudasai_user");
-
-  if (!user) {
-    user = {
-      id: "guest_" + Math.random().toString(36).substr(2, 9),
-      balance: 0,
-      lastTaskTime: 0
-    };
-    localStorage.setItem("kudasai_user", JSON.stringify(user));
-  }
-
-  return JSON.parse(localStorage.getItem("kudasai_user"));
-}
-
-function secureLoadWallet() {
-  let data = JSON.parse(localStorage.getItem("kudasai_user"));
-
-  if (!data) return getLocalUser();
-
-  // Anti-cheat (basic)
-  if (data.balance > 100000) {
-    data.balance = 0;
-  }
-
-  return data;
-}
 
 // ====== UI CONTROL ======
 function renderAuth() {
@@ -140,6 +111,33 @@ async function logout() {
   location.reload();
 }
 
+// ====== WALLET SYSTEM ======
+async function loadWallet() {
+  const { data, error } = await supabase
+    .from("wallets")
+    .select("*")
+    .eq("user_id", state.user.id)
+    .single();
+
+  if (error && error.code !== "PGRST116") {
+    console.error(error);
+    return;
+  }
+
+  if (!data) {
+    await supabase.from("wallets").insert([{
+      user_id: state.user.id,
+      balance: 0
+    }]);
+
+    state.wallet.balance = 0;
+  } else {
+    state.wallet.balance = data.balance;
+  }
+
+  renderBalance();
+}
+
 // ====== POSTS ======
 async function createPost() {
   const text = UI.postInput.value.trim();
@@ -164,7 +162,6 @@ async function deletePost(id) {
   });
 }
 
-// ====== LOAD POSTS ======
 async function loadPosts() {
   const { data, error } = await supabase
     .from("posts")
@@ -177,7 +174,6 @@ async function loadPosts() {
   renderPosts(data);
 }
 
-// ====== RENDER POSTS ======
 function renderPosts(posts) {
   UI.feed.innerHTML = "";
 
@@ -234,9 +230,44 @@ function subscribeRealtime() {
 // ====== TASK SYSTEM ======
 const TASKS = [
   { id: 1, title: "Watch Ad", reward: 20, cooldown: 60 },
-  { id: 2, title: "Quick Survey", reward: 100, cooldown: 300 },
+  { id: 2, title: "Survey", reward: 100, cooldown: 300 },
   { id: 3, title: "Install App", reward: 300, cooldown: 600 }
 ];
+
+async function completeTask(task) {
+  if (!state.user) return notify("Login required");
+
+  const now = Date.now();
+
+  if (now - state.wallet.lastTaskTime < task.cooldown * 1000) {
+    return notify("Wait before next task");
+  }
+
+  await safe(async () => {
+    const newBalance = state.wallet.balance + task.reward;
+
+    // update wallet
+    const { error } = await supabase
+      .from("wallets")
+      .update({ balance: newBalance })
+      .eq("user_id", state.user.id);
+
+    if (error) throw error;
+
+    // log transaction
+    await supabase.from("transactions").insert([{
+      user_id: state.user.id,
+      amount: task.reward,
+      type: "task"
+    }]);
+
+    state.wallet.balance = newBalance;
+    state.wallet.lastTaskTime = now;
+
+    renderBalance();
+    notify(`Earned K${task.reward}`);
+  });
+}
 
 function renderTasks() {
   UI.feed.innerHTML = "";
@@ -251,23 +282,44 @@ function renderTasks() {
   });
 }
 
-function completeTask(task) {
-  const now = Date.now();
+// ====== WITHDRAWALS ======
+async function requestWithdrawal(amount) {
+  if (!state.user) return notify("Login required");
 
-  if (now - state.wallet.lastTaskTime < task.cooldown * 1000) {
-    return notify("Wait before next task");
+  if (amount < 500) return notify("Minimum is K500");
+  if (amount > 5000) return notify("Max weekly is K5000");
+
+  if (amount > state.wallet.balance) {
+    return notify("Not enough balance");
   }
 
-  state.wallet.balance += task.reward;
-  state.wallet.lastTaskTime = now;
+  await safe(async () => {
+    const newBalance = state.wallet.balance - amount;
 
-  localStorage.setItem("kudasai_user", JSON.stringify(state.wallet));
+    await supabase
+      .from("wallets")
+      .update({ balance: newBalance })
+      .eq("user_id", state.user.id);
 
-  renderBalance();
-  notify(`Earned K${task.reward}`);
+    await supabase.from("withdrawals").insert([{
+      user_id: state.user.id,
+      amount: amount
+    }]);
+
+    await supabase.from("transactions").insert([{
+      user_id: state.user.id,
+      amount: -amount,
+      type: "withdrawal"
+    }]);
+
+    state.wallet.balance = newBalance;
+
+    renderBalance();
+    notify("Withdrawal requested");
+  });
 }
 
-// ====== NAVIGATION ======
+// ====== NAV ======
 function goHome() {
   loadPosts();
 }
@@ -291,18 +343,13 @@ async function init() {
 
   if (data.session) {
     state.user = data.session.user;
-    state.wallet = secureLoadWallet();
 
     renderApp();
+    await loadWallet();
     await loadPosts();
     subscribeRealtime();
-    renderBalance();
   } else {
-    state.user = getLocalUser();
-    state.wallet = state.user;
-
-    renderApp(); // allow guest
-    renderBalance();
+    renderAuth();
   }
 }
 
@@ -311,6 +358,7 @@ supabase.auth.onAuthStateChange((_, session) => {
   if (session) {
     state.user = session.user;
     renderApp();
+    loadWallet();
     loadPosts();
     subscribeRealtime();
   } else {
