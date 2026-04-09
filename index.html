@@ -1,201 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Kbook</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUDASAI</title>
 
-  <!-- ====== STYLE ====== -->
-  <style>
-    :root {
-      --primary: #1877f2;
-      --bg: #f0f2f5;
-      --card: #ffffff;
-      --text: #050505;
-      --muted: #65676b;
-    }
+<style>
+body {
+  margin: 0;
+  background: #000;
+  color: #fff;
+  font-family: Arial;
+}
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-    }
+/* HEADER */
+.header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  padding: 15px;
+  backdrop-filter: blur(10px);
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  justify-content: space-between;
+}
 
-    body {
-      background: var(--bg);
-    }
+/* POSTS */
+.feed {
+  margin-top: 70px;
+  padding: 10px;
+}
 
-    /* ===== NAVBAR ===== */
-    .navbar {
-      background: var(--primary);
-      padding: 12px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: white;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
+.post {
+  background: rgba(255,255,255,0.05);
+  padding: 15px;
+  border-radius: 15px;
+  margin-bottom: 10px;
+}
 
-    .logo {
-      font-size: 20px;
-      font-weight: bold;
-    }
+/* FLOAT BUTTON */
+.addPost {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  background: #fff;
+  color: #000;
+  border-radius: 50%;
+  width: 55px;
+  height: 55px;
+  font-size: 25px;
+  border: none;
+}
 
-    .auth input {
-      padding: 6px;
-      margin-right: 5px;
-      border: none;
-      border-radius: 4px;
-    }
-
-    .auth button {
-      padding: 6px 10px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      background: white;
-      color: var(--primary);
-      font-weight: bold;
-    }
-
-    .auth button:hover {
-      opacity: 0.9;
-    }
-
-    /* ===== LAYOUT ===== */
-    .layout {
-      display: flex;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .main {
-      width: 100%;
-      max-width: 600px;
-    }
-
-    /* ===== CARD ===== */
-    .card {
-      background: var(--card);
-      border-radius: 10px;
-      padding: 15px;
-      margin-bottom: 15px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.08);
-    }
-
-    /* ===== POST BOX ===== */
-    .post-box {
-      display: flex;
-      gap: 10px;
-    }
-
-    .post-box input {
-      flex: 1;
-      padding: 10px;
-      border-radius: 20px;
-      border: 1px solid #ddd;
-      outline: none;
-    }
-
-    .post-box button {
-      padding: 10px 15px;
-      border-radius: 20px;
-      border: none;
-      background: var(--primary);
-      color: white;
-      cursor: pointer;
-    }
-
-    /* ===== POST ===== */
-    .post h4 {
-      font-size: 14px;
-      color: var(--muted);
-      margin-bottom: 5px;
-    }
-
-    .post p {
-      margin: 8px 0;
-      font-size: 16px;
-    }
-
-    .post small {
-      color: var(--muted);
-    }
-
-    .post-actions {
-      margin-top: 10px;
-    }
-
-    .deleteBtn {
-      background: #e41e3f;
-      color: white;
-      border: none;
-      padding: 5px 10px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    /* ===== HIDDEN ===== */
-    #app {
-      display: none;
-    }
-
-    /* ===== LOADER ===== */
-    .loader {
-      text-align: center;
-      padding: 20px;
-      color: var(--muted);
-    }
-  </style>
+/* NAV */
+.nav {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: #111;
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+}
+</style>
 </head>
 
 <body>
 
-  <!-- ===== NAVBAR ===== -->
-  <div class="navbar">
-    <div class="logo">Kbook</div>
+<div class="header">
+  <b>KUDASAI</b>
+  <span id="balance">K0</span>
+</div>
 
-    <div class="auth">
-      <input type="email" id="email" placeholder="Email" />
-      <input type="password" id="password" placeholder="Password" />
-      <button id="signupBtn">Sign Up</button>
-      <button id="loginEmailBtn">Login</button>
-      <button id="loginBtn">Google</button>
-      <button id="logoutBtn" style="display:none;">Logout</button>
-    </div>
-  </div>
+<div class="feed" id="feed"></div>
 
-  <!-- ===== MAIN LAYOUT ===== -->
-  <div class="layout">
+<button class="addPost">+</button>
 
-    <div class="main" id="app">
+<div class="nav">
+  <div>🏠</div>
+  <div>💰</div>
+  <div>📊</div>
+  <div>👤</div>
+</div>
 
-      <!-- CREATE POST -->
-      <div class="card">
-        <div class="post-box">
-          <input type="text" id="postInput" placeholder="What's on your mind?" />
-          <button id="postBtn">Post</button>
-        </div>
-      </div>
-
-      <!-- FEED -->
-      <div id="feed"></div>
-
-      <!-- LOADER -->
-      <div id="loader" class="loader" style="display:none;">
-        Loading posts...
-      </div>
-
-    </div>
-
-  </div>
-
-  <!-- ===== SCRIPTS ===== -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js"></script>
-
+<script src="app.js"></script>
 </body>
 </html>
