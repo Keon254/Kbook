@@ -1,5 +1,5 @@
 // ========================================
-// KBOOK v4 — CLEAN ARCHITECTURE
+// KBOOK v5 — SOCIAL + EARNING CORE
 // ========================================
 
 // ====== CONFIG ======
@@ -12,7 +12,11 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const state = {
   user: null,
   realtime: null,
-  loading: false
+  loading: false,
+  wallet: {
+    balance: 0,
+    lastTaskTime: 0
+  }
 };
 
 // ====== ELEMENTS ======
@@ -26,7 +30,8 @@ const UI = {
   app: document.getElementById("app"),
   postBtn: document.getElementById("postBtn"),
   postInput: document.getElementById("postInput"),
-  feed: document.getElementById("feed")
+  feed: document.getElementById("feed"),
+  balance: document.getElementById("balance")
 };
 
 // ====== UTIL ======
@@ -44,6 +49,35 @@ const safe = async (fn) => {
   }
 };
 
+// ====== LOCAL USER (GUEST MODE) ======
+function getLocalUser() {
+  let user = localStorage.getItem("kudasai_user");
+
+  if (!user) {
+    user = {
+      id: "guest_" + Math.random().toString(36).substr(2, 9),
+      balance: 0,
+      lastTaskTime: 0
+    };
+    localStorage.setItem("kudasai_user", JSON.stringify(user));
+  }
+
+  return JSON.parse(localStorage.getItem("kudasai_user"));
+}
+
+function secureLoadWallet() {
+  let data = JSON.parse(localStorage.getItem("kudasai_user"));
+
+  if (!data) return getLocalUser();
+
+  // Anti-cheat (basic)
+  if (data.balance > 100000) {
+    data.balance = 0;
+  }
+
+  return data;
+}
+
 // ====== UI CONTROL ======
 function renderAuth() {
   UI.app.style.display = "none";
@@ -59,6 +93,13 @@ function renderApp() {
   UI.signup.style.display = "none";
   UI.loginEmail.style.display = "none";
   UI.loginGoogle.style.display = "none";
+}
+
+// ====== BALANCE ======
+function renderBalance() {
+  if (UI.balance) {
+    UI.balance.innerText = "K" + (state.wallet.balance || 0);
+  }
 }
 
 // ====== AUTH ======
@@ -90,9 +131,7 @@ async function loginEmail() {
 async function loginGoogle() {
   await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: {
-      redirectTo: location.origin
-    }
+    options: { redirectTo: location.origin }
   });
 }
 
@@ -125,7 +164,7 @@ async function deletePost(id) {
   });
 }
 
-// ====== LOAD POSTS (OPTIMIZED) ======
+// ====== LOAD POSTS ======
 async function loadPosts() {
   const { data, error } = await supabase
     .from("posts")
@@ -138,7 +177,7 @@ async function loadPosts() {
   renderPosts(data);
 }
 
-// ====== RENDER (FAST + SAFE) ======
+// ====== RENDER POSTS ======
 function renderPosts(posts) {
   UI.feed.innerHTML = "";
 
@@ -162,13 +201,12 @@ function renderPosts(posts) {
 
   UI.feed.appendChild(fragment);
 
-  // attach delete handlers
   document.querySelectorAll(".deleteBtn").forEach(btn => {
     btn.onclick = () => deletePost(btn.dataset.id);
   });
 }
 
-// ====== SECURITY (XSS PROTECTION) ======
+// ====== SECURITY ======
 function escapeHTML(str) {
   return str.replace(/[&<>"']/g, tag => ({
     '&': '&amp;',
@@ -179,7 +217,7 @@ function escapeHTML(str) {
   }[tag]));
 }
 
-// ====== REALTIME (SMART) ======
+// ====== REALTIME ======
 function subscribeRealtime() {
   if (state.realtime) return;
 
@@ -191,6 +229,51 @@ function subscribeRealtime() {
       debounce(loadPosts, 500)
     )
     .subscribe();
+}
+
+// ====== TASK SYSTEM ======
+const TASKS = [
+  { id: 1, title: "Watch Ad", reward: 20, cooldown: 60 },
+  { id: 2, title: "Quick Survey", reward: 100, cooldown: 300 },
+  { id: 3, title: "Install App", reward: 300, cooldown: 600 }
+];
+
+function renderTasks() {
+  UI.feed.innerHTML = "";
+
+  TASKS.forEach(task => {
+    const btn = document.createElement("button");
+    btn.innerText = `${task.title} (K${task.reward})`;
+
+    btn.onclick = () => completeTask(task);
+
+    UI.feed.appendChild(btn);
+  });
+}
+
+function completeTask(task) {
+  const now = Date.now();
+
+  if (now - state.wallet.lastTaskTime < task.cooldown * 1000) {
+    return notify("Wait before next task");
+  }
+
+  state.wallet.balance += task.reward;
+  state.wallet.lastTaskTime = now;
+
+  localStorage.setItem("kudasai_user", JSON.stringify(state.wallet));
+
+  renderBalance();
+  notify(`Earned K${task.reward}`);
+}
+
+// ====== NAVIGATION ======
+function goHome() {
+  loadPosts();
+}
+
+function goTasks() {
+  renderTasks();
 }
 
 // ====== PERFORMANCE ======
@@ -208,14 +291,22 @@ async function init() {
 
   if (data.session) {
     state.user = data.session.user;
+    state.wallet = secureLoadWallet();
+
     renderApp();
     await loadPosts();
     subscribeRealtime();
+    renderBalance();
   } else {
-    renderAuth();
+    state.user = getLocalUser();
+    state.wallet = state.user;
+
+    renderApp(); // allow guest
+    renderBalance();
   }
 }
 
+// ====== AUTH LISTENER ======
 supabase.auth.onAuthStateChange((_, session) => {
   if (session) {
     state.user = session.user;
