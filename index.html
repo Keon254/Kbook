@@ -5,12 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KUDASAI</title>
 
+<!-- SUPABASE -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
 <style>
 body {
   margin: 0;
   background: #000;
   color: #fff;
-  font-family: Arial;
+  font-family: Arial, sans-serif;
+}
+
+/* AUTH */
+.auth {
+  padding: 20px;
+  text-align: center;
+}
+
+input {
+  display: block;
+  margin: 10px auto;
+  padding: 10px;
+  width: 80%;
+  border-radius: 10px;
+  border: none;
 }
 
 /* HEADER */
@@ -23,11 +41,18 @@ body {
   background: rgba(0,0,0,0.6);
   display: flex;
   justify-content: space-between;
+  z-index: 100;
 }
 
-/* POSTS */
+/* APP */
+#app {
+  display: none;
+}
+
+/* FEED */
 .feed {
-  margin-top: 70px;
+  margin-top: 80px;
+  margin-bottom: 80px;
   padding: 10px;
 }
 
@@ -38,18 +63,27 @@ body {
   margin-bottom: 10px;
 }
 
-/* FLOAT BUTTON */
-.addPost {
+/* INPUT */
+.postBox {
   position: fixed;
-  bottom: 80px;
-  right: 20px;
+  bottom: 70px;
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  background: #000;
+}
+
+.postBox input {
+  flex: 1;
+}
+
+.postBox button {
+  padding: 10px 15px;
+  border-radius: 10px;
+  border: none;
   background: #fff;
   color: #000;
-  border-radius: 50%;
-  width: 55px;
-  height: 55px;
-  font-size: 25px;
-  border: none;
 }
 
 /* NAV */
@@ -62,27 +96,64 @@ body {
   justify-content: space-around;
   padding: 10px 0;
 }
+
+.nav div {
+  cursor: pointer;
+}
+
+/* BUTTONS */
+button {
+  cursor: pointer;
+  border-radius: 10px;
+  border: none;
+  padding: 10px;
+}
 </style>
 </head>
 
 <body>
 
-<div class="header">
-  <b>KUDASAI</b>
-  <span id="balance">K0</span>
+<!-- ===== AUTH ===== -->
+<div class="auth">
+  <input id="email" type="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+
+  <button id="signupBtn">Sign Up</button>
+  <button id="loginEmailBtn">Login</button>
+  <button id="loginBtn">Google</button>
+  <button id="logoutBtn" style="display:none;">Logout</button>
 </div>
 
-<div class="feed" id="feed"></div>
+<!-- ===== APP ===== -->
+<div id="app">
 
-<button class="addPost">+</button>
+  <!-- HEADER -->
+  <div class="header">
+    <b>KUDASAI</b>
+    <span id="balance">K0</span>
+  </div>
 
-<div class="nav">
-  <div>🏠</div>
-  <div>💰</div>
-  <div>📊</div>
-  <div>👤</div>
+  <!-- FEED -->
+  <div id="feed" class="feed"></div>
+
+  <!-- POST BOX -->
+  <div class="postBox">
+    <input id="postInput" placeholder="Post anything...">
+    <button id="postBtn">Post</button>
+  </div>
+
+  <!-- NAV -->
+  <div class="nav">
+    <div onclick="goHome()">🏠</div>
+    <div onclick="goTasks()">💰</div>
+    <div>📊</div>
+    <div>👤</div>
+  </div>
+
 </div>
 
-<script src="app.js"></script>
+<!-- SCRIPT -->
+<script src="script.js"></script>
+
 </body>
 </html>
