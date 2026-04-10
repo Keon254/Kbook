@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KUDASAI</title>
 
-<!-- SUPABASE -->
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 <style>
@@ -13,7 +12,7 @@ body {
   margin: 0;
   background: #000;
   color: #fff;
-  font-family: Arial, sans-serif;
+  font-family: Arial;
 }
 
 /* AUTH */
@@ -37,8 +36,7 @@ input {
   top: 0;
   width: 100%;
   padding: 15px;
-  backdrop-filter: blur(10px);
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.7);
   display: flex;
   justify-content: space-between;
   z-index: 100;
@@ -51,7 +49,7 @@ input {
 
 /* FEED */
 .feed {
-  margin-top: 80px;
+  margin-top: 70px;
   margin-bottom: 80px;
   padding: 10px;
 }
@@ -63,7 +61,7 @@ input {
   margin-bottom: 10px;
 }
 
-/* INPUT */
+/* POST BOX */
 .postBox {
   position: fixed;
   bottom: 70px;
@@ -78,14 +76,6 @@ input {
   flex: 1;
 }
 
-.postBox button {
-  padding: 10px 15px;
-  border-radius: 10px;
-  border: none;
-  background: #fff;
-  color: #000;
-}
-
 /* NAV */
 .nav {
   position: fixed;
@@ -97,62 +87,48 @@ input {
   padding: 10px 0;
 }
 
-.nav div {
-  cursor: pointer;
-}
-
-/* BUTTONS */
 button {
-  cursor: pointer;
+  padding: 10px;
   border-radius: 10px;
   border: none;
-  padding: 10px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- ===== AUTH ===== -->
+<!-- AUTH -->
 <div class="auth">
-  <input id="email" type="email" placeholder="Email">
+  <input id="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
 
   <button id="signupBtn">Sign Up</button>
   <button id="loginEmailBtn">Login</button>
-  <button id="loginBtn">Google</button>
   <button id="logoutBtn" style="display:none;">Logout</button>
 </div>
 
-<!-- ===== APP ===== -->
+<!-- APP -->
 <div id="app">
 
-  <!-- HEADER -->
   <div class="header">
     <b>KUDASAI</b>
     <span id="balance">K0</span>
   </div>
 
-  <!-- FEED -->
   <div id="feed" class="feed"></div>
 
-  <!-- POST BOX -->
   <div class="postBox">
     <input id="postInput" placeholder="Post anything...">
     <button id="postBtn">Post</button>
   </div>
 
-  <!-- NAV -->
   <div class="nav">
     <div onclick="goHome()">🏠</div>
     <div onclick="goTasks()">💰</div>
-    <div>📊</div>
-    <div>👤</div>
   </div>
 
 </div>
 
-<!-- SCRIPT -->
 <script src="script.js"></script>
 
 </body>
