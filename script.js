@@ -1,12 +1,11 @@
 // ========================================
-// KUDASAI — AUTH FIXED + DEBUG VERSION
+// KUDASAI v6 — AUTH FIX (FINAL)
 // ========================================
 
 // ====== CONFIG ======
 const SUPABASE_URL = "https://zoipwzvfkbzszpiectzb.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4";
 
-// ✅ Correct v2 init
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -33,10 +32,10 @@ const UI = {
 // ====== UTIL ======
 function notify(msg) {
   alert(msg);
-  console.log("INFO:", msg);
+  console.log(msg);
 }
 
-// ====== UI CONTROL ======
+// ====== UI ======
 function showAuth() {
   UI.app.style.display = "none";
   UI.logout.style.display = "none";
@@ -60,14 +59,24 @@ async function signup() {
     password
   });
 
-  console.log("SIGNUP:", data, error);
+  console.log("SIGNUP RESULT:", data, error);
 
   if (error) {
     notify(error.message);
     return;
   }
 
-  notify("Signup successful. Now login.");
+  // 🔥 Try auto login (works if confirmation OFF)
+  const login = await db.auth.signInWithPassword({ email, password });
+
+  if (login.error) {
+    notify("Signup successful.\nCheck your email to confirm before login.");
+  } else {
+    state.user = login.data.user;
+    showApp();
+    loadPosts();
+    loadWallet();
+  }
 }
 
 async function loginEmail() {
@@ -81,10 +90,17 @@ async function loginEmail() {
     password
   });
 
-  console.log("LOGIN:", data, error);
+  console.log("LOGIN RESULT:", data, error);
 
   if (error) {
-    notify(error.message); // 🔥 shows REAL issue
+    // 🔥 REAL ERROR HANDLING
+    if (error.message.includes("Email not confirmed")) {
+      notify("❌ Email not confirmed.\nCheck your email or disable confirmation in Supabase.");
+    } else if (error.message.includes("Invalid login credentials")) {
+      notify("❌ Wrong email or password");
+    } else {
+      notify(error.message);
+    }
     return;
   }
 
@@ -128,7 +144,6 @@ function renderBalance() {
 // ====== POSTS ======
 async function createPost() {
   const text = UI.postInput.value.trim();
-
   if (!text) return;
 
   await db.from("posts").insert([{
