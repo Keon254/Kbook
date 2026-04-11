@@ -3,30 +3,42 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>KUDASAI</title>
+<title>KUDASAI — GOD MODE</title>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 <style>
-/* =========================
-   ULTRA UI SYSTEM CORE
-========================= */
+/* =========================================
+   GOD MODE DESIGN SYSTEM
+========================================= */
+
+:root {
+  --bg: radial-gradient(circle at top, #0a0a0a, #000);
+  --glass: rgba(255,255,255,0.05);
+  --border: rgba(255,255,255,0.08);
+  --text: #fff;
+  --muted: rgba(255,255,255,0.6);
+}
 
 body {
   margin: 0;
   font-family: Inter, sans-serif;
-  background: radial-gradient(circle at top, #0a0a0a, #000);
-  color: white;
+  background: var(--bg);
+  color: var(--text);
 }
 
-/* APP LAYOUT */
-.app-shell {
+/* =========================
+   APP SHELL (SPA CORE)
+========================= */
+#app {
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  height: 100vh;
 }
 
-/* AUTH */
+/* =========================
+   AUTH SYSTEM
+========================= */
 .auth {
   height: 100vh;
   display: flex;
@@ -34,15 +46,16 @@ body {
   align-items: center;
 }
 
-.card {
-  background: rgba(255,255,255,0.05);
-  backdrop-filter: blur(18px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px;
+.auth-box {
+  width: 320px;
   padding: 30px;
+  border-radius: 20px;
+  background: var(--glass);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--border);
+  text-align: center;
 }
 
-/* INPUTS */
 input {
   width: 100%;
   margin-top: 10px;
@@ -51,61 +64,94 @@ input {
   border: none;
   background: #111;
   color: white;
+  outline: none;
 }
 
-/* BUTTONS */
 button {
-  padding: 10px 12px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
   border-radius: 12px;
   border: none;
-  background: linear-gradient(135deg,#fff,#aaa);
-  color: black;
   cursor: pointer;
+  font-weight: bold;
+  background: linear-gradient(135deg, #fff, #aaa);
 }
 
-/* HEADER */
+/* =========================
+   HEADER (GLOBAL NAV BAR)
+========================= */
 .header {
   position: fixed;
   top: 0;
   width: 100%;
-  padding: 14px;
+  padding: 14px 16px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   backdrop-filter: blur(12px);
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.7);
   border-bottom: 1px solid #222;
+  z-index: 10;
 }
 
-/* FEED */
+/* =========================
+   FEED SYSTEM
+========================= */
 .feed {
-  margin-top: 70px;
-  padding: 15px;
   flex: 1;
+  margin-top: 70px;
+  margin-bottom: 90px;
+  padding: 12px;
+  overflow-y: auto;
 }
 
 .post {
-  padding: 15px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px;
   margin-bottom: 12px;
-  border-radius: 16px;
   transition: 0.2s;
 }
 
 .post:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   box-shadow: 0 0 25px rgba(255,255,255,0.08);
 }
 
-/* POST BAR */
-.post-bar {
+/* =========================
+   POST ACTIONS
+========================= */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.actions button {
+  width: auto;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+/* =========================
+   POST COMPOSER (INPUT BAR)
+========================= */
+.composer {
   position: fixed;
   bottom: 70px;
   width: 100%;
   display: flex;
   gap: 10px;
   padding: 10px;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(10px);
 }
 
-/* NAV */
+/* =========================
+   BOTTOM NAV (MOBILE CORE)
+========================= */
 .nav {
   position: fixed;
   bottom: 0;
@@ -118,45 +164,63 @@ button {
   border-top: 1px solid #222;
   font-size: 20px;
 }
+
+/* =========================
+   SMALL UX DETAILS
+========================= */
+.small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.clickable {
+  cursor: pointer;
+}
 </style>
 </head>
 
 <body>
 
-<!-- AUTH -->
+<!-- =========================
+     AUTH SCREEN
+========================= -->
 <div class="auth">
-  <div class="card">
+  <div class="auth-box">
     <h2>KUDASAI</h2>
+
     <input id="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
 
-    <button id="signupBtn">Sign Up</button>
+    <button id="signupBtn">Create Account</button>
     <button id="loginEmailBtn">Login</button>
   </div>
 </div>
 
-<!-- APP -->
-<div id="app" class="app-shell" style="display:none;">
+<!-- =========================
+     APP (SPA ROOT)
+========================= -->
+<div id="app" style="display:none;">
 
   <!-- HEADER -->
   <div class="header">
-    <b>KUDASAI</b>
-    <span id="balance">K0</span>
+    <div class="clickable" onclick="goHome()">KUDASAI</div>
+    <div id="balance">K0</div>
   </div>
 
-  <!-- FEED -->
+  <!-- ROUTED CONTENT -->
   <div id="feed" class="feed"></div>
 
-  <!-- POST BAR -->
-  <div class="post-bar">
-    <input id="postInput" placeholder="What's happening?">
+  <!-- POST COMPOSER -->
+  <div class="composer">
+    <input id="postInput" placeholder="What’s happening?">
     <button id="postBtn">➤</button>
   </div>
 
-  <!-- NAV -->
+  <!-- BOTTOM NAV -->
   <div class="nav">
     <div onclick="goHome()">🏠</div>
     <div onclick="goTasks()">💰</div>
+    <div onclick="openProfile(state.user?.id)">👤</div>
   </div>
 
 </div>
