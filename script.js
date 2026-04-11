@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI v6 — AUTH FIX (FINAL)
+// KUDASAI v7 — CLEAN UI + AUTH FIXED
 // ========================================
 
 // ====== CONFIG ======
@@ -35,19 +35,18 @@ function notify(msg) {
   console.log(msg);
 }
 
-// ====== UI ======
+// ====== UI CONTROL ======
 function showAuth() {
+  document.querySelector(".auth").style.display = "flex";
   UI.app.style.display = "none";
-  UI.logout.style.display = "none";
 }
 
 function showApp() {
+  document.querySelector(".auth").style.display = "none";
   UI.app.style.display = "block";
-  UI.logout.style.display = "inline-block";
 }
 
 // ====== AUTH ======
-
 async function signup() {
   const email = UI.email.value.trim();
   const password = UI.password.value.trim();
@@ -59,24 +58,14 @@ async function signup() {
     password
   });
 
-  console.log("SIGNUP RESULT:", data, error);
+  console.log("SIGNUP:", data, error);
 
   if (error) {
     notify(error.message);
     return;
   }
 
-  // 🔥 Try auto login (works if confirmation OFF)
-  const login = await db.auth.signInWithPassword({ email, password });
-
-  if (login.error) {
-    notify("Signup successful.\nCheck your email to confirm before login.");
-  } else {
-    state.user = login.data.user;
-    showApp();
-    loadPosts();
-    loadWallet();
-  }
+  notify("Signup successful. Now login.");
 }
 
 async function loginEmail() {
@@ -90,24 +79,18 @@ async function loginEmail() {
     password
   });
 
-  console.log("LOGIN RESULT:", data, error);
+  console.log("LOGIN:", data, error);
 
   if (error) {
-    // 🔥 REAL ERROR HANDLING
-    if (error.message.includes("Email not confirmed")) {
-      notify("❌ Email not confirmed.\nCheck your email or disable confirmation in Supabase.");
-    } else if (error.message.includes("Invalid login credentials")) {
-      notify("❌ Wrong email or password");
-    } else {
-      notify(error.message);
-    }
+    notify(error.message);
     return;
   }
 
   state.user = data.user;
-  showApp();
-  loadPosts();
-  loadWallet();
+
+  showApp();           // ✅ hides auth completely
+  await loadWallet();  // load money
+  await loadPosts();   // load feed
 }
 
 async function logout() {
@@ -144,6 +127,7 @@ function renderBalance() {
 // ====== POSTS ======
 async function createPost() {
   const text = UI.postInput.value.trim();
+
   if (!text) return;
 
   await db.from("posts").insert([{
@@ -163,12 +147,36 @@ async function loadPosts() {
 
   UI.feed.innerHTML = "";
 
-  data.forEach(p => {
+  data.forEach(post => {
     const div = document.createElement("div");
     div.className = "post";
-    div.innerHTML = `<p>${p.content}</p>`;
+
+    div.innerHTML = `
+      <p>${escapeHTML(post.content)}</p>
+    `;
+
     UI.feed.appendChild(div);
   });
+}
+
+// ====== SECURITY ======
+function escapeHTML(str) {
+  return str.replace(/[&<>"']/g, tag => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[tag]));
+}
+
+// ====== NAVIGATION ======
+function goHome() {
+  loadPosts();
+}
+
+function goTasks() {
+  UI.feed.innerHTML = "<h3>Tasks coming soon 💰</h3>";
 }
 
 // ====== INIT ======
@@ -179,9 +187,10 @@ async function init() {
 
   if (data.session) {
     state.user = data.session.user;
+
     showApp();
-    loadPosts();
-    loadWallet();
+    await loadWallet();
+    await loadPosts();
   } else {
     showAuth();
   }
