@@ -8,101 +8,141 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 <style>
+/* ===== BASE ===== */
 body {
   margin: 0;
-  font-family: 'Segoe UI', sans-serif;
-  background: #000;
+  font-family: 'Inter', sans-serif;
+  background: radial-gradient(circle at top, #0a0a0a, #000);
   color: #fff;
 }
 
-/* AUTH SCREEN */
+/* ===== GLASS EFFECT ===== */
+.glass {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(15px);
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ===== AUTH ===== */
 .auth {
   height: 100vh;
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 15px;
+}
+
+.auth-box {
+  padding: 40px;
+  width: 300px;
+  text-align: center;
 }
 
 .auth input {
-  width: 250px;
+  width: 100%;
   padding: 12px;
+  margin-top: 10px;
   border-radius: 12px;
   border: none;
-  outline: none;
+  background: #111;
+  color: #fff;
 }
 
 .auth button {
-  width: 270px;
+  width: 100%;
+  margin-top: 15px;
   padding: 12px;
   border-radius: 12px;
   border: none;
-  background: white;
+  background: linear-gradient(135deg, #fff, #aaa);
   color: black;
   font-weight: bold;
   cursor: pointer;
+  transition: 0.3s;
 }
 
-/* APP */
-#app {
-  display: none;
+.auth button:hover {
+  transform: scale(1.05);
 }
 
-/* HEADER */
+/* ===== HEADER ===== */
 .header {
   position: fixed;
   top: 0;
   width: 100%;
   padding: 15px;
-  background: #000;
+  backdrop-filter: blur(10px);
+  background: rgba(0,0,0,0.6);
   display: flex;
   justify-content: space-between;
   border-bottom: 1px solid #222;
 }
 
-/* FEED */
+/* ===== FEED ===== */
 .feed {
-  margin-top: 70px;
-  margin-bottom: 90px;
-  padding: 10px;
+  margin-top: 80px;
+  margin-bottom: 100px;
+  padding: 15px;
 }
 
 .post {
-  background: #111;
   padding: 15px;
-  border-radius: 15px;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
+  transition: 0.3s;
 }
 
-/* POST BOX */
+.post:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 20px rgba(255,255,255,0.1);
+}
+
+/* ===== POST BOX ===== */
 .postBox {
   position: fixed;
-  bottom: 70px;
+  bottom: 80px;
   width: 100%;
+  padding: 10px;
   display: flex;
   gap: 10px;
-  padding: 10px;
-  background: #000;
 }
 
 .postBox input {
   flex: 1;
-  padding: 10px;
-  border-radius: 10px;
+  padding: 12px;
+  border-radius: 12px;
   border: none;
+  background: #111;
+  color: #fff;
 }
 
-/* NAV */
+.postBox button {
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #fff, #888);
+  color: black;
+}
+
+/* ===== NAV ===== */
 .nav {
   position: fixed;
   bottom: 0;
   width: 100%;
-  background: #111;
   display: flex;
   justify-content: space-around;
-  padding: 12px 0;
-  font-size: 20px;
+  padding: 15px;
+  backdrop-filter: blur(10px);
+  background: rgba(0,0,0,0.8);
+  font-size: 22px;
+}
+
+.nav div {
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.nav div:hover {
+  transform: scale(1.2);
 }
 </style>
 </head>
@@ -111,16 +151,18 @@ body {
 
 <!-- AUTH -->
 <div class="auth">
-  <h1>KUDASAI</h1>
-  <input id="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Password">
+  <div class="auth-box glass">
+    <h1>KUDASAI</h1>
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
 
-  <button id="signupBtn">Sign Up</button>
-  <button id="loginEmailBtn">Login</button>
+    <button id="signupBtn">Sign Up</button>
+    <button id="loginEmailBtn">Login</button>
+  </div>
 </div>
 
 <!-- APP -->
-<div id="app">
+<div id="app" style="display:none;">
 
   <div class="header">
     <b>KUDASAI</b>
@@ -130,8 +172,8 @@ body {
   <div id="feed" class="feed"></div>
 
   <div class="postBox">
-    <input id="postInput" placeholder="Share something...">
-    <button id="postBtn">Post</button>
+    <input id="postInput" placeholder="Speak your mind...">
+    <button id="postBtn">➤</button>
   </div>
 
   <div class="nav">
