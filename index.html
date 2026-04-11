@@ -1,30 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>KUDASAI</title>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 <style>
-/* ===== BASE ===== */
+/* =========================
+   ULTRA UI SYSTEM CORE
+========================= */
+
 body {
   margin: 0;
-  font-family: 'Inter', sans-serif;
+  font-family: Inter, sans-serif;
   background: radial-gradient(circle at top, #0a0a0a, #000);
-  color: #fff;
+  color: white;
 }
 
-/* ===== GLASS EFFECT ===== */
-.glass {
-  background: rgba(255,255,255,0.05);
-  backdrop-filter: blur(15px);
-  border-radius: 20px;
-  border: 1px solid rgba(255,255,255,0.08);
+/* APP LAYOUT */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
-/* ===== AUTH ===== */
+/* AUTH */
 .auth {
   height: 100vh;
   display: flex;
@@ -32,117 +34,89 @@ body {
   align-items: center;
 }
 
-.auth-box {
-  padding: 40px;
-  width: 300px;
-  text-align: center;
+.card {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 30px;
 }
 
-.auth input {
+/* INPUTS */
+input {
   width: 100%;
-  padding: 12px;
   margin-top: 10px;
+  padding: 12px;
   border-radius: 12px;
   border: none;
   background: #111;
-  color: #fff;
+  color: white;
 }
 
-.auth button {
-  width: 100%;
-  margin-top: 15px;
-  padding: 12px;
+/* BUTTONS */
+button {
+  padding: 10px 12px;
   border-radius: 12px;
   border: none;
-  background: linear-gradient(135deg, #fff, #aaa);
+  background: linear-gradient(135deg,#fff,#aaa);
   color: black;
-  font-weight: bold;
   cursor: pointer;
-  transition: 0.3s;
 }
 
-.auth button:hover {
-  transform: scale(1.05);
-}
-
-/* ===== HEADER ===== */
+/* HEADER */
 .header {
   position: fixed;
   top: 0;
   width: 100%;
-  padding: 15px;
-  backdrop-filter: blur(10px);
-  background: rgba(0,0,0,0.6);
+  padding: 14px;
   display: flex;
   justify-content: space-between;
+  backdrop-filter: blur(12px);
+  background: rgba(0,0,0,0.6);
   border-bottom: 1px solid #222;
 }
 
-/* ===== FEED ===== */
+/* FEED */
 .feed {
-  margin-top: 80px;
-  margin-bottom: 100px;
+  margin-top: 70px;
   padding: 15px;
+  flex: 1;
 }
 
 .post {
   padding: 15px;
-  margin-bottom: 15px;
-  transition: 0.3s;
+  margin-bottom: 12px;
+  border-radius: 16px;
+  transition: 0.2s;
 }
 
 .post:hover {
   transform: translateY(-3px);
-  box-shadow: 0 0 20px rgba(255,255,255,0.1);
+  box-shadow: 0 0 25px rgba(255,255,255,0.08);
 }
 
-/* ===== POST BOX ===== */
-.postBox {
+/* POST BAR */
+.post-bar {
   position: fixed;
-  bottom: 80px;
+  bottom: 70px;
   width: 100%;
-  padding: 10px;
   display: flex;
   gap: 10px;
+  padding: 10px;
 }
 
-.postBox input {
-  flex: 1;
-  padding: 12px;
-  border-radius: 12px;
-  border: none;
-  background: #111;
-  color: #fff;
-}
-
-.postBox button {
-  padding: 12px;
-  border-radius: 12px;
-  border: none;
-  background: linear-gradient(135deg, #fff, #888);
-  color: black;
-}
-
-/* ===== NAV ===== */
+/* NAV */
 .nav {
   position: fixed;
   bottom: 0;
   width: 100%;
   display: flex;
   justify-content: space-around;
-  padding: 15px;
+  padding: 12px;
+  background: rgba(0,0,0,0.85);
   backdrop-filter: blur(10px);
-  background: rgba(0,0,0,0.8);
-  font-size: 22px;
-}
-
-.nav div {
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.nav div:hover {
-  transform: scale(1.2);
+  border-top: 1px solid #222;
+  font-size: 20px;
 }
 </style>
 </head>
@@ -151,8 +125,8 @@ body {
 
 <!-- AUTH -->
 <div class="auth">
-  <div class="auth-box glass">
-    <h1>KUDASAI</h1>
+  <div class="card">
+    <h2>KUDASAI</h2>
     <input id="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
 
@@ -162,20 +136,24 @@ body {
 </div>
 
 <!-- APP -->
-<div id="app" style="display:none;">
+<div id="app" class="app-shell" style="display:none;">
 
+  <!-- HEADER -->
   <div class="header">
     <b>KUDASAI</b>
     <span id="balance">K0</span>
   </div>
 
+  <!-- FEED -->
   <div id="feed" class="feed"></div>
 
-  <div class="postBox">
-    <input id="postInput" placeholder="Speak your mind...">
+  <!-- POST BAR -->
+  <div class="post-bar">
+    <input id="postInput" placeholder="What's happening?">
     <button id="postBtn">➤</button>
   </div>
 
+  <!-- NAV -->
   <div class="nav">
     <div onclick="goHome()">🏠</div>
     <div onclick="goTasks()">💰</div>
