@@ -10,24 +10,43 @@
 <style>
 body {
   margin: 0;
+  font-family: 'Segoe UI', sans-serif;
   background: #000;
   color: #fff;
-  font-family: Arial;
 }
 
-/* AUTH */
+/* AUTH SCREEN */
 .auth {
-  padding: 20px;
-  text-align: center;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
 }
 
-input {
-  display: block;
-  margin: 10px auto;
-  padding: 10px;
-  width: 80%;
-  border-radius: 10px;
+.auth input {
+  width: 250px;
+  padding: 12px;
+  border-radius: 12px;
   border: none;
+  outline: none;
+}
+
+.auth button {
+  width: 270px;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: white;
+  color: black;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* APP */
+#app {
+  display: none;
 }
 
 /* HEADER */
@@ -36,26 +55,21 @@ input {
   top: 0;
   width: 100%;
   padding: 15px;
-  background: rgba(0,0,0,0.7);
+  background: #000;
   display: flex;
   justify-content: space-between;
-  z-index: 100;
-}
-
-/* APP */
-#app {
-  display: none;
+  border-bottom: 1px solid #222;
 }
 
 /* FEED */
 .feed {
   margin-top: 70px;
-  margin-bottom: 80px;
+  margin-bottom: 90px;
   padding: 10px;
 }
 
 .post {
-  background: rgba(255,255,255,0.05);
+  background: #111;
   padding: 15px;
   border-radius: 15px;
   margin-bottom: 10px;
@@ -74,6 +88,9 @@ input {
 
 .postBox input {
   flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
 }
 
 /* NAV */
@@ -84,13 +101,8 @@ input {
   background: #111;
   display: flex;
   justify-content: space-around;
-  padding: 10px 0;
-}
-
-button {
-  padding: 10px;
-  border-radius: 10px;
-  border: none;
+  padding: 12px 0;
+  font-size: 20px;
 }
 </style>
 </head>
@@ -99,12 +111,12 @@ button {
 
 <!-- AUTH -->
 <div class="auth">
+  <h1>KUDASAI</h1>
   <input id="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
 
   <button id="signupBtn">Sign Up</button>
   <button id="loginEmailBtn">Login</button>
-  <button id="logoutBtn" style="display:none;">Logout</button>
 </div>
 
 <!-- APP -->
@@ -118,7 +130,7 @@ button {
   <div id="feed" class="feed"></div>
 
   <div class="postBox">
-    <input id="postInput" placeholder="Post anything...">
+    <input id="postInput" placeholder="Share something...">
     <button id="postBtn">Post</button>
   </div>
 
