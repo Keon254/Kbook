@@ -1,21 +1,19 @@
 // ========================================
-// KBOOK v6 — FIXED + STABLE
+// KUDASAI — AUTH FIXED + DEBUG VERSION
 // ========================================
 
 // ====== CONFIG ======
 const SUPABASE_URL = "https://zoipwzvfkbzszpiectzb.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4";
 
-// ✅ FIXED INIT
+// ✅ Correct v2 init
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ====== STATE ======
 const state = {
   user: null,
-  realtime: null,
-  isAdmin: false,
-  wallet: { balance: 0, lastTaskTime: 0 }
+  wallet: { balance: 0 }
 };
 
 // ====== ELEMENTS ======
@@ -24,7 +22,6 @@ const UI = {
   password: document.getElementById("password"),
   signup: document.getElementById("signupBtn"),
   loginEmail: document.getElementById("loginEmailBtn"),
-  loginGoogle: document.getElementById("loginBtn"),
   logout: document.getElementById("logoutBtn"),
   app: document.getElementById("app"),
   postBtn: document.getElementById("postBtn"),
@@ -34,27 +31,67 @@ const UI = {
 };
 
 // ====== UTIL ======
-const notify = (msg) => alert(msg);
+function notify(msg) {
+  alert(msg);
+  console.log("INFO:", msg);
+}
+
+// ====== UI CONTROL ======
+function showAuth() {
+  UI.app.style.display = "none";
+  UI.logout.style.display = "none";
+}
+
+function showApp() {
+  UI.app.style.display = "block";
+  UI.logout.style.display = "inline-block";
+}
 
 // ====== AUTH ======
+
 async function signup() {
   const email = UI.email.value.trim();
   const password = UI.password.value.trim();
 
-  const { error } = await db.auth.signUp({ email, password });
+  if (!email || !password) return notify("Enter email & password");
 
-  if (error) return notify(error.message);
+  const { data, error } = await db.auth.signUp({
+    email,
+    password
+  });
 
-  notify("Signup successful — now login");
+  console.log("SIGNUP:", data, error);
+
+  if (error) {
+    notify(error.message);
+    return;
+  }
+
+  notify("Signup successful. Now login.");
 }
 
 async function loginEmail() {
   const email = UI.email.value.trim();
   const password = UI.password.value.trim();
 
-  const { error } = await db.auth.signInWithPassword({ email, password });
+  if (!email || !password) return notify("Enter email & password");
 
-  if (error) return notify(error.message);
+  const { data, error } = await db.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  console.log("LOGIN:", data, error);
+
+  if (error) {
+    notify(error.message); // 🔥 shows REAL issue
+    return;
+  }
+
+  state.user = data.user;
+  showApp();
+  loadPosts();
+  loadWallet();
 }
 
 async function logout() {
@@ -100,6 +137,7 @@ async function createPost() {
   }]);
 
   UI.postInput.value = "";
+  loadPosts();
 }
 
 async function loadPosts() {
@@ -118,63 +156,19 @@ async function loadPosts() {
   });
 }
 
-// ====== TASKS ======
-const TASKS = [
-  { title: "Watch Ad", reward: 20 },
-  { title: "Survey", reward: 100 }
-];
-
-function renderTasks() {
-  UI.feed.innerHTML = "";
-
-  TASKS.forEach(t => {
-    const btn = document.createElement("button");
-    btn.innerText = `${t.title} (K${t.reward})`;
-
-    btn.onclick = () => completeTask(t);
-
-    UI.feed.appendChild(btn);
-  });
-}
-
-async function completeTask(task) {
-  const newBalance = state.wallet.balance + task.reward;
-
-  await db
-    .from("wallets")
-    .update({ balance: newBalance })
-    .eq("user_id", state.user.id);
-
-  await db.from("transactions").insert([{
-    user_id: state.user.id,
-    amount: task.reward,
-    type: "task"
-  }]);
-
-  state.wallet.balance = newBalance;
-  renderBalance();
-
-  notify("Earned K" + task.reward);
-}
-
-// ====== NAV ======
-function goHome() {
-  loadPosts();
-}
-
-function goTasks() {
-  renderTasks();
-}
-
 // ====== INIT ======
 async function init() {
   const { data } = await db.auth.getSession();
 
+  console.log("SESSION:", data);
+
   if (data.session) {
     state.user = data.session.user;
-
-    await loadWallet();
-    await loadPosts();
+    showApp();
+    loadPosts();
+    loadWallet();
+  } else {
+    showAuth();
   }
 }
 
@@ -184,4 +178,5 @@ UI.loginEmail.onclick = loginEmail;
 UI.logout.onclick = logout;
 UI.postBtn.onclick = createPost;
 
+// ====== START ======
 init();
