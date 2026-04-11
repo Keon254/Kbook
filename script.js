@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI v7 — CLEAN UI + AUTH FIXED
+// KUDASAI v8 — NOBLE ELITE UI + FULL SYSTEM
 // ========================================
 
 // ====== CONFIG ======
@@ -21,7 +21,6 @@ const UI = {
   password: document.getElementById("password"),
   signup: document.getElementById("signupBtn"),
   loginEmail: document.getElementById("loginEmailBtn"),
-  logout: document.getElementById("logoutBtn"),
   app: document.getElementById("app"),
   postBtn: document.getElementById("postBtn"),
   postInput: document.getElementById("postInput"),
@@ -53,17 +52,9 @@ async function signup() {
 
   if (!email || !password) return notify("Enter email & password");
 
-  const { data, error } = await db.auth.signUp({
-    email,
-    password
-  });
+  const { error } = await db.auth.signUp({ email, password });
 
-  console.log("SIGNUP:", data, error);
-
-  if (error) {
-    notify(error.message);
-    return;
-  }
+  if (error) return notify(error.message);
 
   notify("Signup successful. Now login.");
 }
@@ -74,28 +65,15 @@ async function loginEmail() {
 
   if (!email || !password) return notify("Enter email & password");
 
-  const { data, error } = await db.auth.signInWithPassword({
-    email,
-    password
-  });
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
 
-  console.log("LOGIN:", data, error);
-
-  if (error) {
-    notify(error.message);
-    return;
-  }
+  if (error) return notify(error.message);
 
   state.user = data.user;
 
-  showApp();           // ✅ hides auth completely
-  await loadWallet();  // load money
-  await loadPosts();   // load feed
-}
-
-async function logout() {
-  await db.auth.signOut();
-  location.reload();
+  showApp();
+  await loadWallet();
+  await loadPosts();
 }
 
 // ====== WALLET ======
@@ -111,7 +89,6 @@ async function loadWallet() {
       user_id: state.user.id,
       balance: 0
     }]);
-
     state.wallet.balance = 0;
   } else {
     state.wallet.balance = data.balance;
@@ -127,7 +104,6 @@ function renderBalance() {
 // ====== POSTS ======
 async function createPost() {
   const text = UI.postInput.value.trim();
-
   if (!text) return;
 
   await db.from("posts").insert([{
@@ -136,7 +112,14 @@ async function createPost() {
   }]);
 
   UI.postInput.value = "";
-  loadPosts();
+
+  // ✨ Smooth animation reload
+  UI.feed.style.opacity = "0";
+
+  setTimeout(async () => {
+    await loadPosts();
+    UI.feed.style.opacity = "1";
+  }, 200);
 }
 
 async function loadPosts() {
@@ -149,10 +132,11 @@ async function loadPosts() {
 
   data.forEach(post => {
     const div = document.createElement("div");
-    div.className = "post";
+    div.className = "post glass";
 
     div.innerHTML = `
       <p>${escapeHTML(post.content)}</p>
+      <small style="opacity:0.5;">${new Date(post.created_at).toLocaleString()}</small>
     `;
 
     UI.feed.appendChild(div);
@@ -170,24 +154,61 @@ function escapeHTML(str) {
   }[tag]));
 }
 
-// ====== NAVIGATION ======
-function goHome() {
-  loadPosts();
+// ====== TASK SYSTEM (ELITE UI READY) ======
+function goTasks() {
+  UI.feed.innerHTML = "";
+
+  const tasks = [
+    { title: "Watch Ad", reward: 20 },
+    { title: "Complete Survey", reward: 100 },
+    { title: "Install App", reward: 300 }
+  ];
+
+  tasks.forEach(task => {
+    const div = document.createElement("div");
+    div.className = "post glass";
+
+    div.innerHTML = `
+      <h3>${task.title}</h3>
+      <p>Earn K${task.reward}</p>
+      <button onclick="completeTask(${task.reward})">Start</button>
+    `;
+
+    UI.feed.appendChild(div);
+  });
 }
 
-function goTasks() {
-  UI.feed.innerHTML = "<h3>Tasks coming soon 💰</h3>";
+async function completeTask(amount) {
+  const newBalance = state.wallet.balance + amount;
+
+  await db
+    .from("wallets")
+    .update({ balance: newBalance })
+    .eq("user_id", state.user.id);
+
+  await db.from("transactions").insert([{
+    user_id: state.user.id,
+    amount: amount,
+    type: "task"
+  }]);
+
+  state.wallet.balance = newBalance;
+  renderBalance();
+
+  notify(`+K${amount} earned`);
+}
+
+// ====== NAV ======
+function goHome() {
+  loadPosts();
 }
 
 // ====== INIT ======
 async function init() {
   const { data } = await db.auth.getSession();
 
-  console.log("SESSION:", data);
-
   if (data.session) {
     state.user = data.session.user;
-
     showApp();
     await loadWallet();
     await loadPosts();
@@ -199,7 +220,6 @@ async function init() {
 // ====== EVENTS ======
 UI.signup.onclick = signup;
 UI.loginEmail.onclick = loginEmail;
-UI.logout.onclick = logout;
 UI.postBtn.onclick = createPost;
 
 // ====== START ======
