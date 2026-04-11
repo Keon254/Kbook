@@ -1,301 +1,259 @@
 // ========================================
-// KUDASAI v9 — ULTRA SOCIAL UPGRADE
-// Likes + Comments + Profiles + Trending Feed
+// KUDASAI v11 — STABLE CORE ENGINE
+// Error-safe + production-safe structure
 // ========================================
 
-// ====== CONFIG ======
 const SUPABASE_URL = "https://zoipwzvfkbzszpiectzb.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4";
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ====== STATE ======
+// ========================
+// GLOBAL STATE (SAFE)
+// ========================
 const state = {
   user: null,
-  wallet: { balance: 0 },
-  likesMap: {},   // postId -> count
-  userLikes: {}   // postId -> true/false
+  posts: [],
+  likes: {},
+  loading: false
 };
 
-// ====== UI ======
+// ========================
+// UI CACHE (SAFE ACCESS)
+// ========================
 const UI = {
-  email: document.getElementById("email"),
-  password: document.getElementById("password"),
-  signup: document.getElementById("signupBtn"),
-  loginEmail: document.getElementById("loginEmailBtn"),
-
-  app: document.getElementById("app"),
-  postBtn: document.getElementById("postBtn"),
-  postInput: document.getElementById("postInput"),
-  feed: document.getElementById("feed"),
-  balance: document.getElementById("balance")
+  email: () => document.getElementById("email"),
+  password: () => document.getElementById("password"),
+  feed: () => document.getElementById("feed"),
+  postInput: () => document.getElementById("postInput"),
+  balance: () => document.getElementById("balance"),
+  app: () => document.getElementById("app")
 };
 
-// ====== HELPERS ======
+// ========================
+// SAFE NOTIFY
+// ========================
 function notify(msg) {
+  console.log("[APP]", msg);
   alert(msg);
-  console.log(msg);
 }
 
-function escapeHTML(str) {
-  return str.replace(/[&<>"']/g, tag => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[tag]));
+// ========================
+// SAFE USER CHECK
+// ========================
+function requireUser() {
+  if (!state.user) {
+    notify("User not logged in");
+    return false;
+  }
+  return true;
 }
 
-// ====== AUTH UI ======
-function showAuth() {
-  document.querySelector(".auth").style.display = "flex";
-  UI.app.style.display = "none";
+// ========================
+// AUTH
+// ========================
+async function login() {
+  try {
+    const email = UI.email().value.trim();
+    const password = UI.password().value.trim();
+
+    if (!email || !password) {
+      return notify("Fill in email + password");
+    }
+
+    const { data, error } = await db.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) return notify(error.message);
+
+    if (!data?.user) {
+      return notify("Login failed: no user returned");
+    }
+
+    state.user = data.user;
+
+    showApp();
+    await bootApp();
+
+  } catch (err) {
+    notify("Login crash: " + err.message);
+  }
 }
 
-function showApp() {
-  document.querySelector(".auth").style.display = "none";
-  UI.app.style.display = "block";
-}
-
-// ====== AUTH ======
 async function signup() {
-  const email = UI.email.value.trim();
-  const password = UI.password.value.trim();
+  try {
+    const email = UI.email().value.trim();
+    const password = UI.password().value.trim();
 
-  if (!email || !password) return notify("Enter email & password");
+    const { error } = await db.auth.signUp({
+      email,
+      password
+    });
 
-  const { error } = await db.auth.signUp({ email, password });
-  if (error) return notify(error.message);
+    if (error) return notify(error.message);
 
-  notify("Signup successful. Now login.");
-}
-
-async function loginEmail() {
-  const email = UI.email.value.trim();
-  const password = UI.password.value.trim();
-
-  if (!email || !password) return notify("Enter email & password");
-
-  const { data, error } = await db.auth.signInWithPassword({
-    email,
-    password
-  });
-
-  if (error) return notify(error.message);
-
-  state.user = data.user;
-
-  await ensureProfile();
-  showApp();
-
-  await loadWallet();
-  await loadLikes();
-  await loadPosts();
-}
-
-// ====== PROFILE SYSTEM ======
-async function ensureProfile() {
-  const { data } = await db
-    .from("profiles")
-    .select("*")
-    .eq("id", state.user.id)
-    .single();
-
-  if (!data) {
-    await db.from("profiles").insert([{
-      id: state.user.id,
-      username: "user_" + Math.floor(Math.random() * 9999)
-    }]);
+    notify("Signup success. Now login.");
+  } catch (err) {
+    notify("Signup crash: " + err.message);
   }
 }
 
-// ====== WALLET ======
-async function loadWallet() {
-  const { data } = await db
-    .from("wallets")
-    .select("*")
-    .eq("user_id", state.user.id)
-    .single();
-
-  if (!data) {
-    await db.from("wallets").insert([{
-      user_id: state.user.id,
-      balance: 0
-    }]);
-
-    state.wallet.balance = 0;
-  } else {
-    state.wallet.balance = data.balance;
+// ========================
+// APP BOOT
+// ========================
+async function bootApp() {
+  try {
+    await loadPosts();
+  } catch (err) {
+    notify("Boot error: " + err.message);
   }
-
-  UI.balance.innerText = "K" + state.wallet.balance;
 }
 
-// ====== LIKES SYSTEM ======
-async function loadLikes() {
-  const { data } = await db.from("likes").select("*");
-
-  state.likesMap = {};
-  state.userLikes = {};
-
-  data.forEach(like => {
-    state.likesMap[like.post_id] =
-      (state.likesMap[like.post_id] || 0) + 1;
-
-    if (like.user_id === state.user.id) {
-      state.userLikes[like.post_id] = true;
-    }
-  });
-}
-
-async function toggleLike(postId) {
-  const alreadyLiked = state.userLikes[postId];
-
-  if (alreadyLiked) {
-    await db
-      .from("likes")
-      .delete()
-      .eq("post_id", postId)
-      .eq("user_id", state.user.id);
-
-    state.userLikes[postId] = false;
-    state.likesMap[postId]--;
-  } else {
-    await db.from("likes").insert([{
-      post_id: postId,
-      user_id: state.user.id
-    }]);
-
-    state.userLikes[postId] = true;
-    state.likesMap[postId] = (state.likesMap[postId] || 0) + 1;
-  }
-
-  loadPosts();
-}
-
-// ====== COMMENTS ======
-async function addComment(postId) {
-  const text = prompt("Write comment:");
-  if (!text) return;
-
-  await db.from("comments").insert([{
-    post_id: postId,
-    user_id: state.user.id,
-    content: text
-  }]);
-
-  notify("Comment added");
-}
-
-async function getComments(postId) {
-  const { data } = await db
-    .from("comments")
-    .select("*")
-    .eq("post_id", postId)
-    .order("created_at", { ascending: false });
-
-  return data || [];
-}
-
-// ====== POSTS ======
+// ========================
+// POST SYSTEM (FIXED CORE)
+// ========================
 async function createPost() {
-  const text = UI.postInput.value.trim();
-  if (!text) return;
+  try {
+    if (!requireUser()) return;
 
-  await db.from("posts").insert([{
-    content: text,
-    user_id: state.user.id
-  }]);
+    const text = UI.postInput().value.trim();
 
-  UI.postInput.value = "";
+    if (!text) return notify("Post cannot be empty");
 
-  await refreshFeed();
+    const { error } = await db.from("posts").insert([
+      {
+        content: text,
+        user_id: state.user.id
+      }
+    ]);
+
+    if (error) return notify("Post error: " + error.message);
+
+    UI.postInput().value = "";
+
+    await loadPosts();
+
+    notify("Post created ✔");
+
+  } catch (err) {
+    notify("CreatePost crash: " + err.message);
+  }
 }
 
+// ========================
+// LOAD POSTS (SAFE RENDER)
+// ========================
 async function loadPosts() {
-  await refreshFeed();
+  try {
+    const { data, error } = await db
+      .from("posts")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) return notify("Load error: " + error.message);
+
+    state.posts = data || [];
+
+    renderPosts();
+
+  } catch (err) {
+    notify("LoadPosts crash: " + err.message);
+  }
 }
 
-async function refreshFeed() {
-  const { data: posts } = await db
-    .from("posts")
-    .select("*")
-    .order("created_at", { ascending: false });
+// ========================
+// RENDER ENGINE (SAFE DOM)
+// ========================
+function renderPosts() {
+  const feed = UI.feed();
+  if (!feed) return;
 
-  UI.feed.innerHTML = "";
+  feed.innerHTML = "";
 
-  // 🔥 TRENDING SORT (likes priority)
-  posts.sort((a, b) => {
-    const likesA = state.likesMap[a.id] || 0;
-    const likesB = state.likesMap[b.id] || 0;
+  if (!state.posts.length) {
+    feed.innerHTML = "<p>No posts yet</p>";
+    return;
+  }
 
-    if (likesB === likesA) {
-      return new Date(b.created_at) - new Date(a.created_at);
-    }
-
-    return likesB - likesA;
-  });
-
-  for (const post of posts) {
-    const likes = state.likesMap[post.id] || 0;
-    const liked = state.userLikes[post.id];
-
-    const comments = await getComments(post.id);
-
+  state.posts.forEach(post => {
     const div = document.createElement("div");
-    div.className = "post glass";
+    div.className = "post";
 
     div.innerHTML = `
-      <p>${escapeHTML(post.content)}</p>
-
-      <div style="display:flex;gap:10px;margin-top:10px;">
-        <button onclick="toggleLike('${post.id}')">
-          ❤️ ${likes} ${liked ? "✓" : ""}
-        </button>
-
-        <button onclick="addComment('${post.id}')">
-          💬 ${comments.length}
-        </button>
-      </div>
+      <p>${escapeHTML(post.content || "")}</p>
+      <small>${post.user_id || "unknown"}</small>
     `;
 
-    UI.feed.appendChild(div);
-  }
+    feed.appendChild(div);
+  });
 }
 
-// ====== NAV ======
-function goHome() {
-  loadPosts();
+// ========================
+// SECURITY
+// ========================
+function escapeHTML(str) {
+  return String(str).replace(/[&<>"']/g, s => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[s]));
 }
 
-function goTasks() {
-  UI.feed.innerHTML = "<h3>Tasks coming soon 💰</h3>";
+// ========================
+// UI SWITCH
+// ========================
+function showApp() {
+  const app = UI.app();
+  if (app) app.style.display = "block";
+
+  const auth = document.querySelector(".auth");
+  if (auth) auth.style.display = "none";
 }
 
-// ====== INIT ======
+function showAuth() {
+  const app = UI.app();
+  if (app) app.style.display = "none";
+
+  const auth = document.querySelector(".auth");
+  if (auth) auth.style.display = "flex";
+}
+
+// ========================
+// INIT (SAFE START)
+// ========================
 async function init() {
-  const { data } = await db.auth.getSession();
+  try {
+    const { data } = await db.auth.getSession();
 
-  if (data.session) {
-    state.user = data.session.user;
+    if (data?.session?.user) {
+      state.user = data.session.user;
+      showApp();
+      await loadPosts();
+    } else {
+      showAuth();
+    }
 
-    await ensureProfile();
-    showApp();
-
-    await loadWallet();
-    await loadLikes();
-    await loadPosts();
-  } else {
-    showAuth();
+  } catch (err) {
+    notify("Init error: " + err.message);
   }
 }
 
-// ====== EVENTS ======
-UI.signup.onclick = signup;
-UI.loginEmail.onclick = loginEmail;
-UI.postBtn.onclick = createPost;
+// ========================
+// EVENTS
+// ========================
+document.addEventListener("DOMContentLoaded", () => {
+  const signupBtn = document.getElementById("signupBtn");
+  const loginBtn = document.getElementById("loginEmailBtn");
+  const postBtn = document.getElementById("postBtn");
 
-// ====== START ======
-init();
+  if (signupBtn) signupBtn.onclick = signup;
+  if (loginBtn) loginBtn.onclick = login;
+  if (postBtn) postBtn.onclick = createPost;
+
+  init();
+});
