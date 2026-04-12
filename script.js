@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI GOD MODE ENGINE
+// KUDASAI GOD MODE ENGINE (FIXED)
 // ========================================
 
 const { createClient } = supabase;
@@ -9,6 +9,7 @@ const db = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4"
 );
 
+// ================= STATE =================
 const state = {
   user: null,
   posts: [],
@@ -17,28 +18,54 @@ const state = {
   isAdmin: false
 };
 
+// ================= UI HELPERS =================
+function getEmail() {
+  return document.getElementById("email");
+}
+
+function getPassword() {
+  return document.getElementById("password");
+}
+
+function getFeed() {
+  return document.getElementById("feed");
+}
+
 // ================= AUTH =================
 async function login() {
+  const email = getEmail().value.trim();
+  const password = getPassword().value.trim();
+
+  if (!email || !password) return alert("Enter email and password");
+
   const { data, error } = await db.auth.signInWithPassword({
-    email: email.value,
-    password: password.value
+    email,
+    password
   });
 
   if (error) return alert(error.message);
 
   state.user = data.user;
+
   await loadProfile();
   showApp();
-  loadFeed();
+  await loadFeed();
 }
 
 async function signup() {
-  await db.auth.signUp({
-    email: email.value,
-    password: password.value
+  const email = getEmail().value.trim();
+  const password = getPassword().value.trim();
+
+  if (!email || !password) return alert("Fill all fields");
+
+  const { error } = await db.auth.signUp({
+    email,
+    password
   });
 
-  alert("Signup done");
+  if (error) return alert(error.message);
+
+  alert("Signup successful. Now login.");
 }
 
 // ================= PROFILE =================
@@ -52,29 +79,32 @@ async function loadProfile() {
   if (!data) {
     await db.from("profiles").insert([{
       user_id: state.user.id,
-      username: "user" + Math.floor(Math.random()*10000)
+      username: "user" + Math.floor(Math.random()*10000),
+      role: "user"
     }]);
+
+    state.profile = { username: "new user" };
   } else {
     state.profile = data;
-    state.isAdmin = data.username === "admin";
+    state.isAdmin = data.role === "admin"; // ✅ FIXED
   }
 }
 
 // ================= FEED =================
 async function loadFeed() {
-  const { data } = await db
-    .from("posts")
-    .select("*");
+  const { data, error } = await db.from("posts").select("*");
 
-  // 🧠 VIRAL RANKING
-  state.posts = data.sort((a,b) => {
-    return (b.likes || 0) - (a.likes || 0);
-  });
+  if (error) return alert(error.message);
+
+  state.posts = data || [];
+
+  state.posts.sort((a, b) => (b.likes || 0) - (a.likes || 0));
 
   renderFeed();
 }
 
 function renderFeed() {
+  const feed = getFeed();
   feed.innerHTML = "";
 
   state.posts.forEach(p => {
@@ -97,10 +127,13 @@ function renderFeed() {
 
 // ================= LIKE =================
 async function like(id) {
+  if (!state.user) return alert("Login first");
+
   await db.from("likes").insert([{
     post_id: id,
     user_id: state.user.id
   }]);
+
   loadFeed();
 }
 
@@ -118,6 +151,8 @@ async function comment(id) {
 
 // ================= EARN =================
 function goEarn() {
+  const feed = getFeed();
+
   feed.innerHTML = `
     <div class="panel">
       <h2>Earn</h2>
@@ -128,7 +163,7 @@ function goEarn() {
   `;
 }
 
-// 🛡️ Anti-cheat (basic)
+// ================= ANTI-CHEAT =================
 let lastEarn = 0;
 
 function watchAd() {
@@ -148,9 +183,11 @@ function survey() {
 
 // ================= PROFILE =================
 function goProfile() {
+  const feed = getFeed();
+
   feed.innerHTML = `
     <div class="panel">
-      <h2>${state.profile?.username}</h2>
+      <h2>${state.profile?.username || "User"}</h2>
       <p>Earnings: K${state.earnings}</p>
     </div>
   `;
@@ -159,6 +196,8 @@ function goProfile() {
 // ================= ADMIN =================
 function goAdmin() {
   if (!state.isAdmin) return alert("Not admin");
+
+  const feed = getFeed();
 
   feed.innerHTML = `
     <div class="panel">
@@ -184,5 +223,16 @@ function showApp() {
 }
 
 // ================= INIT =================
-document.getElementById("loginEmailBtn").onclick = login;
-document.getElementById("signupBtn").onclick = signup;
+document.addEventListener("DOMContentLoaded", async () => {
+  document.getElementById("loginEmailBtn").onclick = login;
+  document.getElementById("signupBtn").onclick = signup;
+
+  const { data } = await db.auth.getSession();
+
+  if (data?.session?.user) {
+    state.user = data.session.user;
+    await loadProfile();
+    showApp();
+    loadFeed();
+  }
+});
