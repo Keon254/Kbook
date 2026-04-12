@@ -1,19 +1,19 @@
 // ========================================
-// KUDASAI GOD MODE ENGINE (STABLE PATCH v2)
+// KUDASAI FULL LOCKDOWN CLIENT v1
 // ========================================
 
 const { createClient } = supabase;
 
 const db = createClient(
   "https://zoipwzvfkbzszpiectzb.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4"
+  "YOUR_ANON_KEY"
 );
 
 // ================= STATE =================
 const state = {
   user: null,
-  posts: [],
   profile: null,
+  posts: [],
   earnings: 0,
   isAdmin: false
 };
@@ -21,28 +21,28 @@ const state = {
 // ================= SAFE DOM =================
 const $ = (id) => document.getElementById(id);
 
-const getEmail = () => $("email");
-const getPassword = () => $("password");
-const getFeed = () => $("feed");
+const el = {
+  email: () => $("email"),
+  password: () => $("password"),
+  feed: () => $("feed")
+};
 
-// ================= SAFETY WRAPPER =================
-function safe(fn) {
-  return async (...args) => {
-    try {
-      return await fn(...args);
-    } catch (e) {
-      console.error(e);
-      alert(e.message || "Unexpected error");
-    }
-  };
+// ================= GUARDS =================
+function requireUser() {
+  if (!state.user) throw new Error("NOT_AUTHENTICATED");
+}
+
+function requireAdmin() {
+  requireUser();
+  if (!state.isAdmin) throw new Error("NOT_ADMIN");
 }
 
 // ================= AUTH =================
-const login = safe(async () => {
-  const email = getEmail()?.value?.trim();
-  const password = getPassword()?.value?.trim();
+async function login() {
+  const email = el.email()?.value?.trim();
+  const password = el.password()?.value?.trim();
 
-  if (!email || !password) return alert("Enter email and password");
+  if (!email || !password) return alert("Missing fields");
 
   const { data, error } = await db.auth.signInWithPassword({
     email,
@@ -53,27 +53,30 @@ const login = safe(async () => {
 
   state.user = data.user;
 
-  await loadProfile();
-  showApp();
-  await loadFeed();
-});
+  await bootstrap();
+}
 
-const signup = safe(async () => {
-  const email = getEmail()?.value?.trim();
-  const password = getPassword()?.value?.trim();
-
-  if (!email || !password) return alert("Fill all fields");
+async function signup() {
+  const email = el.email()?.value?.trim();
+  const password = el.password()?.value?.trim();
 
   const { error } = await db.auth.signUp({ email, password });
 
   if (error) return alert(error.message);
 
-  alert("Signup successful. Now login.");
-});
+  alert("Check email to confirm account");
+}
+
+// ================= BOOTSTRAP =================
+async function bootstrap() {
+  await loadProfile();
+  showApp();
+  await loadFeed();
+}
 
 // ================= PROFILE =================
-const loadProfile = safe(async () => {
-  if (!state.user) return;
+async function loadProfile() {
+  requireUser();
 
   const { data } = await db
     .from("profiles")
@@ -82,23 +85,24 @@ const loadProfile = safe(async () => {
     .maybeSingle();
 
   if (!data) {
-    const username = "user" + Math.floor(Math.random() * 10000);
+    const username = "user" + Math.floor(Math.random() * 9999);
 
     await db.from("profiles").insert([{
       user_id: state.user.id,
       username,
-      role: "user"
+      role: "user",
+      bio: ""
     }]);
 
-    state.profile = { username, role: "user" };
+    state.profile = { username, role: "user", bio: "" };
   } else {
     state.profile = data;
     state.isAdmin = data.role === "admin";
   }
-});
+}
 
 // ================= FEED =================
-const loadFeed = safe(async () => {
+async function loadFeed() {
   const { data, error } = await db.from("posts").select("*");
 
   if (error) return alert(error.message);
@@ -108,10 +112,10 @@ const loadFeed = safe(async () => {
   );
 
   renderFeed();
-});
+}
 
 function renderFeed() {
-  const feed = getFeed();
+  const feed = el.feed();
   if (!feed) return;
 
   feed.innerHTML = "";
@@ -121,194 +125,90 @@ function renderFeed() {
     div.className = "post";
 
     div.innerHTML = `
-      <b>${p.user_id || "unknown"}</b>
-      <p>${p.content || ""}</p>
-
-      <div class="actions">
-        <button onclick="like('${p.id}')">❤️</button>
-        <button onclick="comment('${p.id}')">💬</button>
-      </div>
+      <b>${p.user_id}</b>
+      <p>${p.content}</p>
+      <button onclick="like('${p.id}')">❤️</button>
     `;
 
     feed.appendChild(div);
   });
 }
 
-// ================= LIKE =================
-const like = safe(async (id) => {
-  if (!state.user) return alert("Login first");
+// ================= LIKE (SECURED BY DB RULES) =================
+async function like(postId) {
+  requireUser();
 
   await db.from("likes").insert([{
-    post_id: id,
+    post_id: postId,
     user_id: state.user.id
   }]);
 
   loadFeed();
-});
-
-// ================= COMMENT =================
-const comment = safe(async (id) => {
-  const text = prompt("Comment:");
-  if (!text) return;
-
-  await db.from("comments").insert([{
-    post_id: id,
-    user_id: state.user.id,
-    content: text
-  }]);
-});
+}
 
 // ================= PROFILE UI =================
 function goProfile() {
-  const feed = getFeed();
-  if (!feed) return;
+  const feed = el.feed();
 
   feed.innerHTML = `
     <div class="panel">
       <h2>Profile</h2>
 
-      <input id="usernameInput" value="${state.profile?.username || ""}" />
-      <input id="bioInput" value="${state.profile?.bio || ""}" />
-
-      <button onclick="updateProfile()">Save</button>
-
-      <hr>
-
-      <p>Username: ${state.profile?.username || "N/A"}</p>
+      <p>${state.profile?.username || ""}</p>
+      <p>${state.profile?.bio || ""}</p>
       <p>Role: ${state.profile?.role || "user"}</p>
-      <p>Earnings: K${state.earnings}</p>
     </div>
   `;
 }
 
-const updateProfile = safe(async () => {
-  const username = $("usernameInput")?.value;
-  const bio = $("bioInput")?.value;
-
-  await db
-    .from("profiles")
-    .update({ username, bio })
-    .eq("user_id", state.user.id);
-
-  state.profile.username = username;
-  state.profile.bio = bio;
-
-  alert("Profile updated ✔");
-});
-
-// ================= EARN =================
+// ================= EARN (CLIENT ONLY DISPLAY) =================
 function goEarn() {
-  const feed = getFeed();
-  if (!feed) return;
+  const feed = el.feed();
 
   feed.innerHTML = `
     <div class="panel">
-      <h2>Earn</h2>
-      <button onclick="watchAd()">Watch Ad (+K50)</button>
-      <button onclick="survey()">Survey (+K100)</button>
-      <p>Total: K${state.earnings}</p>
+      <h2>Earn System</h2>
+      <button onclick="fakeEarn()">Test Earn</button>
+      <p>K${state.earnings}</p>
     </div>
   `;
 }
 
-let lastEarn = 0;
-
-function watchAd() {
-  if (Date.now() - lastEarn < 10000) return alert("Too fast");
-
-  state.earnings += 50;
-  lastEarn = Date.now();
-
-  logTransaction(50, "ad");
-  goEarn();
-}
-
-function survey() {
-  state.earnings += 100;
-  logTransaction(100, "survey");
-  goEarn();
-}
-
-// ================= TRANSACTIONS =================
-async function logTransaction(amount, type) {
-  if (!state.user) return;
-
-  await db.from("transactions").insert([{
-    user_id: state.user.id,
-    amount,
-    type
-  }]);
+// ⚠️ IMPORTANT: earnings MUST be validated server-side later
+function fakeEarn() {
+  state.earnings += 10;
+  alert("Temporary client earn (NOT SECURE YET)");
 }
 
 // ================= ADMIN =================
 function goAdmin() {
-  if (!state.isAdmin) return alert("Not admin");
+  requireAdmin();
 
-  const feed = getFeed();
-  if (!feed) return;
-
-  feed.innerHTML = `
+  el.feed().innerHTML = `
     <div class="panel">
-      <h2>Admin Dashboard</h2>
-
+      <h2>Admin Panel</h2>
       <button onclick="adminUsers()">Users</button>
-      <button onclick="adminTransactions()">Transactions</button>
-      <button onclick="adminGiveMoney()">Give Money</button>
+      <button onclick="adminPosts()">Posts</button>
     </div>
   `;
 }
 
-const adminUsers = safe(async () => {
-  const feed = getFeed();
+async function adminUsers() {
+  requireAdmin();
 
   const { data } = await db.from("profiles").select("*");
 
+  const feed = el.feed();
   feed.innerHTML = "<h2>Users</h2>";
 
   (data || []).forEach(u => {
     const div = document.createElement("div");
-
     div.innerHTML = `
       <p>${u.username} (${u.role})</p>
-      <button onclick="banUser('${u.user_id}')">Ban</button>
-      <button onclick="makeAdmin('${u.user_id}')">Admin</button>
     `;
-
     feed.appendChild(div);
   });
-});
-
-const banUser = safe(async (id) => {
-  await db.from("profiles").update({ role: "banned" }).eq("user_id", id);
-  alert("Banned");
-});
-
-const makeAdmin = safe(async (id) => {
-  await db.from("profiles").update({ role: "admin" }).eq("user_id", id);
-  alert("Admin granted");
-});
-
-const adminTransactions = safe(async () => {
-  const feed = getFeed();
-
-  const { data } = await db
-    .from("transactions")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  feed.innerHTML = "<h2>Transactions</h2>";
-
-  (data || []).forEach(t => {
-    const div = document.createElement("div");
-
-    div.innerHTML = `
-      <p>${t.type} | K${t.amount}</p>
-      <small>${t.created_at}</small>
-    `;
-
-    feed.appendChild(div);
-  });
-});
+}
 
 // ================= NAV =================
 function goHome() {
@@ -330,9 +230,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (data?.session?.user) {
     state.user = data.session.user;
-
-    await loadProfile();
-    showApp();
-    await loadFeed();
+    await bootstrap();
   }
 });
