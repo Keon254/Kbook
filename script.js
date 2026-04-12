@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI GOD MODE ENGINE (FIXED)
+// KUDASAI GOD MODE ENGINE (STABLE + EXPANDED)
 // ========================================
 
 const { createClient } = supabase;
@@ -19,22 +19,13 @@ const state = {
 };
 
 // ================= UI HELPERS =================
-function getEmail() {
-  return document.getElementById("email");
-}
-
-function getPassword() {
-  return document.getElementById("password");
-}
-
-function getFeed() {
-  return document.getElementById("feed");
-}
+const get = (id) => document.getElementById(id);
+const getFeed = () => get("feed");
 
 // ================= AUTH =================
 async function login() {
-  const email = getEmail().value.trim();
-  const password = getPassword().value.trim();
+  const email = get("email").value.trim();
+  const password = get("password").value.trim();
 
   if (!email || !password) return alert("Enter email and password");
 
@@ -53,8 +44,8 @@ async function login() {
 }
 
 async function signup() {
-  const email = getEmail().value.trim();
-  const password = getPassword().value.trim();
+  const email = get("email").value.trim();
+  const password = get("password").value.trim();
 
   if (!email || !password) return alert("Fill all fields");
 
@@ -77,17 +68,56 @@ async function loadProfile() {
     .single();
 
   if (!data) {
+    const username = "user" + Math.floor(Math.random() * 10000);
+
     await db.from("profiles").insert([{
       user_id: state.user.id,
-      username: "user" + Math.floor(Math.random()*10000),
+      username,
       role: "user"
     }]);
 
-    state.profile = { username: "new user" };
+    state.profile = { username, role: "user" };
   } else {
     state.profile = data;
-    state.isAdmin = data.role === "admin"; // ✅ FIXED
+    state.isAdmin = data.role === "admin";
   }
+}
+
+function goProfile() {
+  const feed = getFeed();
+
+  feed.innerHTML = `
+    <div class="panel">
+      <h2>Profile</h2>
+
+      <input id="usernameInput" value="${state.profile?.username || ""}" placeholder="Username">
+      <input id="bioInput" value="${state.profile?.bio || ""}" placeholder="Bio">
+
+      <button onclick="updateProfile()">Save</button>
+
+      <hr>
+
+      <p><b>Username:</b> ${state.profile?.username || "N/A"}</p>
+      <p><b>Bio:</b> ${state.profile?.bio || "None"}</p>
+      <p><b>Role:</b> ${state.profile?.role || "user"}</p>
+      <p><b>Earnings:</b> K${state.earnings}</p>
+    </div>
+  `;
+}
+
+async function updateProfile() {
+  const username = get("usernameInput").value;
+  const bio = get("bioInput").value;
+
+  await db
+    .from("profiles")
+    .update({ username, bio })
+    .eq("user_id", state.user.id);
+
+  state.profile.username = username;
+  state.profile.bio = bio;
+
+  alert("Profile updated ✔");
 }
 
 // ================= FEED =================
@@ -98,6 +128,7 @@ async function loadFeed() {
 
   state.posts = data || [];
 
+  // 🧠 Viral ranking
   state.posts.sort((a, b) => (b.likes || 0) - (a.likes || 0));
 
   renderFeed();
@@ -173,24 +204,25 @@ function watchAd() {
 
   state.earnings += 50;
   lastEarn = Date.now();
+
+  logTransaction(50, "ad");
   goEarn();
 }
 
 function survey() {
   state.earnings += 100;
+
+  logTransaction(100, "survey");
   goEarn();
 }
 
-// ================= PROFILE =================
-function goProfile() {
-  const feed = getFeed();
-
-  feed.innerHTML = `
-    <div class="panel">
-      <h2>${state.profile?.username || "User"}</h2>
-      <p>Earnings: K${state.earnings}</p>
-    </div>
-  `;
+// ================= TRANSACTIONS =================
+async function logTransaction(amount, type) {
+  await db.from("transactions").insert([{
+    user_id: state.user.id,
+    amount,
+    type
+  }]);
 }
 
 // ================= ADMIN =================
@@ -201,14 +233,96 @@ function goAdmin() {
 
   feed.innerHTML = `
     <div class="panel">
-      <h2>Admin Panel</h2>
-      <button onclick="resetEconomy()">Reset Economy</button>
+      <h2>Admin Dashboard</h2>
+
+      <button onclick="adminUsers()">👥 Users</button>
+      <button onclick="adminTransactions()">💰 Transactions</button>
+      <button onclick="adminGiveMoney()">➕ Give Money</button>
     </div>
   `;
 }
 
-function resetEconomy() {
-  alert("Economy reset (simulate)");
+// USERS
+async function adminUsers() {
+  const feed = getFeed();
+
+  const { data } = await db.from("profiles").select("*");
+
+  feed.innerHTML = "<h2>Users</h2>";
+
+  data.forEach(u => {
+    const div = document.createElement("div");
+
+    div.innerHTML = `
+      <p>${u.username} (${u.role})</p>
+      <button onclick="banUser('${u.user_id}')">Ban</button>
+      <button onclick="makeAdmin('${u.user_id}')">Admin</button>
+    `;
+
+    feed.appendChild(div);
+  });
+}
+
+async function banUser(userId) {
+  await db.from("profiles").update({ role: "banned" }).eq("user_id", userId);
+  alert("User banned");
+}
+
+async function makeAdmin(userId) {
+  await db.from("profiles").update({ role: "admin" }).eq("user_id", userId);
+  alert("User is now admin");
+}
+
+// TRANSACTIONS
+async function adminTransactions() {
+  const feed = getFeed();
+
+  const { data } = await db
+    .from("transactions")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  feed.innerHTML = "<h2>Transactions</h2>";
+
+  data.forEach(t => {
+    const div = document.createElement("div");
+
+    div.innerHTML = `
+      <p>${t.type} | K${t.amount}</p>
+      <small>${new Date(t.created_at).toLocaleString()}</small>
+    `;
+
+    feed.appendChild(div);
+  });
+}
+
+// GIVE MONEY
+function adminGiveMoney() {
+  const feed = getFeed();
+
+  feed.innerHTML = `
+    <div class="panel">
+      <h2>Give Money</h2>
+      <input id="targetUser" placeholder="User ID">
+      <input id="amount" placeholder="Amount">
+      <button onclick="sendMoney()">Send</button>
+    </div>
+  `;
+}
+
+async function sendMoney() {
+  const userId = get("targetUser").value;
+  const amount = parseInt(get("amount").value);
+
+  if (!userId || !amount) return alert("Invalid input");
+
+  await db.from("transactions").insert([{
+    user_id: userId,
+    amount,
+    type: "admin_grant"
+  }]);
+
+  alert("Money sent ✔");
 }
 
 // ================= NAV =================
@@ -219,13 +333,13 @@ function goHome() {
 // ================= UI =================
 function showApp() {
   document.querySelector(".auth").style.display = "none";
-  document.getElementById("app").style.display = "block";
+  get("app").style.display = "block";
 }
 
 // ================= INIT =================
 document.addEventListener("DOMContentLoaded", async () => {
-  document.getElementById("loginEmailBtn").onclick = login;
-  document.getElementById("signupBtn").onclick = signup;
+  get("loginEmailBtn").onclick = login;
+  get("signupBtn").onclick = signup;
 
   const { data } = await db.auth.getSession();
 
