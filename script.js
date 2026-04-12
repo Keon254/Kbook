@@ -1,224 +1,188 @@
 // ========================================
-// KUDASAI v12 — ULTRA ENGINE MERGED
+// KUDASAI GOD MODE ENGINE
 // ========================================
 
-const SUPABASE_URL = "https://zoipwzvfkbzszpiectzb.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4";
-
 const { createClient } = supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ========================
-// STATE
-// ========================
+const db = createClient(
+  "https://zoipwzvfkbzszpiectzb.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4"
+);
+
 const state = {
   user: null,
   posts: [],
-  likes: {},
-  comments: {}
+  profile: null,
+  earnings: 0,
+  isAdmin: false
 };
 
-// ========================
-// UI
-// ========================
-const UI = {
-  email: () => document.getElementById("email"),
-  password: () => document.getElementById("password"),
-  feed: () => document.getElementById("feed"),
-  postInput: () => document.getElementById("postInput"),
-  app: () => document.getElementById("app")
-};
-
-// ========================
-// AUTH (UNCHANGED CORE)
-// ========================
+// ================= AUTH =================
 async function login() {
   const { data, error } = await db.auth.signInWithPassword({
-    email: UI.email().value,
-    password: UI.password().value
+    email: email.value,
+    password: password.value
   });
 
   if (error) return alert(error.message);
 
   state.user = data.user;
+  await loadProfile();
   showApp();
-  await bootApp();
+  loadFeed();
 }
 
-// ========================
-// BOOT
-// ========================
-async function bootApp() {
-  await loadPosts();
-}
-
-// ========================
-// LOAD EVERYTHING (OPTIMIZED)
-// ========================
-async function loadPosts() {
-  const { data } = await db
-    .from("posts")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  state.posts = data || [];
-
-  // 🔥 Load likes in one query
-  const { data: likes } = await db.from("likes").select("*");
-
-  state.likes = {};
-  likes.forEach(l => {
-    if (!state.likes[l.post_id]) state.likes[l.post_id] = 0;
-    state.likes[l.post_id]++;
+async function signup() {
+  await db.auth.signUp({
+    email: email.value,
+    password: password.value
   });
 
-  renderPosts();
+  alert("Signup done");
 }
 
-// ========================
-// RENDER
-// ========================
-function renderPosts() {
-  const feed = UI.feed();
+// ================= PROFILE =================
+async function loadProfile() {
+  const { data } = await db
+    .from("profiles")
+    .select("*")
+    .eq("user_id", state.user.id)
+    .single();
+
+  if (!data) {
+    await db.from("profiles").insert([{
+      user_id: state.user.id,
+      username: "user" + Math.floor(Math.random()*10000)
+    }]);
+  } else {
+    state.profile = data;
+    state.isAdmin = data.username === "admin";
+  }
+}
+
+// ================= FEED =================
+async function loadFeed() {
+  const { data } = await db
+    .from("posts")
+    .select("*");
+
+  // 🧠 VIRAL RANKING
+  state.posts = data.sort((a,b) => {
+    return (b.likes || 0) - (a.likes || 0);
+  });
+
+  renderFeed();
+}
+
+function renderFeed() {
   feed.innerHTML = "";
 
-  state.posts.forEach(post => {
-    const likeCount = state.likes[post.id] || 0;
-
+  state.posts.forEach(p => {
     const div = document.createElement("div");
     div.className = "post";
 
     div.innerHTML = `
-      <p>${escapeHTML(post.content)}</p>
+      <b>${p.user_id}</b>
+      <p>${p.content}</p>
+
       <div class="actions">
-        <button onclick="likePost('${post.id}')">❤️ ${likeCount}</button>
-        <button onclick="toggleComments('${post.id}')">💬</button>
+        <button onclick="like('${p.id}')">❤️</button>
+        <button onclick="comment('${p.id}')">💬</button>
       </div>
-      <div id="comments-${post.id}"></div>
     `;
 
     feed.appendChild(div);
   });
 }
 
-// ========================
-// LIKE SYSTEM
-// ========================
-async function likePost(postId) {
-  if (!state.user) return alert("Login required");
-
+// ================= LIKE =================
+async function like(id) {
   await db.from("likes").insert([{
-    post_id: postId,
+    post_id: id,
     user_id: state.user.id
   }]);
-
-  if (!state.likes[postId]) state.likes[postId] = 0;
-  state.likes[postId]++;
-
-  renderPosts();
+  loadFeed();
 }
 
-// ========================
-// COMMENTS
-// ========================
-async function toggleComments(postId) {
-  const box = document.getElementById(`comments-${postId}`);
-
-  if (box.innerHTML) {
-    box.innerHTML = "";
-    return;
-  }
-
-  const { data } = await db
-    .from("comments")
-    .select("*")
-    .eq("post_id", postId);
-
-  box.innerHTML = `
-    <input id="input-${postId}" placeholder="Comment...">
-    <button onclick="addComment('${postId}')">Send</button>
-  `;
-
-  data.forEach(c => {
-    const p = document.createElement("p");
-    p.innerText = c.content;
-    box.appendChild(p);
-  });
-}
-
-async function addComment(postId) {
-  const input = document.getElementById(`input-${postId}`);
+// ================= COMMENT =================
+async function comment(id) {
+  const text = prompt("Comment:");
+  if (!text) return;
 
   await db.from("comments").insert([{
-    post_id: postId,
+    post_id: id,
     user_id: state.user.id,
-    content: input.value
+    content: text
   }]);
-
-  toggleComments(postId);
 }
 
-// ========================
-// POST
-// ========================
-async function createPost() {
-  const text = UI.postInput().value;
-
-  await db.from("posts").insert([{
-    content: text,
-    user_id: state.user.id
-  }]);
-
-  UI.postInput().value = "";
-  loadPosts();
+// ================= EARN =================
+function goEarn() {
+  feed.innerHTML = `
+    <div class="panel">
+      <h2>Earn</h2>
+      <button onclick="watchAd()">Watch Ad (+K50)</button>
+      <button onclick="survey()">Survey (+K100)</button>
+      <p>Total: K${state.earnings}</p>
+    </div>
+  `;
 }
 
-// ========================
-// UTIL
-// ========================
-function escapeHTML(str) {
-  return String(str).replace(/[&<>"']/g, s => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  }[s]));
-}
+// 🛡️ Anti-cheat (basic)
+let lastEarn = 0;
 
-// ========================
-// UI SWITCH
-// ========================
-function showApp() {
-  UI.app().style.display = "block";
-  document.querySelector(".auth").style.display = "none";
-}
-
-function showAuth() {
-  UI.app().style.display = "none";
-  document.querySelector(".auth").style.display = "flex";
-}
-
-// ========================
-// INIT
-// ========================
-async function init() {
-  const { data } = await db.auth.getSession();
-
-  if (data?.session?.user) {
-    state.user = data.session.user;
-    showApp();
-    await bootApp();
-  } else {
-    showAuth();
+function watchAd() {
+  if (Date.now() - lastEarn < 10000) {
+    return alert("Too fast");
   }
+
+  state.earnings += 50;
+  lastEarn = Date.now();
+  goEarn();
 }
 
-// ========================
-// EVENTS
-// ========================
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("loginEmailBtn").onclick = login;
-  document.getElementById("postBtn").onclick = createPost;
-  init();
-});
+function survey() {
+  state.earnings += 100;
+  goEarn();
+}
+
+// ================= PROFILE =================
+function goProfile() {
+  feed.innerHTML = `
+    <div class="panel">
+      <h2>${state.profile?.username}</h2>
+      <p>Earnings: K${state.earnings}</p>
+    </div>
+  `;
+}
+
+// ================= ADMIN =================
+function goAdmin() {
+  if (!state.isAdmin) return alert("Not admin");
+
+  feed.innerHTML = `
+    <div class="panel">
+      <h2>Admin Panel</h2>
+      <button onclick="resetEconomy()">Reset Economy</button>
+    </div>
+  `;
+}
+
+function resetEconomy() {
+  alert("Economy reset (simulate)");
+}
+
+// ================= NAV =================
+function goHome() {
+  loadFeed();
+}
+
+// ================= UI =================
+function showApp() {
+  document.querySelector(".auth").style.display = "none";
+  document.getElementById("app").style.display = "block";
+}
+
+// ================= INIT =================
+document.getElementById("loginEmailBtn").onclick = login;
+document.getElementById("signupBtn").onclick = signup;
