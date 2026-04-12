@@ -1,6 +1,5 @@
 // ========================================
-// KUDASAI v11 — STABLE CORE ENGINE
-// Error-safe + production-safe structure
+// KUDASAI v12 — ULTRA ENGINE MERGED
 // ========================================
 
 const SUPABASE_URL = "https://zoipwzvfkbzszpiectzb.supabase.co";
@@ -10,181 +9,92 @@ const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ========================
-// GLOBAL STATE (SAFE)
+// STATE
 // ========================
 const state = {
   user: null,
   posts: [],
   likes: {},
-  loading: false
+  comments: {}
 };
 
 // ========================
-// UI CACHE (SAFE ACCESS)
+// UI
 // ========================
 const UI = {
   email: () => document.getElementById("email"),
   password: () => document.getElementById("password"),
   feed: () => document.getElementById("feed"),
   postInput: () => document.getElementById("postInput"),
-  balance: () => document.getElementById("balance"),
   app: () => document.getElementById("app")
 };
 
 // ========================
-// SAFE NOTIFY
-// ========================
-function notify(msg) {
-  console.log("[APP]", msg);
-  alert(msg);
-}
-
-// ========================
-// SAFE USER CHECK
-// ========================
-function requireUser() {
-  if (!state.user) {
-    notify("User not logged in");
-    return false;
-  }
-  return true;
-}
-
-// ========================
-// AUTH
+// AUTH (UNCHANGED CORE)
 // ========================
 async function login() {
-  try {
-    const email = UI.email().value.trim();
-    const password = UI.password().value.trim();
+  const { data, error } = await db.auth.signInWithPassword({
+    email: UI.email().value,
+    password: UI.password().value
+  });
 
-    if (!email || !password) {
-      return notify("Fill in email + password");
-    }
+  if (error) return alert(error.message);
 
-    const { data, error } = await db.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) return notify(error.message);
-
-    if (!data?.user) {
-      return notify("Login failed: no user returned");
-    }
-
-    state.user = data.user;
-
-    showApp();
-    await bootApp();
-
-  } catch (err) {
-    notify("Login crash: " + err.message);
-  }
-}
-
-async function signup() {
-  try {
-    const email = UI.email().value.trim();
-    const password = UI.password().value.trim();
-
-    const { error } = await db.auth.signUp({
-      email,
-      password
-    });
-
-    if (error) return notify(error.message);
-
-    notify("Signup success. Now login.");
-  } catch (err) {
-    notify("Signup crash: " + err.message);
-  }
+  state.user = data.user;
+  showApp();
+  await bootApp();
 }
 
 // ========================
-// APP BOOT
+// BOOT
 // ========================
 async function bootApp() {
-  try {
-    await loadPosts();
-  } catch (err) {
-    notify("Boot error: " + err.message);
-  }
+  await loadPosts();
 }
 
 // ========================
-// POST SYSTEM (FIXED CORE)
-// ========================
-async function createPost() {
-  try {
-    if (!requireUser()) return;
-
-    const text = UI.postInput().value.trim();
-
-    if (!text) return notify("Post cannot be empty");
-
-    const { error } = await db.from("posts").insert([
-      {
-        content: text,
-        user_id: state.user.id
-      }
-    ]);
-
-    if (error) return notify("Post error: " + error.message);
-
-    UI.postInput().value = "";
-
-    await loadPosts();
-
-    notify("Post created ✔");
-
-  } catch (err) {
-    notify("CreatePost crash: " + err.message);
-  }
-}
-
-// ========================
-// LOAD POSTS (SAFE RENDER)
+// LOAD EVERYTHING (OPTIMIZED)
 // ========================
 async function loadPosts() {
-  try {
-    const { data, error } = await db
-      .from("posts")
-      .select("*")
-      .order("created_at", { ascending: false });
+  const { data } = await db
+    .from("posts")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-    if (error) return notify("Load error: " + error.message);
+  state.posts = data || [];
 
-    state.posts = data || [];
+  // 🔥 Load likes in one query
+  const { data: likes } = await db.from("likes").select("*");
 
-    renderPosts();
+  state.likes = {};
+  likes.forEach(l => {
+    if (!state.likes[l.post_id]) state.likes[l.post_id] = 0;
+    state.likes[l.post_id]++;
+  });
 
-  } catch (err) {
-    notify("LoadPosts crash: " + err.message);
-  }
+  renderPosts();
 }
 
 // ========================
-// RENDER ENGINE (SAFE DOM)
+// RENDER
 // ========================
 function renderPosts() {
   const feed = UI.feed();
-  if (!feed) return;
-
   feed.innerHTML = "";
 
-  if (!state.posts.length) {
-    feed.innerHTML = "<p>No posts yet</p>";
-    return;
-  }
-
   state.posts.forEach(post => {
+    const likeCount = state.likes[post.id] || 0;
+
     const div = document.createElement("div");
     div.className = "post";
 
     div.innerHTML = `
-      <p>${escapeHTML(post.content || "")}</p>
-      <small>${post.user_id || "unknown"}</small>
+      <p>${escapeHTML(post.content)}</p>
+      <div class="actions">
+        <button onclick="likePost('${post.id}')">❤️ ${likeCount}</button>
+        <button onclick="toggleComments('${post.id}')">💬</button>
+      </div>
+      <div id="comments-${post.id}"></div>
     `;
 
     feed.appendChild(div);
@@ -192,7 +102,79 @@ function renderPosts() {
 }
 
 // ========================
-// SECURITY
+// LIKE SYSTEM
+// ========================
+async function likePost(postId) {
+  if (!state.user) return alert("Login required");
+
+  await db.from("likes").insert([{
+    post_id: postId,
+    user_id: state.user.id
+  }]);
+
+  if (!state.likes[postId]) state.likes[postId] = 0;
+  state.likes[postId]++;
+
+  renderPosts();
+}
+
+// ========================
+// COMMENTS
+// ========================
+async function toggleComments(postId) {
+  const box = document.getElementById(`comments-${postId}`);
+
+  if (box.innerHTML) {
+    box.innerHTML = "";
+    return;
+  }
+
+  const { data } = await db
+    .from("comments")
+    .select("*")
+    .eq("post_id", postId);
+
+  box.innerHTML = `
+    <input id="input-${postId}" placeholder="Comment...">
+    <button onclick="addComment('${postId}')">Send</button>
+  `;
+
+  data.forEach(c => {
+    const p = document.createElement("p");
+    p.innerText = c.content;
+    box.appendChild(p);
+  });
+}
+
+async function addComment(postId) {
+  const input = document.getElementById(`input-${postId}`);
+
+  await db.from("comments").insert([{
+    post_id: postId,
+    user_id: state.user.id,
+    content: input.value
+  }]);
+
+  toggleComments(postId);
+}
+
+// ========================
+// POST
+// ========================
+async function createPost() {
+  const text = UI.postInput().value;
+
+  await db.from("posts").insert([{
+    content: text,
+    user_id: state.user.id
+  }]);
+
+  UI.postInput().value = "";
+  loadPosts();
+}
+
+// ========================
+// UTIL
 // ========================
 function escapeHTML(str) {
   return String(str).replace(/[&<>"']/g, s => ({
@@ -208,38 +190,27 @@ function escapeHTML(str) {
 // UI SWITCH
 // ========================
 function showApp() {
-  const app = UI.app();
-  if (app) app.style.display = "block";
-
-  const auth = document.querySelector(".auth");
-  if (auth) auth.style.display = "none";
+  UI.app().style.display = "block";
+  document.querySelector(".auth").style.display = "none";
 }
 
 function showAuth() {
-  const app = UI.app();
-  if (app) app.style.display = "none";
-
-  const auth = document.querySelector(".auth");
-  if (auth) auth.style.display = "flex";
+  UI.app().style.display = "none";
+  document.querySelector(".auth").style.display = "flex";
 }
 
 // ========================
-// INIT (SAFE START)
+// INIT
 // ========================
 async function init() {
-  try {
-    const { data } = await db.auth.getSession();
+  const { data } = await db.auth.getSession();
 
-    if (data?.session?.user) {
-      state.user = data.session.user;
-      showApp();
-      await loadPosts();
-    } else {
-      showAuth();
-    }
-
-  } catch (err) {
-    notify("Init error: " + err.message);
+  if (data?.session?.user) {
+    state.user = data.session.user;
+    showApp();
+    await bootApp();
+  } else {
+    showAuth();
   }
 }
 
@@ -247,13 +218,7 @@ async function init() {
 // EVENTS
 // ========================
 document.addEventListener("DOMContentLoaded", () => {
-  const signupBtn = document.getElementById("signupBtn");
-  const loginBtn = document.getElementById("loginEmailBtn");
-  const postBtn = document.getElementById("postBtn");
-
-  if (signupBtn) signupBtn.onclick = signup;
-  if (loginBtn) loginBtn.onclick = login;
-  if (postBtn) postBtn.onclick = createPost;
-
+  document.getElementById("loginEmailBtn").onclick = login;
+  document.getElementById("postBtn").onclick = createPost;
   init();
 });
