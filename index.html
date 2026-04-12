@@ -1,5 +1,182 @@
 <!DOCTYPE html>
+<html lang="en"><!DOCTYPE html>
 <html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>KUDASAI — ULTRA</title>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+<style>
+:root {
+  --bg: radial-gradient(circle at top, #0a0a0a, #000);
+  --glass: rgba(255,255,255,0.05);
+  --border: rgba(255,255,255,0.08);
+  --text: #fff;
+  --muted: rgba(255,255,255,0.6);
+}
+
+body {
+  margin: 0;
+  font-family: Inter, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* AUTH */
+.auth {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.auth-box {
+  width: 320px;
+  padding: 30px;
+  border-radius: 20px;
+  background: var(--glass);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+/* APP */
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HEADER */
+.header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  backdrop-filter: blur(12px);
+  background: rgba(0,0,0,0.7);
+}
+
+/* FEED */
+.feed {
+  flex: 1;
+  margin-top: 70px;
+  margin-bottom: 90px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+/* POST CARD */
+.post {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+/* POST HEADER */
+.post-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.avatar {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background: #222;
+}
+
+.username {
+  font-weight: bold;
+}
+
+/* POST CONTENT */
+.post-content {
+  margin: 10px 0;
+}
+
+/* ACTIONS */
+.actions {
+  display: flex;
+  gap: 12px;
+  font-size: 14px;
+}
+
+/* COMMENTS */
+.comments {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+/* COMPOSER */
+.composer {
+  position: fixed;
+  bottom: 70px;
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+/* NAV */
+.nav {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  padding: 12px;
+  background: rgba(0,0,0,0.85);
+}
+</style>
+</head>
+
+<body>
+
+<div class="auth">
+  <div class="auth-box">
+    <h2>KUDASAI</h2>
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+    <button id="signupBtn">Create Account</button>
+    <button id="loginEmailBtn">Login</button>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+
+  <div class="header">
+    <div onclick="goHome()">KUDASAI</div>
+    <div id="balance">K0</div>
+  </div>
+
+  <div id="feed" class="feed"></div>
+
+  <div class="composer">
+    <input id="postInput" placeholder="What’s happening?">
+    <button id="postBtn">➤</button>
+  </div>
+
+  <div class="nav">
+    <div onclick="goHome()">🏠</div>
+    <div onclick="goTasks()">💰</div>
+    <div onclick="openProfile(state.user?.id)">👤</div>
+  </div>
+
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
