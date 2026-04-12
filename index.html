@@ -1,28 +1,28 @@
 <!DOCTYPE html>
-<html lang="en"><!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>KUDASAI — ULTRA</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUDASAI GOD MODE</title>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 <style>
 :root {
-  --bg: radial-gradient(circle at top, #0a0a0a, #000);
+  --bg: #000;
   --glass: rgba(255,255,255,0.05);
   --border: rgba(255,255,255,0.08);
-  --text: #fff;
-  --muted: rgba(255,255,255,0.6);
 }
 
 body {
   margin: 0;
   font-family: Inter, sans-serif;
   background: var(--bg);
-  color: var(--text);
+  color: white;
 }
+
+/* APP */
+#app { display: none; }
 
 /* AUTH */
 .auth {
@@ -32,98 +32,25 @@ body {
   align-items: center;
 }
 
-.auth-box {
-  width: 320px;
-  padding: 30px;
+.box {
+  padding: 25px;
   border-radius: 20px;
   background: var(--glass);
-  backdrop-filter: blur(18px);
-  border: 1px solid var(--border);
-  text-align: center;
-}
-
-/* APP */
-#app {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* HEADER */
-.header {
-  position: fixed;
-  top: 0;
-  width: 100%;
-  padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  backdrop-filter: blur(12px);
-  background: rgba(0,0,0,0.7);
 }
 
 /* FEED */
-.feed {
-  flex: 1;
-  margin-top: 70px;
-  margin-bottom: 90px;
-  padding: 12px;
-  overflow-y: auto;
-}
+.feed { padding: 70px 10px 120px; }
 
-/* POST CARD */
 .post {
   background: var(--glass);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 14px;
-  margin-bottom: 12px;
+  padding: 15px;
+  border-radius: 15px;
+  margin-bottom: 10px;
 }
 
-/* POST HEADER */
-.post-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.avatar {
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  background: #222;
-}
-
-.username {
-  font-weight: bold;
-}
-
-/* POST CONTENT */
-.post-content {
-  margin: 10px 0;
-}
-
-/* ACTIONS */
 .actions {
   display: flex;
-  gap: 12px;
-  font-size: 14px;
-}
-
-/* COMMENTS */
-.comments {
-  margin-top: 10px;
-  font-size: 13px;
-}
-
-/* COMPOSER */
-.composer {
-  position: fixed;
-  bottom: 70px;
-  width: 100%;
-  display: flex;
   gap: 10px;
-  padding: 10px;
 }
 
 /* NAV */
@@ -134,270 +61,36 @@ body {
   display: flex;
   justify-content: space-around;
   padding: 12px;
-  background: rgba(0,0,0,0.85);
-}
-</style>
-</head>
-
-<body>
-
-<div class="auth">
-  <div class="auth-box">
-    <h2>KUDASAI</h2>
-    <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
-    <button id="signupBtn">Create Account</button>
-    <button id="loginEmailBtn">Login</button>
-  </div>
-</div>
-
-<div id="app" style="display:none;">
-
-  <div class="header">
-    <div onclick="goHome()">KUDASAI</div>
-    <div id="balance">K0</div>
-  </div>
-
-  <div id="feed" class="feed"></div>
-
-  <div class="composer">
-    <input id="postInput" placeholder="What’s happening?">
-    <button id="postBtn">➤</button>
-  </div>
-
-  <div class="nav">
-    <div onclick="goHome()">🏠</div>
-    <div onclick="goTasks()">💰</div>
-    <div onclick="openProfile(state.user?.id)">👤</div>
-  </div>
-
-</div>
-
-<script src="script.js"></script>
-
-</body>
-</html>
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>KUDASAI — GOD MODE</title>
-
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-
-<style>
-/* =========================================
-   GOD MODE DESIGN SYSTEM
-========================================= */
-
-:root {
-  --bg: radial-gradient(circle at top, #0a0a0a, #000);
-  --glass: rgba(255,255,255,0.05);
-  --border: rgba(255,255,255,0.08);
-  --text: #fff;
-  --muted: rgba(255,255,255,0.6);
-}
-
-body {
-  margin: 0;
-  font-family: Inter, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-}
-
-/* =========================
-   APP SHELL (SPA CORE)
-========================= */
-#app {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* =========================
-   AUTH SYSTEM
-========================= */
-.auth {
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.auth-box {
-  width: 320px;
-  padding: 30px;
-  border-radius: 20px;
-  background: var(--glass);
-  backdrop-filter: blur(18px);
-  border: 1px solid var(--border);
-  text-align: center;
-}
-
-input {
-  width: 100%;
-  margin-top: 10px;
-  padding: 12px;
-  border-radius: 12px;
-  border: none;
   background: #111;
-  color: white;
-  outline: none;
 }
 
-button {
-  width: 100%;
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  background: linear-gradient(135deg, #fff, #aaa);
-}
-
-/* =========================
-   HEADER (GLOBAL NAV BAR)
-========================= */
-.header {
-  position: fixed;
-  top: 0;
-  width: 100%;
-  padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  backdrop-filter: blur(12px);
-  background: rgba(0,0,0,0.7);
-  border-bottom: 1px solid #222;
-  z-index: 10;
-}
-
-/* =========================
-   FEED SYSTEM
-========================= */
-.feed {
-  flex: 1;
-  margin-top: 70px;
-  margin-bottom: 90px;
-  padding: 12px;
-  overflow-y: auto;
-}
-
-.post {
-  background: var(--glass);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 14px;
-  margin-bottom: 12px;
-  transition: 0.2s;
-}
-
-.post:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 25px rgba(255,255,255,0.08);
-}
-
-/* =========================
-   POST ACTIONS
-========================= */
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.actions button {
-  width: auto;
-  padding: 8px 10px;
-  font-size: 12px;
-}
-
-/* =========================
-   POST COMPOSER (INPUT BAR)
-========================= */
-.composer {
-  position: fixed;
-  bottom: 70px;
-  width: 100%;
-  display: flex;
-  gap: 10px;
-  padding: 10px;
-  background: rgba(0,0,0,0.5);
-  backdrop-filter: blur(10px);
-}
-
-/* =========================
-   BOTTOM NAV (MOBILE CORE)
-========================= */
-.nav {
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  display: flex;
-  justify-content: space-around;
-  padding: 12px;
-  background: rgba(0,0,0,0.85);
-  backdrop-filter: blur(10px);
-  border-top: 1px solid #222;
-  font-size: 20px;
-}
-
-/* =========================
-   SMALL UX DETAILS
-========================= */
-.small {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.clickable {
-  cursor: pointer;
+/* PANEL */
+.panel {
+  padding: 20px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- =========================
-     AUTH SCREEN
-========================= -->
 <div class="auth">
-  <div class="auth-box">
-    <h2>KUDASAI</h2>
-
-    <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
-
-    <button id="signupBtn">Create Account</button>
+  <div class="box">
+    <input id="email" placeholder="Email"><br>
+    <input id="password" type="password"><br>
+    <button id="signupBtn">Signup</button>
     <button id="loginEmailBtn">Login</button>
   </div>
 </div>
 
-<!-- =========================
-     APP (SPA ROOT)
-========================= -->
-<div id="app" style="display:none;">
+<div id="app">
 
-  <!-- HEADER -->
-  <div class="header">
-    <div class="clickable" onclick="goHome()">KUDASAI</div>
-    <div id="balance">K0</div>
-  </div>
-
-  <!-- ROUTED CONTENT -->
   <div id="feed" class="feed"></div>
 
-  <!-- POST COMPOSER -->
-  <div class="composer">
-    <input id="postInput" placeholder="What’s happening?">
-    <button id="postBtn">➤</button>
-  </div>
-
-  <!-- BOTTOM NAV -->
   <div class="nav">
     <div onclick="goHome()">🏠</div>
-    <div onclick="goTasks()">💰</div>
-    <div onclick="openProfile(state.user?.id)">👤</div>
+    <div onclick="goEarn()">💰</div>
+    <div onclick="goProfile()">👤</div>
+    <div onclick="goAdmin()">⚙️</div>
   </div>
 
 </div>
