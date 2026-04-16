@@ -1,229 +1,237 @@
-/* =========================
-   Reset & Base
-   ========================= */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: Arial, sans-serif;
+/* =========================================
+   KUDASAI GOD MODE DESIGN SYSTEM v2
+========================================= */
+
+/* ================= ROOT ================= */
+:root {
+  --bg: radial-gradient(circle at top, #0a0a0a, #000);
+  --glass: rgba(255,255,255,0.05);
+  --glass-strong: rgba(255,255,255,0.08);
+  --border: rgba(255,255,255,0.1);
+
+  --text: #ffffff;
+  --muted: rgba(255,255,255,0.6);
+
+  --accent: #ffffff;
+  --danger: #ff4d4d;
+  --success: #00ffcc;
+
+  --radius: 16px;
+  --transition: 0.25s ease;
 }
 
+/* ================= BASE ================= */
 body {
-  background-color: #f0f2f5;
+  margin: 0;
+  font-family: Inter, sans-serif;
+  background: var(--bg);
+  color: var(--text);
 }
 
-/* Prevent mobile tap highlight */
-button {
-  -webkit-tap-highlight-color: transparent;
-  cursor: pointer;
+/* SCROLL */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 10px;
 }
 
-/* =========================
-   Navbar
-   ========================= */
-.navbar {
-  background-color: #1877f2;
-  color: white;
-  padding: 12px 20px;
+/* ================= UTILITIES ================= */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--border);
+}
+
+.card {
+  padding: 15px;
+  border-radius: var(--radius);
+  transition: var(--transition);
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 30px rgba(255,255,255,0.08);
+}
+
+.center {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
 }
 
-.navbar a {
+/* ================= AUTH ================= */
+.auth {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.box {
+  width: 320px;
+  padding: 30px;
+  border-radius: 20px;
+  text-align: center;
+
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+
+  box-shadow: 0 0 40px rgba(255,255,255,0.05);
+  animation: fadeIn 0.6s ease;
+}
+
+/* INPUT */
+input {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: #111;
   color: white;
-  text-decoration: none;
-  margin-left: 15px;
-  font-weight: 500;
+  outline: none;
+  transition: var(--transition);
 }
 
-.logo {
-  font-size: 24px;
+input:focus {
+  background: #1a1a1a;
+  box-shadow: 0 0 10px rgba(255,255,255,0.1);
+}
+
+/* BUTTON SYSTEM */
+button {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
   font-weight: bold;
+  transition: var(--transition);
 }
 
-/* =========================
-   Main Container
-   ========================= */
-.container {
-  max-width: 600px;
-  margin: 30px auto;
+button:hover {
+  transform: translateY(-2px);
 }
 
-/* =========================
-   Post Box
-   ========================= */
-.post-box {
+/* VARIANTS */
+.btn-primary {
   background: white;
+  color: black;
+}
+
+.btn-secondary {
+  background: #222;
+  color: white;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+}
+
+/* ================= APP ================= */
+#app {
+  display: none;
+  height: 100vh;
+  flex-direction: column;
+}
+
+/* HEADER */
+.header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  padding: 16px;
+  backdrop-filter: blur(12px);
+  background: rgba(0,0,0,0.85);
+  border-bottom: 1px solid #222;
+  z-index: 10;
+}
+
+/* FEED */
+.feed {
+  flex: 1;
+  margin-top: 70px;
+  margin-bottom: 90px;
   padding: 15px;
-  border-radius: 8px;
+  overflow-y: auto;
+}
+
+/* POST */
+.post {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  padding: 15px;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  transition: var(--transition);
+}
+
+.post:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 30px rgba(255,255,255,0.08);
+}
+
+/* ACTIONS */
+.actions {
   display: flex;
   gap: 10px;
-  margin-bottom: 20px;
-}
-
-.post-box input {
-  flex: 1;
-  padding: 10px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  font-size: 16px; /* Prevent mobile zoom */
-}
-
-.post-box button {
-  background-color: #1877f2;
-  color: white;
-  border: none;
-  padding: 0 16px;
-  border-radius: 6px;
-  font-size: 16px;
-}
-
-.post-box button:hover {
-  background-color: #155ec4;
-}
-
-/* =========================
-   Feed Posts
-   ========================= */
-.post {
-  background: white;
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 15px;
-  animation: fadeIn 0.4s ease-in;
-}
-
-.post h4 {
-  margin-bottom: 5px;
-}
-
-.post p {
-  margin-bottom: 10px;
-}
-
-/* =========================
-   Post Actions
-   ========================= */
-.actions button {
-  margin-right: 8px;
-  padding: 6px 10px;
-  border: none;
-  border-radius: 6px;
-  background-color: #e4e6eb;
-  font-size: 14px;
-  transition: background-color 0.2s ease, transform 0.1s ease;
-}
-
-.actions button:hover {
-  background-color: #d8dadf;
-  transform: scale(1.05);
-}
-
-/* =========================
-   Comments Section
-   ========================= */
-.comments {
   margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid #e4e6eb;
 }
 
-.comment-list div {
-  background: #f0f2f5;
-  padding: 8px 10px;
-  border-radius: 6px;
-  margin-bottom: 6px;
-  font-size: 14px;
-  animation: fadeIn 0.3s ease-in;
+.actions button {
+  width: auto;
+  padding: 6px 12px;
+  background: #111;
 }
 
-.comment-list small {
-  color: #65676b;
-  font-size: 12px;
-}
-
-/* Comment input */
-.comment-input {
+/* NAV */
+.nav {
+  position: fixed;
+  bottom: 0;
   width: 100%;
-  padding: 8px 12px;
-  border-radius: 20px;
-  border: 1px solid #ccd0d5;
-  margin-top: 6px;
-  font-size: 16px; /* Prevent mobile zoom */
+  display: flex;
+  justify-content: space-around;
+  padding: 14px;
+  background: rgba(0,0,0,0.9);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid #222;
+  font-size: 20px;
 }
 
-/* =========================
-   Animations
-   ========================= */
+.nav div {
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.nav div:hover {
+  transform: scale(1.2);
+}
+
+/* PANEL */
+.panel {
+  padding: 20px;
+  background: var(--glass);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+/* ================= STATES ================= */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ================= ANIMATIONS ================= */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* =========================
-   Responsive Design
-   ========================= */
-
-/* Tablets */
-@media (max-width: 768px) {
-  .container {
-    margin: 20px 12px;
-    max-width: 100%;
-  }
-
-  .post-box {
-    flex-direction: column;
-  }
-
-  .post-box button {
-    width: 100%;
-    padding: 10px;
-  }
-
-  .logo {
-    font-size: 20px;
-  }
-}
-
-/* Phones */
-@media (max-width: 480px) {
-  .navbar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .navbar nav {
-    display: flex;
-    gap: 12px;
-    font-size: 14px;
-  }
-
-  .post {
-    padding: 12px;
-  }
-
-  .post h4 {
-    font-size: 15px;
-  }
-
-  .post p {
-    font-size: 14px;
-  }
-
-  .actions button {
-    font-size: 13px;
-    padding: 6px 8px;
-  }
-
-  .comment-input {
-    font-size: 16px;
-  }
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
 }
