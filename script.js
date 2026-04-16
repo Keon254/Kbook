@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI FULL LOCKDOWN CLIENT v1
+// KUDASAI FULL LOCKDOWN CLIENT v2 (STABLE)
 // ========================================
 
 const { createClient } = supabase;
@@ -27,44 +27,57 @@ const el = {
   feed: () => $("feed")
 };
 
+// ================= SAFE EXEC =================
+async function safe(fn) {
+  try {
+    await fn();
+  } catch (err) {
+    console.error(err);
+    alert(err.message || "Something broke");
+  }
+}
+
 // ================= GUARDS =================
 function requireUser() {
-  if (!state.user) throw new Error("NOT_AUTHENTICATED");
+  if (!state.user) throw new Error("Login required");
 }
 
 function requireAdmin() {
-  requireUser();
-  if (!state.isAdmin) throw new Error("NOT_ADMIN");
+  if (!state.isAdmin) throw new Error("Admin only");
 }
 
 // ================= AUTH =================
 async function login() {
-  const email = el.email()?.value?.trim();
-  const password = el.password()?.value?.trim();
+  safe(async () => {
+    const email = el.email()?.value?.trim();
+    const password = el.password()?.value?.trim();
 
-  if (!email || !password) return alert("Missing fields");
+    if (!email || !password) throw new Error("Missing fields");
 
-  const { data, error } = await db.auth.signInWithPassword({
-    email,
-    password
+    const { data, error } = await db.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) throw error;
+
+    state.user = data.user;
+
+    await bootstrap();
   });
-
-  if (error) return alert(error.message);
-
-  state.user = data.user;
-
-  await bootstrap();
 }
 
 async function signup() {
-  const email = el.email()?.value?.trim();
-  const password = el.password()?.value?.trim();
+  safe(async () => {
+    const email = el.email()?.value?.trim();
+    const password = el.password()?.value?.trim();
 
-  const { error } = await db.auth.signUp({ email, password });
+    const { error } = await db.auth.signUp({ email, password });
 
-  if (error) return alert(error.message);
+    if (error) throw error;
 
-  alert("Check email to confirm account");
+    alert("Check email to confirm account");
+  });
 }
 
 // ================= BOOTSTRAP =================
@@ -103,15 +116,17 @@ async function loadProfile() {
 
 // ================= FEED =================
 async function loadFeed() {
-  const { data, error } = await db.from("posts").select("*");
+  safe(async () => {
+    const { data, error } = await db.from("posts").select("*");
 
-  if (error) return alert(error.message);
+    if (error) throw error;
 
-  state.posts = (data || []).sort(
-    (a, b) => (b.likes || 0) - (a.likes || 0)
-  );
+    state.posts = (data || []).sort(
+      (a, b) => (b.likes || 0) - (a.likes || 0)
+    );
 
-  renderFeed();
+    renderFeed();
+  });
 }
 
 function renderFeed() {
@@ -127,23 +142,29 @@ function renderFeed() {
     div.innerHTML = `
       <b>${p.user_id}</b>
       <p>${p.content}</p>
-      <button onclick="like('${p.id}')">❤️</button>
+      <button data-id="${p.id}" class="likeBtn">❤️</button>
     `;
 
     feed.appendChild(div);
   });
+
+  document.querySelectorAll(".likeBtn").forEach(btn => {
+    btn.onclick = () => like(btn.dataset.id);
+  });
 }
 
-// ================= LIKE (SECURED BY DB RULES) =================
+// ================= LIKE =================
 async function like(postId) {
-  requireUser();
+  safe(async () => {
+    requireUser();
 
-  await db.from("likes").insert([{
-    post_id: postId,
-    user_id: state.user.id
-  }]);
+    await db.from("likes").insert([{
+      post_id: postId,
+      user_id: state.user.id
+    }]);
 
-  loadFeed();
+    loadFeed();
+  });
 }
 
 // ================= PROFILE UI =================
@@ -153,7 +174,6 @@ function goProfile() {
   feed.innerHTML = `
     <div class="panel">
       <h2>Profile</h2>
-
       <p>${state.profile?.username || ""}</p>
       <p>${state.profile?.bio || ""}</p>
       <p>Role: ${state.profile?.role || "user"}</p>
@@ -161,52 +181,59 @@ function goProfile() {
   `;
 }
 
-// ================= EARN (CLIENT ONLY DISPLAY) =================
+// ================= EARN =================
 function goEarn() {
   const feed = el.feed();
 
   feed.innerHTML = `
     <div class="panel">
       <h2>Earn System</h2>
-      <button onclick="fakeEarn()">Test Earn</button>
+      <button id="earnBtn">Test Earn</button>
       <p>K${state.earnings}</p>
     </div>
   `;
+
+  $("earnBtn").onclick = fakeEarn;
 }
 
-// ⚠️ IMPORTANT: earnings MUST be validated server-side later
 function fakeEarn() {
   state.earnings += 10;
-  alert("Temporary client earn (NOT SECURE YET)");
+  alert("Temporary (not secure yet)");
 }
 
 // ================= ADMIN =================
 function goAdmin() {
-  requireAdmin();
+  try {
+    requireAdmin();
 
-  el.feed().innerHTML = `
-    <div class="panel">
-      <h2>Admin Panel</h2>
-      <button onclick="adminUsers()">Users</button>
-      <button onclick="adminPosts()">Posts</button>
-    </div>
-  `;
+    el.feed().innerHTML = `
+      <div class="panel">
+        <h2>Admin Panel</h2>
+        <button id="usersBtn">Users</button>
+      </div>
+    `;
+
+    $("usersBtn").onclick = adminUsers;
+
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 async function adminUsers() {
-  requireAdmin();
+  safe(async () => {
+    requireAdmin();
 
-  const { data } = await db.from("profiles").select("*");
+    const { data } = await db.from("profiles").select("*");
 
-  const feed = el.feed();
-  feed.innerHTML = "<h2>Users</h2>";
+    const feed = el.feed();
+    feed.innerHTML = "<h2>Users</h2>";
 
-  (data || []).forEach(u => {
-    const div = document.createElement("div");
-    div.innerHTML = `
-      <p>${u.username} (${u.role})</p>
-    `;
-    feed.appendChild(div);
+    (data || []).forEach(u => {
+      const div = document.createElement("div");
+      div.innerHTML = `<p>${u.username} (${u.role})</p>`;
+      feed.appendChild(div);
+    });
   });
 }
 
@@ -218,7 +245,7 @@ function goHome() {
 // ================= UI =================
 function showApp() {
   document.querySelector(".auth").style.display = "none";
-  $("app").style.display = "block";
+  $("app").style.display = "flex";
 }
 
 // ================= INIT =================
