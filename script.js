@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI FULL LOCKDOWN CLIENT v2 (STABLE)
+// KUDASAI v3 — TASK + WALLET ENGINE
 // ========================================
 
 const { createClient } = supabase;
@@ -14,83 +14,56 @@ const state = {
   user: null,
   profile: null,
   posts: [],
-  earnings: 0,
-  isAdmin: false
+  balance: 0,
+  isAdmin: false,
+  lastEarnTime: 0
 };
 
-// ================= SAFE DOM =================
+// ================= SAFE =================
 const $ = (id) => document.getElementById(id);
 
-const el = {
-  email: () => $("email"),
-  password: () => $("password"),
-  feed: () => $("feed")
-};
-
-// ================= SAFE EXEC =================
-async function safe(fn) {
-  try {
-    await fn();
-  } catch (err) {
-    console.error(err);
-    alert(err.message || "Something broke");
-  }
-}
-
-// ================= GUARDS =================
-function requireUser() {
-  if (!state.user) throw new Error("Login required");
-}
-
-function requireAdmin() {
-  if (!state.isAdmin) throw new Error("Admin only");
+function safe(fn) {
+  return async (...args) => {
+    try {
+      await fn(...args);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Error");
+    }
+  };
 }
 
 // ================= AUTH =================
-async function login() {
-  safe(async () => {
-    const email = el.email()?.value?.trim();
-    const password = el.password()?.value?.trim();
+const login = safe(async () => {
+  const email = $("email").value.trim();
+  const password = $("password").value.trim();
 
-    if (!email || !password) throw new Error("Missing fields");
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
+  if (error) throw error;
 
-    const { data, error } = await db.auth.signInWithPassword({
-      email,
-      password
-    });
+  state.user = data.user;
+  await bootstrap();
+});
 
-    if (error) throw error;
+const signup = safe(async () => {
+  const email = $("email").value.trim();
+  const password = $("password").value.trim();
 
-    state.user = data.user;
+  const { error } = await db.auth.signUp({ email, password });
+  if (error) throw error;
 
-    await bootstrap();
-  });
-}
+  alert("Check your email to confirm");
+});
 
-async function signup() {
-  safe(async () => {
-    const email = el.email()?.value?.trim();
-    const password = el.password()?.value?.trim();
-
-    const { error } = await db.auth.signUp({ email, password });
-
-    if (error) throw error;
-
-    alert("Check email to confirm account");
-  });
-}
-
-// ================= BOOTSTRAP =================
+// ================= BOOT =================
 async function bootstrap() {
   await loadProfile();
   showApp();
   await loadFeed();
 }
 
-// ================= PROFILE =================
+// ================= PROFILE + WALLET =================
 async function loadProfile() {
-  requireUser();
-
   const { data } = await db
     .from("profiles")
     .select("*")
@@ -104,35 +77,30 @@ async function loadProfile() {
       user_id: state.user.id,
       username,
       role: "user",
-      bio: ""
+      balance: 0
     }]);
 
-    state.profile = { username, role: "user", bio: "" };
+    state.profile = { username, role: "user", balance: 0 };
   } else {
     state.profile = data;
+    state.balance = data.balance || 0;
     state.isAdmin = data.role === "admin";
   }
 }
 
 // ================= FEED =================
 async function loadFeed() {
-  safe(async () => {
-    const { data, error } = await db.from("posts").select("*");
+  const { data } = await db.from("posts").select("*");
 
-    if (error) throw error;
+  state.posts = (data || []).sort(
+    (a, b) => (b.likes || 0) - (a.likes || 0)
+  );
 
-    state.posts = (data || []).sort(
-      (a, b) => (b.likes || 0) - (a.likes || 0)
-    );
-
-    renderFeed();
-  });
+  renderFeed();
 }
 
 function renderFeed() {
-  const feed = el.feed();
-  if (!feed) return;
-
+  const feed = $("feed");
   feed.innerHTML = "";
 
   state.posts.forEach(p => {
@@ -142,7 +110,7 @@ function renderFeed() {
     div.innerHTML = `
       <b>${p.user_id}</b>
       <p>${p.content}</p>
-      <button data-id="${p.id}" class="likeBtn">❤️</button>
+      <button class="likeBtn" data-id="${p.id}">❤️</button>
     `;
 
     feed.appendChild(div);
@@ -154,88 +122,106 @@ function renderFeed() {
 }
 
 // ================= LIKE =================
-async function like(postId) {
-  safe(async () => {
-    requireUser();
+const like = safe(async (id) => {
+  await db.from("likes").insert([{
+    post_id: id,
+    user_id: state.user.id
+  }]);
 
-    await db.from("likes").insert([{
-      post_id: postId,
-      user_id: state.user.id
-    }]);
+  loadFeed();
+});
 
-    loadFeed();
-  });
-}
-
-// ================= PROFILE UI =================
-function goProfile() {
-  const feed = el.feed();
-
-  feed.innerHTML = `
-    <div class="panel">
-      <h2>Profile</h2>
-      <p>${state.profile?.username || ""}</p>
-      <p>${state.profile?.bio || ""}</p>
-      <p>Role: ${state.profile?.role || "user"}</p>
-    </div>
-  `;
-}
-
-// ================= EARN =================
+// ================= TASK SYSTEM =================
 function goEarn() {
-  const feed = el.feed();
+  const feed = $("feed");
 
   feed.innerHTML = `
     <div class="panel">
-      <h2>Earn System</h2>
-      <button id="earnBtn">Test Earn</button>
-      <p>K${state.earnings}</p>
+      <h2>Earn K Currency</h2>
+
+      <button id="taskAd">Watch Ad (+K50)</button>
+      <button id="taskSurvey">Survey (+K100)</button>
+
+      <p>Your Balance: <b>K${state.balance}</b></p>
     </div>
   `;
 
-  $("earnBtn").onclick = fakeEarn;
+  $("taskAd").onclick = watchAd;
+  $("taskSurvey").onclick = doSurvey;
 }
 
-function fakeEarn() {
-  state.earnings += 10;
-  alert("Temporary (not secure yet)");
+// 🛡️ BASIC ANTI-CHEAT
+function canEarn() {
+  const now = Date.now();
+  if (now - state.lastEarnTime < 10000) {
+    alert("Too fast — wait 10 seconds");
+    return false;
+  }
+  state.lastEarnTime = now;
+  return true;
+}
+
+// 💰 WATCH AD
+const watchAd = safe(async () => {
+  if (!canEarn()) return;
+
+  await updateBalance(50);
+  alert("+K50 earned");
+  goEarn();
+});
+
+// 💰 SURVEY
+const doSurvey = safe(async () => {
+  if (!canEarn()) return;
+
+  await updateBalance(100);
+  alert("+K100 earned");
+  goEarn();
+});
+
+// ================= WALLET UPDATE =================
+async function updateBalance(amount) {
+  state.balance += amount;
+
+  await db
+    .from("profiles")
+    .update({ balance: state.balance })
+    .eq("user_id", state.user.id);
+}
+
+// ================= PROFILE =================
+function goProfile() {
+  const feed = $("feed");
+
+  feed.innerHTML = `
+    <div class="panel">
+      <h2>${state.profile.username}</h2>
+      <p>Balance: K${state.balance}</p>
+      <p>Role: ${state.profile.role}</p>
+    </div>
+  `;
 }
 
 // ================= ADMIN =================
 function goAdmin() {
-  try {
-    requireAdmin();
+  if (!state.isAdmin) return alert("Not admin");
 
-    el.feed().innerHTML = `
-      <div class="panel">
-        <h2>Admin Panel</h2>
-        <button id="usersBtn">Users</button>
-      </div>
-    `;
+  const feed = $("feed");
 
-    $("usersBtn").onclick = adminUsers;
+  feed.innerHTML = `
+    <div class="panel">
+      <h2>Admin Control</h2>
+      <button id="resetMoney">Reset All Balances</button>
+    </div>
+  `;
 
-  } catch (err) {
-    alert(err.message);
-  }
+  $("resetMoney").onclick = resetEconomy;
 }
 
-async function adminUsers() {
-  safe(async () => {
-    requireAdmin();
-
-    const { data } = await db.from("profiles").select("*");
-
-    const feed = el.feed();
-    feed.innerHTML = "<h2>Users</h2>";
-
-    (data || []).forEach(u => {
-      const div = document.createElement("div");
-      div.innerHTML = `<p>${u.username} (${u.role})</p>`;
-      feed.appendChild(div);
-    });
-  });
-}
+const resetEconomy = safe(async () => {
+  await db.from("profiles").update({ balance: 0 });
+  alert("Economy reset");
+});
 
 // ================= NAV =================
 function goHome() {
