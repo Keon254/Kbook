@@ -3,224 +3,47 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KUDASAI GOD MODE</title>
+<title>KUDASAI</title>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-
-<style>
-
-/* ================= ROOT ================= */
-:root {
-  --bg: radial-gradient(circle at top, #0a0a0a, #000);
-  --glass: rgba(255,255,255,0.05);
-  --border: rgba(255,255,255,0.08);
-  --text: #fff;
-  --muted: rgba(255,255,255,0.6);
-  --accent: #ffffff;
-}
-
-/* ================= BASE ================= */
-body {
-  margin: 0;
-  font-family: Inter, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-}
-
-/* ================= AUTH ================= */
-.auth {
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.box {
-  width: 320px;
-  padding: 30px;
-  border-radius: 20px;
-  background: var(--glass);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--border);
-  text-align: center;
-  box-shadow: 0 0 40px rgba(255,255,255,0.05);
-  animation: fadeIn 0.5s ease;
-}
-
-.box h2 {
-  margin-bottom: 20px;
-  letter-spacing: 1px;
-}
-
-/* INPUTS */
-.box input {
-  width: 100%;
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 12px;
-  border: none;
-  background: #111;
-  color: white;
-  outline: none;
-  transition: 0.2s;
-}
-
-.box input:focus {
-  background: #1a1a1a;
-}
-
-/* BUTTONS */
-.box button {
-  width: 100%;
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 12px;
-  border: none;
-  font-weight: bold;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-#signupBtn {
-  background: white;
-  color: black;
-}
-
-#loginEmailBtn {
-  background: #222;
-  color: white;
-}
-
-.box button:hover {
-  transform: translateY(-2px);
-}
-
-/* ================= APP ================= */
-#app {
-  display: none;
-  height: 100vh;
-  flex-direction: column;
-}
-
-/* ================= HEADER ================= */
-.header {
-  position: fixed;
-  top: 0;
-  width: 100%;
-  padding: 16px;
-  background: rgba(0,0,0,0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid #222;
-  font-weight: bold;
-  letter-spacing: 1px;
-  z-index: 10;
-}
-
-/* ================= FEED ================= */
-.feed {
-  flex: 1;
-  margin-top: 70px;
-  margin-bottom: 90px;
-  padding: 15px;
-  overflow-y: auto;
-}
-
-/* POST */
-.post {
-  background: var(--glass);
-  border: 1px solid var(--border);
-  padding: 15px;
-  border-radius: 16px;
-  margin-bottom: 14px;
-  transition: 0.25s;
-}
-
-.post:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 0 30px rgba(255,255,255,0.08);
-}
-
-/* ACTIONS */
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.actions button {
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: none;
-  background: #111;
-  color: white;
-  cursor: pointer;
-}
-
-/* ================= NAV ================= */
-.nav {
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  display: flex;
-  justify-content: space-around;
-  padding: 14px;
-  background: rgba(0,0,0,0.9);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid #222;
-  font-size: 20px;
-}
-
-.nav div {
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.nav div:hover {
-  transform: scale(1.2);
-}
-
-/* ================= PANEL ================= */
-.panel {
-  padding: 20px;
-  background: var(--glass);
-  border-radius: 16px;
-  border: 1px solid var(--border);
-}
-
-/* ================= ANIMATION ================= */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
 <!-- AUTH -->
-<div class="auth">
-  <div class="box">
-    <h2>KUDASAI</h2>
+<div class="auth" id="auth">
+  <div class="auth-box">
+    <h1>KUDASAI</h1>
 
     <input id="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
 
-    <button id="signupBtn">Signup</button>
-    <button id="loginEmailBtn">Login</button>
+    <button id="signupBtn">Create Account</button>
+    <button id="loginBtn">Login</button>
+
+    <p class="small">No stress — login optional system coming</p>
   </div>
 </div>
 
 <!-- APP -->
 <div id="app">
 
-  <div class="header">KUDASAI</div>
+  <div class="header">
+    <span>KUDASAI</span>
+    <span id="userTag"></span>
+  </div>
 
   <div id="feed" class="feed"></div>
 
+  <div class="composer">
+    <input id="postInput" placeholder="Post anything...">
+    <button id="postBtn">➤</button>
+  </div>
+
   <div class="nav">
     <div onclick="goHome()">🏠</div>
-    <div onclick="goEarn()">💰</div>
+    <div onclick="goTasks()">💰</div>
     <div onclick="goProfile()">👤</div>
     <div onclick="goAdmin()">⚙️</div>
   </div>
@@ -228,6 +51,5 @@ body {
 </div>
 
 <script src="script.js"></script>
-
 </body>
 </html>
