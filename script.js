@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI v3 — TASK + WALLET ENGINE
+// KUDASAI v3 — FIXED CORE ENGINE
 // ========================================
 
 const { createClient } = supabase;
@@ -38,10 +38,16 @@ const login = safe(async () => {
   const email = $("email").value.trim();
   const password = $("password").value.trim();
 
+  if (!email || !password) {
+    return alert("Enter email and password");
+  }
+
   const { data, error } = await db.auth.signInWithPassword({ email, password });
+
   if (error) throw error;
 
   state.user = data.user;
+
   await bootstrap();
 });
 
@@ -49,10 +55,15 @@ const signup = safe(async () => {
   const email = $("email").value.trim();
   const password = $("password").value.trim();
 
+  if (!email || !password) {
+    return alert("Fill all fields");
+  }
+
   const { error } = await db.auth.signUp({ email, password });
+
   if (error) throw error;
 
-  alert("Check your email to confirm");
+  alert("Signup successful. If login fails, disable email confirmation in Supabase.");
 });
 
 // ================= BOOT =================
@@ -62,7 +73,7 @@ async function bootstrap() {
   await loadFeed();
 }
 
-// ================= PROFILE + WALLET =================
+// ================= PROFILE =================
 async function loadProfile() {
   const { data } = await db
     .from("profiles")
@@ -81,6 +92,7 @@ async function loadProfile() {
     }]);
 
     state.profile = { username, role: "user", balance: 0 };
+    state.balance = 0;
   } else {
     state.profile = data;
     state.balance = data.balance || 0;
@@ -90,7 +102,9 @@ async function loadProfile() {
 
 // ================= FEED =================
 async function loadFeed() {
-  const { data } = await db.from("posts").select("*");
+  const { data, error } = await db.from("posts").select("*");
+
+  if (error) return alert(error.message);
 
   state.posts = (data || []).sort(
     (a, b) => (b.likes || 0) - (a.likes || 0)
@@ -123,6 +137,8 @@ function renderFeed() {
 
 // ================= LIKE =================
 const like = safe(async (id) => {
+  if (!state.user) return alert("Login first");
+
   await db.from("likes").insert([{
     post_id: id,
     user_id: state.user.id
@@ -132,7 +148,7 @@ const like = safe(async (id) => {
 });
 
 // ================= TASK SYSTEM =================
-function goEarn() {
+function goTasks() {
   const feed = $("feed");
 
   feed.innerHTML = `
@@ -150,36 +166,35 @@ function goEarn() {
   $("taskSurvey").onclick = doSurvey;
 }
 
-// 🛡️ BASIC ANTI-CHEAT
+// 🛡️ ANTI-CHEAT
 function canEarn() {
   const now = Date.now();
   if (now - state.lastEarnTime < 10000) {
-    alert("Too fast — wait 10 seconds");
+    alert("Wait 10 seconds");
     return false;
   }
   state.lastEarnTime = now;
   return true;
 }
 
-// 💰 WATCH AD
+// 💰 TASKS
 const watchAd = safe(async () => {
   if (!canEarn()) return;
 
   await updateBalance(50);
-  alert("+K50 earned");
-  goEarn();
+  alert("+K50");
+  goTasks();
 });
 
-// 💰 SURVEY
 const doSurvey = safe(async () => {
   if (!canEarn()) return;
 
   await updateBalance(100);
-  alert("+K100 earned");
-  goEarn();
+  alert("+K100");
+  goTasks();
 });
 
-// ================= WALLET UPDATE =================
+// ================= WALLET =================
 async function updateBalance(amount) {
   state.balance += amount;
 
@@ -195,9 +210,9 @@ function goProfile() {
 
   feed.innerHTML = `
     <div class="panel">
-      <h2>${state.profile.username}</h2>
+      <h2>${state.profile?.username || "User"}</h2>
       <p>Balance: K${state.balance}</p>
-      <p>Role: ${state.profile.role}</p>
+      <p>Role: ${state.profile?.role || "user"}</p>
     </div>
   `;
 }
@@ -206,12 +221,10 @@ function goProfile() {
 function goAdmin() {
   if (!state.isAdmin) return alert("Not admin");
 
-  const feed = $("feed");
-
-  feed.innerHTML = `
+  $("feed").innerHTML = `
     <div class="panel">
-      <h2>Admin Control</h2>
-      <button id="resetMoney">Reset All Balances</button>
+      <h2>Admin</h2>
+      <button id="resetMoney">Reset Balances</button>
     </div>
   `;
 
@@ -220,7 +233,7 @@ function goAdmin() {
 
 const resetEconomy = safe(async () => {
   await db.from("profiles").update({ balance: 0 });
-  alert("Economy reset");
+  alert("All balances reset");
 });
 
 // ================= NAV =================
@@ -236,7 +249,7 @@ function showApp() {
 
 // ================= INIT =================
 document.addEventListener("DOMContentLoaded", async () => {
-  $("loginEmailBtn").onclick = login;
+  $("loginBtn").onclick = login;     // ✅ FIXED
   $("signupBtn").onclick = signup;
 
   const { data } = await db.auth.getSession();
