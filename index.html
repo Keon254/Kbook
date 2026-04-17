@@ -6,7 +6,7 @@
 <title>KUDASAI</title>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="/Kbook/css/style.css">
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
@@ -21,31 +21,35 @@
 
     <button id="signupBtn">Create Account</button>
     <button id="loginBtn">Login</button>
-
-    <p class="small">No stress — login optional system coming</p>
   </div>
 </div>
 
 <!-- APP -->
 <div id="app">
 
+  <!-- HEADER -->
   <div class="header">
-    <span>KUDASAI</span>
-    <span id="userTag"></span>
+    <div>
+      <strong id="username"></strong><br>
+      <span id="balance"></span>
+    </div>
   </div>
 
+  <!-- FEED -->
   <div id="feed" class="feed"></div>
 
+  <!-- COMPOSER -->
   <div class="composer">
-    <input id="postInput" placeholder="Post anything...">
+    <input id="postInput" placeholder="Say something...">
     <button id="postBtn">➤</button>
   </div>
 
+  <!-- NAV -->
   <div class="nav">
-    <div onclick="goHome()">🏠</div>
-    <div onclick="goTasks()">💰</div>
-    <div onclick="goProfile()">👤</div>
-    <div onclick="goAdmin()">⚙️</div>
+    <button onclick="goHome()">🏠</button>
+    <button onclick="goTasks()">💰</button>
+    <button onclick="goProfile()">👤</button>
+    <button onclick="goAdmin()">⚙️</button>
   </div>
 
 </div>
