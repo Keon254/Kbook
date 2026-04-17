@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI v3 — FIXED CORE ENGINE
+// KUDASAI STAGE 1 — CORE ENGINE (FULL)
 // ========================================
 
 const { createClient } = supabase;
@@ -9,17 +9,15 @@ const db = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4"
 );
 
-// ================= STATE =================
+// ===== STATE =====
 const state = {
   user: null,
   profile: null,
   posts: [],
-  balance: 0,
-  isAdmin: false,
-  lastEarnTime: 0
+  isAdmin: false
 };
 
-// ================= SAFE =================
+// ===== SAFE =====
 const $ = (id) => document.getElementById(id);
 
 function safe(fn) {
@@ -33,21 +31,17 @@ function safe(fn) {
   };
 }
 
-// ================= AUTH =================
+// ===== AUTH =====
 const login = safe(async () => {
   const email = $("email").value.trim();
   const password = $("password").value.trim();
 
-  if (!email || !password) {
-    return alert("Enter email and password");
-  }
+  if (!email || !password) return alert("Fill all fields");
 
   const { data, error } = await db.auth.signInWithPassword({ email, password });
-
   if (error) throw error;
 
   state.user = data.user;
-
   await bootstrap();
 });
 
@@ -55,25 +49,22 @@ const signup = safe(async () => {
   const email = $("email").value.trim();
   const password = $("password").value.trim();
 
-  if (!email || !password) {
-    return alert("Fill all fields");
-  }
-
   const { error } = await db.auth.signUp({ email, password });
-
   if (error) throw error;
 
-  alert("Signup successful. If login fails, disable email confirmation in Supabase.");
+  alert("Signup successful");
 });
 
-// ================= BOOT =================
+// ===== BOOT =====
 async function bootstrap() {
   await loadProfile();
   showApp();
   await loadFeed();
+
+  $("userTag").innerText = state.profile?.username || "";
 }
 
-// ================= PROFILE =================
+// ===== PROFILE =====
 async function loadProfile() {
   const { data } = await db
     .from("profiles")
@@ -82,37 +73,47 @@ async function loadProfile() {
     .maybeSingle();
 
   if (!data) {
-    const username = "user" + Math.floor(Math.random() * 9999);
+    const username = "user" + Math.floor(Math.random()*9999);
 
     await db.from("profiles").insert([{
       user_id: state.user.id,
-      username,
-      role: "user",
-      balance: 0
+      username
     }]);
 
-    state.profile = { username, role: "user", balance: 0 };
-    state.balance = 0;
+    state.profile = { username };
   } else {
     state.profile = data;
-    state.balance = data.balance || 0;
     state.isAdmin = data.role === "admin";
   }
 }
 
-// ================= FEED =================
+// ===== VIRAL RANK =====
+function rankPosts(posts) {
+  return posts.sort((a,b) => {
+    const scoreA = (a.likes || 0) + timeScore(a.created_at);
+    const scoreB = (b.likes || 0) + timeScore(b.created_at);
+    return scoreB - scoreA;
+  });
+}
+
+function timeScore(date) {
+  const hours = (Date.now() - new Date(date)) / 3600000;
+  return Math.max(0, 24 - hours);
+}
+
+// ===== LOAD FEED =====
 async function loadFeed() {
-  const { data, error } = await db.from("posts").select("*");
+  const { data, error } = await db
+    .from("posts")
+    .select(`*, profiles(username)`);
 
-  if (error) return alert(error.message);
+  if (error) throw error;
 
-  state.posts = (data || []).sort(
-    (a, b) => (b.likes || 0) - (a.likes || 0)
-  );
-
+  state.posts = rankPosts(data || []);
   renderFeed();
 }
 
+// ===== RENDER =====
 function renderFeed() {
   const feed = $("feed");
   feed.innerHTML = "";
@@ -122,9 +123,15 @@ function renderFeed() {
     div.className = "post";
 
     div.innerHTML = `
-      <b>${p.user_id}</b>
-      <p>${p.content}</p>
-      <button class="likeBtn" data-id="${p.id}">❤️</button>
+      <b>${p.profiles?.username || "user"}</b>
+      <p>${escapeHTML(p.content)}</p>
+      <small>${new Date(p.created_at).toLocaleString()}</small>
+
+      <div class="actions">
+        <button class="likeBtn" data-id="${p.id}">
+          ❤️ ${p.likes || 0}
+        </button>
+      </div>
     `;
 
     feed.appendChild(div);
@@ -135,125 +142,73 @@ function renderFeed() {
   });
 }
 
-// ================= LIKE =================
+// ===== CREATE POST =====
+const createPost = safe(async () => {
+  const content = $("postInput").value.trim();
+  if (!content) return alert("Write something");
+
+  await db.from("posts").insert([{
+    content,
+    user_id: state.user.id,
+    likes: 0,
+    created_at: new Date()
+  }]);
+
+  $("postInput").value = "";
+  loadFeed();
+});
+
+// ===== LIKE =====
 const like = safe(async (id) => {
-  if (!state.user) return alert("Login first");
+  const { data: existing } = await db
+    .from("likes")
+    .select("*")
+    .eq("post_id", id)
+    .eq("user_id", state.user.id)
+    .maybeSingle();
+
+  if (existing) return alert("Already liked");
 
   await db.from("likes").insert([{
     post_id: id,
     user_id: state.user.id
   }]);
 
+  const post = state.posts.find(p => p.id === id);
+  await db.from("posts")
+    .update({ likes: (post.likes || 0) + 1 })
+    .eq("id", id);
+
   loadFeed();
 });
 
-// ================= TASK SYSTEM =================
-function goTasks() {
-  const feed = $("feed");
+// ===== NAV =====
+function goHome(){ loadFeed(); }
+function goTasks(){ alert("Next stage"); }
+function goProfile(){ alert("Next stage"); }
+function goAdmin(){ alert("Admin stage"); }
 
-  feed.innerHTML = `
-    <div class="panel">
-      <h2>Earn K Currency</h2>
-
-      <button id="taskAd">Watch Ad (+K50)</button>
-      <button id="taskSurvey">Survey (+K100)</button>
-
-      <p>Your Balance: <b>K${state.balance}</b></p>
-    </div>
-  `;
-
-  $("taskAd").onclick = watchAd;
-  $("taskSurvey").onclick = doSurvey;
-}
-
-// 🛡️ ANTI-CHEAT
-function canEarn() {
-  const now = Date.now();
-  if (now - state.lastEarnTime < 10000) {
-    alert("Wait 10 seconds");
-    return false;
-  }
-  state.lastEarnTime = now;
-  return true;
-}
-
-// 💰 TASKS
-const watchAd = safe(async () => {
-  if (!canEarn()) return;
-
-  await updateBalance(50);
-  alert("+K50");
-  goTasks();
-});
-
-const doSurvey = safe(async () => {
-  if (!canEarn()) return;
-
-  await updateBalance(100);
-  alert("+K100");
-  goTasks();
-});
-
-// ================= WALLET =================
-async function updateBalance(amount) {
-  state.balance += amount;
-
-  await db
-    .from("profiles")
-    .update({ balance: state.balance })
-    .eq("user_id", state.user.id);
-}
-
-// ================= PROFILE =================
-function goProfile() {
-  const feed = $("feed");
-
-  feed.innerHTML = `
-    <div class="panel">
-      <h2>${state.profile?.username || "User"}</h2>
-      <p>Balance: K${state.balance}</p>
-      <p>Role: ${state.profile?.role || "user"}</p>
-    </div>
-  `;
-}
-
-// ================= ADMIN =================
-function goAdmin() {
-  if (!state.isAdmin) return alert("Not admin");
-
-  $("feed").innerHTML = `
-    <div class="panel">
-      <h2>Admin</h2>
-      <button id="resetMoney">Reset Balances</button>
-    </div>
-  `;
-
-  $("resetMoney").onclick = resetEconomy;
-}
-
-const resetEconomy = safe(async () => {
-  await db.from("profiles").update({ balance: 0 });
-  alert("All balances reset");
-});
-
-// ================= NAV =================
-function goHome() {
-  loadFeed();
-}
-
-// ================= UI =================
+// ===== UI =====
 function showApp() {
   document.querySelector(".auth").style.display = "none";
   $("app").style.display = "flex";
 }
 
-// ================= INIT =================
+// ===== SECURITY =====
+function escapeHTML(str){
+  return str.replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",
+    '"':"&quot;","'":"&#39;"
+  }[m]));
+}
+
+// ===== INIT =====
 document.addEventListener("DOMContentLoaded", async () => {
-  $("loginBtn").onclick = login;     // ✅ FIXED
+  $("loginBtn").onclick = login;
   $("signupBtn").onclick = signup;
+  $("postBtn").onclick = createPost;
 
   const { data } = await db.auth.getSession();
-
   if (data?.session?.user) {
     state.user = data.session.user;
     await bootstrap();
