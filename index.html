@@ -8,7 +8,6 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 <style>
-/* ===== GOD MODE UI ===== */
 :root {
   --bg: radial-gradient(circle at top, #0a0a0a, #000);
   --glass: rgba(255,255,255,0.05);
@@ -58,7 +57,6 @@ body {
   padding: 12px;
   border-radius: 10px;
   border: none;
-  cursor: pointer;
   font-weight: bold;
 }
 
@@ -77,7 +75,6 @@ body {
   width: 100%;
   padding: 15px;
   background: rgba(0,0,0,0.8);
-  border-bottom: 1px solid #222;
   display: flex;
   justify-content: space-between;
 }
@@ -92,41 +89,51 @@ body {
   margin-right: auto;
 }
 
-.post {
+/* PROFILE */
+.profile-card {
   background: var(--glass);
   border: 1px solid var(--border);
-  padding: 15px;
-  border-radius: 15px;
-  margin-bottom: 12px;
+  padding: 20px;
+  border-radius: 20px;
+  text-align: center;
 }
 
-.actions {
+.avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 10px;
+  border: 2px solid white;
+}
+
+.stats {
+  display: flex;
+  justify-content: space-around;
   margin-top: 10px;
 }
 
-/* COMPOSER */
-.composer {
-  position: fixed;
-  bottom: 70px;
-  width: 100%;
-  display: flex;
-  justify-content: center;
+.stat {
+  text-align: center;
 }
 
-.composer input {
-  width: 60%;
-  padding: 12px;
-  border-radius: 10px 0 0 10px;
+.edit-box input {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
   border: none;
   background: #111;
   color: white;
 }
 
-.composer button {
-  padding: 12px;
-  border-radius: 0 10px 10px 0;
+.edit-box button {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
   border: none;
   background: white;
+  color: black;
 }
 
 /* NAV */
@@ -138,7 +145,6 @@ body {
   justify-content: space-around;
   padding: 12px;
   background: #111;
-  border-top: 1px solid #222;
 }
 </style>
 </head>
@@ -156,7 +162,6 @@ body {
 </div>
 
 <div id="app">
-
   <div class="header">
     <span>KUDASAI</span>
     <span id="userTag"></span>
@@ -164,18 +169,10 @@ body {
 
   <div id="feed" class="feed"></div>
 
-  <div class="composer">
-    <input id="postInput" placeholder="Post something...">
-    <button id="postBtn">➤</button>
-  </div>
-
   <div class="nav">
     <div onclick="goHome()">🏠</div>
-    <div onclick="goTasks()">💰</div>
     <div onclick="goProfile()">👤</div>
-    <div onclick="goAdmin()">⚙️</div>
   </div>
-
 </div>
 
 <script src="script.js"></script>
