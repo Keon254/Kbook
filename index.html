@@ -6,50 +6,174 @@
 <title>KUDASAI</title>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="style.css">
+
+<style>
+/* ===== GOD MODE UI ===== */
+:root {
+  --bg: radial-gradient(circle at top, #0a0a0a, #000);
+  --glass: rgba(255,255,255,0.05);
+  --border: rgba(255,255,255,0.08);
+  --text: #fff;
+  --muted: rgba(255,255,255,0.6);
+}
+
+body {
+  margin: 0;
+  font-family: Inter, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* AUTH */
+.auth {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.auth-box {
+  width: 340px;
+  padding: 30px;
+  border-radius: 20px;
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.auth-box input {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: #111;
+  color: white;
+}
+
+.auth-box button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* APP */
+#app {
+  display: none;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HEADER */
+.header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  padding: 15px;
+  background: rgba(0,0,0,0.8);
+  border-bottom: 1px solid #222;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* FEED */
+.feed {
+  margin-top: 60px;
+  margin-bottom: 120px;
+  padding: 12px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.post {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  padding: 15px;
+  border-radius: 15px;
+  margin-bottom: 12px;
+}
+
+.actions {
+  margin-top: 10px;
+}
+
+/* COMPOSER */
+.composer {
+  position: fixed;
+  bottom: 70px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.composer input {
+  width: 60%;
+  padding: 12px;
+  border-radius: 10px 0 0 10px;
+  border: none;
+  background: #111;
+  color: white;
+}
+
+.composer button {
+  padding: 12px;
+  border-radius: 0 10px 10px 0;
+  border: none;
+  background: white;
+}
+
+/* NAV */
+.nav {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  padding: 12px;
+  background: #111;
+  border-top: 1px solid #222;
+}
+</style>
 </head>
 
 <body>
 
-<!-- AUTH -->
-<div class="auth" id="auth">
+<div class="auth">
   <div class="auth-box">
-    <h1>KUDASAI</h1>
-
+    <h2>KUDASAI</h2>
     <input id="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
-
-    <button id="signupBtn">Create Account</button>
+    <button id="signupBtn">Signup</button>
     <button id="loginBtn">Login</button>
   </div>
 </div>
 
-<!-- APP -->
 <div id="app">
 
-  <!-- HEADER -->
   <div class="header">
-    <div>
-      <strong id="username"></strong><br>
-      <span id="balance"></span>
-    </div>
+    <span>KUDASAI</span>
+    <span id="userTag"></span>
   </div>
 
-  <!-- FEED -->
   <div id="feed" class="feed"></div>
 
-  <!-- COMPOSER -->
   <div class="composer">
-    <input id="postInput" placeholder="Say something...">
+    <input id="postInput" placeholder="Post something...">
     <button id="postBtn">➤</button>
   </div>
 
-  <!-- NAV -->
   <div class="nav">
-    <button onclick="goHome()">🏠</button>
-    <button onclick="goTasks()">💰</button>
-    <button onclick="goProfile()">👤</button>
-    <button onclick="goAdmin()">⚙️</button>
+    <div onclick="goHome()">🏠</div>
+    <div onclick="goTasks()">💰</div>
+    <div onclick="goProfile()">👤</div>
+    <div onclick="goAdmin()">⚙️</div>
   </div>
 
 </div>
