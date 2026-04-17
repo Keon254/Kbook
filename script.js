@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI STAGE 1 — CORE ENGINE (FULL)
+// KUDASAI STAGE 2 — PROFILE SYSTEM
 // ========================================
 
 const { createClient } = supabase;
@@ -9,62 +9,46 @@ const db = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4"
 );
 
-// ===== STATE =====
 const state = {
   user: null,
   profile: null,
-  posts: [],
-  isAdmin: false
+  posts: []
 };
 
-// ===== SAFE =====
 const $ = (id) => document.getElementById(id);
 
-function safe(fn) {
-  return async (...args) => {
-    try {
-      await fn(...args);
-    } catch (err) {
-      console.error(err);
-      alert(err.message || "Error");
-    }
-  };
-}
-
 // ===== AUTH =====
-const login = safe(async () => {
-  const email = $("email").value.trim();
-  const password = $("password").value.trim();
+async function login() {
+  const { data, error } = await db.auth.signInWithPassword({
+    email: $("email").value,
+    password: $("password").value
+  });
 
-  if (!email || !password) return alert("Fill all fields");
-
-  const { data, error } = await db.auth.signInWithPassword({ email, password });
-  if (error) throw error;
+  if (error) return alert(error.message);
 
   state.user = data.user;
   await bootstrap();
-});
+}
 
-const signup = safe(async () => {
-  const email = $("email").value.trim();
-  const password = $("password").value.trim();
+async function signup() {
+  const { error } = await db.auth.signUp({
+    email: $("email").value,
+    password: $("password").value
+  });
 
-  const { error } = await db.auth.signUp({ email, password });
-  if (error) throw error;
+  if (error) return alert(error.message);
 
   alert("Signup successful");
-});
+}
 
 // ===== BOOT =====
 async function bootstrap() {
   await loadProfile();
   showApp();
-  await loadFeed();
-
-  $("userTag").innerText = state.profile?.username || "";
+  loadFeed();
 }
 
-// ===== PROFILE =====
+// ===== PROFILE LOAD =====
 async function loadProfile() {
   const { data } = await db
     .from("profiles")
@@ -77,116 +61,94 @@ async function loadProfile() {
 
     await db.from("profiles").insert([{
       user_id: state.user.id,
-      username
+      username,
+      bio: "",
+      avatar: ""
     }]);
 
-    state.profile = { username };
+    state.profile = { username, bio: "", avatar: "" };
   } else {
     state.profile = data;
-    state.isAdmin = data.role === "admin";
   }
 }
 
-// ===== VIRAL RANK =====
-function rankPosts(posts) {
-  return posts.sort((a,b) => {
-    const scoreA = (a.likes || 0) + timeScore(a.created_at);
-    const scoreB = (b.likes || 0) + timeScore(b.created_at);
-    return scoreB - scoreA;
-  });
-}
-
-function timeScore(date) {
-  const hours = (Date.now() - new Date(date)) / 3600000;
-  return Math.max(0, 24 - hours);
-}
-
-// ===== LOAD FEED =====
+// ===== FEED =====
 async function loadFeed() {
-  const { data, error } = await db
-    .from("posts")
-    .select(`*, profiles(username)`);
+  const { data } = await db.from("posts").select("*");
+  state.posts = data || [];
 
-  if (error) throw error;
-
-  state.posts = rankPosts(data || []);
-  renderFeed();
-}
-
-// ===== RENDER =====
-function renderFeed() {
   const feed = $("feed");
-  feed.innerHTML = "";
-
-  state.posts.forEach(p => {
-    const div = document.createElement("div");
-    div.className = "post";
-
-    div.innerHTML = `
-      <b>${p.profiles?.username || "user"}</b>
-      <p>${escapeHTML(p.content)}</p>
-      <small>${new Date(p.created_at).toLocaleString()}</small>
-
-      <div class="actions">
-        <button class="likeBtn" data-id="${p.id}">
-          ❤️ ${p.likes || 0}
-        </button>
-      </div>
-    `;
-
-    feed.appendChild(div);
-  });
-
-  document.querySelectorAll(".likeBtn").forEach(btn => {
-    btn.onclick = () => like(btn.dataset.id);
-  });
+  feed.innerHTML = "<h3>Feed coming next stage...</h3>";
 }
 
-// ===== CREATE POST =====
-const createPost = safe(async () => {
-  const content = $("postInput").value.trim();
-  if (!content) return alert("Write something");
+// ===== PROFILE UI =====
+async function goProfile() {
+  const feed = $("feed");
 
-  await db.from("posts").insert([{
-    content,
-    user_id: state.user.id,
-    likes: 0,
-    created_at: new Date()
-  }]);
+  const postCount = state.posts.filter(p => p.user_id === state.user.id).length;
 
-  $("postInput").value = "";
-  loadFeed();
-});
+  feed.innerHTML = `
+    <div class="profile-card">
 
-// ===== LIKE =====
-const like = safe(async (id) => {
-  const { data: existing } = await db
-    .from("likes")
-    .select("*")
-    .eq("post_id", id)
-    .eq("user_id", state.user.id)
-    .maybeSingle();
+      <img class="avatar"
+        src="${state.profile.avatar || 'https://via.placeholder.com/90'}">
 
-  if (existing) return alert("Already liked");
+      <h2>${state.profile.username}</h2>
+      <p>${state.profile.bio || "No bio yet"}</p>
 
-  await db.from("likes").insert([{
-    post_id: id,
-    user_id: state.user.id
-  }]);
+      <div class="stats">
+        <div class="stat">
+          <b>${postCount}</b>
+          <p>Posts</p>
+        </div>
+      </div>
 
-  const post = state.posts.find(p => p.id === id);
-  await db.from("posts")
-    .update({ likes: (post.likes || 0) + 1 })
-    .eq("id", id);
+      <div class="edit-box">
+        <input id="newName" placeholder="New username">
+        <input id="newBio" placeholder="New bio">
+        <input type="file" id="avatarUpload">
 
-  loadFeed();
-});
+        <button onclick="updateProfile()">Save</button>
+      </div>
 
-// ===== NAV =====
-function goHome(){ loadFeed(); }
-function goTasks(){ alert("Next stage"); }
-function goProfile(){ alert("Next stage"); }
-function goAdmin(){ alert("Admin stage"); }
+    </div>
+  `;
+}
+
+// ===== UPDATE PROFILE =====
+async function updateProfile() {
+  const username = $("newName").value.trim();
+  const bio = $("newBio").value.trim();
+  const file = $("avatarUpload").files[0];
+
+  let avatarUrl = state.profile.avatar;
+
+  // upload avatar
+  if (file) {
+    const filePath = `avatars/${state.user.id}_${Date.now()}`;
+
+    const { error: uploadError } = await db.storage
+      .from("avatars")
+      .upload(filePath, file);
+
+    if (uploadError) return alert(uploadError.message);
+
+    const { data } = db.storage.from("avatars").getPublicUrl(filePath);
+    avatarUrl = data.publicUrl;
+  }
+
+  await db.from("profiles")
+    .update({
+      username: username || state.profile.username,
+      bio: bio || state.profile.bio,
+      avatar: avatarUrl
+    })
+    .eq("user_id", state.user.id);
+
+  alert("Profile updated");
+  await loadProfile();
+  goProfile();
+}
 
 // ===== UI =====
 function showApp() {
@@ -194,21 +156,18 @@ function showApp() {
   $("app").style.display = "flex";
 }
 
-// ===== SECURITY =====
-function escapeHTML(str){
-  return str.replace(/[&<>"']/g, m => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",
-    '"':"&quot;","'":"&#39;"
-  }[m]));
+// ===== NAV =====
+function goHome() {
+  loadFeed();
 }
 
 // ===== INIT =====
 document.addEventListener("DOMContentLoaded", async () => {
   $("loginBtn").onclick = login;
   $("signupBtn").onclick = signup;
-  $("postBtn").onclick = createPost;
 
   const { data } = await db.auth.getSession();
+
   if (data?.session?.user) {
     state.user = data.session.user;
     await bootstrap();
