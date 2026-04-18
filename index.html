@@ -10,8 +10,9 @@
 <style>
 :root {
   --bg: radial-gradient(circle at top, #0a0a0a, #000);
-  --glass: rgba(255,255,255,0.05);
+  --glass: rgba(255,255,255,0.06);
   --border: rgba(255,255,255,0.08);
+  --accent: #ffffff;
 }
 
 body {
@@ -30,19 +31,24 @@ body {
 }
 
 .box {
-  width: 320px;
-  padding: 30px;
-  border-radius: 20px;
+  width: 340px;
+  padding: 35px;
+  border-radius: 22px;
   background: var(--glass);
-  border: 1px solid var(--border);
   backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+}
+
+.box h2 {
+  text-align: center;
+  margin-bottom: 20px;
 }
 
 .box input {
   width: 100%;
+  padding: 14px;
   margin-top: 12px;
-  padding: 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: none;
   background: #111;
   color: white;
@@ -51,10 +57,11 @@ body {
 .box button {
   width: 100%;
   margin-top: 12px;
-  padding: 12px;
-  border-radius: 10px;
+  padding: 14px;
+  border-radius: 12px;
   border: none;
   cursor: pointer;
+  background: linear-gradient(135deg,#fff,#bbb);
 }
 
 /* APP */
@@ -64,75 +71,101 @@ body {
   height: 100vh;
 }
 
+/* HEADER */
 .header {
   position: fixed;
   top: 0;
   width: 100%;
-  padding: 15px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
   background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid #222;
 }
 
+/* FEED */
 .feed {
   flex: 1;
-  margin-top: 60px;
-  margin-bottom: 100px;
+  margin-top: 70px;
+  margin-bottom: 110px;
   overflow-y: auto;
   padding: 12px;
 }
 
+/* POST CARD */
 .post {
   background: var(--glass);
   border: 1px solid var(--border);
-  padding: 15px;
-  border-radius: 15px;
-  margin-bottom: 12px;
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 14px;
+  transition: 0.2s;
 }
 
+.post:hover {
+  transform: translateY(-2px);
+}
+
+/* COMPOSER */
 .composer {
   position: fixed;
-  bottom: 70px;
+  bottom: 80px;
   width: 100%;
   display: flex;
-  padding: 10px;
   gap: 10px;
+  padding: 10px;
 }
 
 .composer input {
   flex: 1;
-  padding: 12px;
-  border-radius: 10px;
+  padding: 14px;
+  border-radius: 12px;
   border: none;
   background: #111;
   color: white;
 }
 
+/* NAV */
 .nav {
   position: fixed;
   bottom: 0;
   width: 100%;
   display: flex;
   justify-content: space-around;
-  padding: 12px;
-  background: #111;
+  padding: 14px;
+  background: rgba(0,0,0,0.9);
+  border-top: 1px solid #222;
+}
+
+/* BUTTON STYLE */
+.btn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: #222;
+  color: white;
+  cursor: pointer;
+}
+
+.highlight {
+  font-weight: bold;
 }
 </style>
 </head>
 
 <body>
 
-<!-- AUTH -->
 <div class="auth">
   <div class="box">
     <h2>KUDASAI</h2>
     <input id="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
-    <button id="signupBtn">Signup</button>
+    <button id="signupBtn">Create Account</button>
     <button id="loginBtn">Login</button>
   </div>
 </div>
 
-<!-- APP -->
 <div id="app">
 
   <div class="header">
@@ -143,7 +176,7 @@ body {
   <div id="feed" class="feed"></div>
 
   <div class="composer">
-    <input id="postInput" placeholder="Post something...">
+    <input id="postInput" placeholder="Say something...">
     <button id="postBtn">➤</button>
   </div>
 
