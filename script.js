@@ -1,6 +1,5 @@
 // ========================================
-// KUDASAI STAGE 4.5 — STABLE ENGINE
-// (UPGRADED, NOT DOWNGRADED)
+// KUDASAI STABLE ENGINE (FINAL CLEAN)
 // ========================================
 
 const { createClient } = supabase;
@@ -22,18 +21,18 @@ const state = {
 // ================= HELPERS =================
 const $ = id => document.getElementById(id);
 
-function safeAsync(fn) {
+function safe(fn) {
   return async (...args) => {
     try {
       await fn(...args);
     } catch (err) {
       console.error(err);
-      alert(err.message || "Something broke");
+      alert(err.message || "Error");
     }
   };
 }
 
-// ================= ANTI CHEAT =================
+// ================= COOLDOWN =================
 function cooldown(key, time) {
   const now = Date.now();
   if (state.lastAction[key] && now - state.lastAction[key] < time) {
@@ -45,11 +44,11 @@ function cooldown(key, time) {
 }
 
 // ================= AUTH =================
-const login = safeAsync(async () => {
+const login = safe(async () => {
   const email = $("email").value.trim();
   const password = $("password").value.trim();
 
-  if (!email || !password) return alert("Fill all fields");
+  if (!email || !password) return alert("Fill fields");
 
   const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) throw error;
@@ -58,14 +57,14 @@ const login = safeAsync(async () => {
   await bootstrap();
 });
 
-const signup = safeAsync(async () => {
+const signup = safe(async () => {
   const email = $("email").value.trim();
   const password = $("password").value.trim();
 
   const { error } = await db.auth.signUp({ email, password });
   if (error) throw error;
 
-  alert("Signup successful");
+  alert("Signup success");
 });
 
 // ================= BOOT =================
@@ -83,7 +82,6 @@ async function loadProfile() {
     .eq("user_id", state.user.id)
     .maybeSingle();
 
-  // 🔥 FIX: ensure profile always exists
   if (!data) {
     const username = "user" + Math.floor(Math.random() * 9999);
 
@@ -100,34 +98,28 @@ async function loadProfile() {
   }
 
   state.balance = state.profile.balance || 0;
-
   $("userTag").textContent = state.profile.username;
 }
 
 // ================= POSTS =================
-const createPost = safeAsync(async () => {
+const createPost = safe(async () => {
   if (!cooldown("post", 3000)) return;
 
   const text = $("postInput").value.trim();
   if (!text) return;
 
-  const { error } = await db.from("posts").insert([{
+  await db.from("posts").insert([{
     content: text,
     user_id: state.user.id
   }]);
 
-  if (error) throw error;
-
   $("postInput").value = "";
-  await loadFeed();
+  loadFeed();
 });
 
 async function loadFeed() {
-  const { data, error } = await db.from("posts").select("*");
+  const { data } = await db.from("posts").select("*");
 
-  if (error) return alert(error.message);
-
-  // 🔥 FIXED VIRAL LOGIC
   state.posts = (data || []).sort((a, b) => {
     const scoreA = (a.likes || 0) + new Date(a.created_at).getTime() / 10000000;
     const scoreB = (b.likes || 0) + new Date(b.created_at).getTime() / 10000000;
@@ -172,51 +164,43 @@ function renderFeed() {
 }
 
 // ================= LIKE =================
-const like = safeAsync(async (id) => {
+const like = safe(async (id) => {
   if (!cooldown("like", 2000)) return;
 
-  const { error } = await db.from("likes").insert([{
+  await db.from("likes").insert([{
     post_id: id,
     user_id: state.user.id
   }]);
 
-  if (error) throw error;
-
-  await loadFeed();
+  loadFeed();
 });
 
-// ================= EARN =================
+// ================= TASK =================
 function goTasks() {
   $("feed").innerHTML = `
     <div class="post">
-      <h2>Earn System</h2>
-      <button class="btn" id="earnBtn">Complete Task (+K10)</button>
-      <p><b>Balance:</b> K${state.balance}</p>
+      <h2>Earn</h2>
+      <button class="btn" onclick="earn()">+K10</button>
+      <p>Balance: K${state.balance}</p>
     </div>
   `;
-
-  $("earnBtn").onclick = earn;
 }
 
-const earn = safeAsync(async () => {
+const earn = safe(async () => {
   if (!cooldown("earn", 15000)) return;
-
-  const amount = 10;
 
   await db.from("transactions").insert([{
     user_id: state.user.id,
-    amount,
+    amount: 10,
     type: "task",
     status: "completed"
   }]);
 
-  const newBalance = state.balance + amount;
+  state.balance += 10;
 
   await db.from("profiles")
-    .update({ balance: newBalance })
+    .update({ balance: state.balance })
     .eq("user_id", state.user.id);
-
-  state.balance = newBalance;
 
   goTasks();
 });
@@ -224,8 +208,7 @@ const earn = safeAsync(async () => {
 // ================= PROFILE =================
 function goProfile() {
   $("feed").innerHTML = `
-    <div class="post profile">
-      <div class="avatar"></div>
+    <div class="post">
       <h2>${state.profile.username}</h2>
       <p>Balance: K${state.balance}</p>
       <p>Role: ${state.profile.role}</p>
