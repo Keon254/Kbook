@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI — STAGE 4 PART 1 (ANTI-CHEAT CORE)
+// KUDASAI STAGE 4 PART 2 — SECURE ENGINE
 // ========================================
 
 const { createClient } = supabase;
@@ -9,7 +9,6 @@ const db = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4"
 );
 
-// ================= STATE =================
 const state = {
   user: null,
   profile: null,
@@ -18,19 +17,9 @@ const state = {
   lastAction: {}
 };
 
-// ================= UTIL =================
 const $ = id => document.getElementById(id);
 
-function escapeHTML(str) {
-  return str.replace(/[&<>"']/g, m => ({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#39;"
-  }[m]));
-}
-
+// ================= ANTI CHEAT =================
 function cooldown(key, time) {
   const now = Date.now();
   if (state.lastAction[key] && now - state.lastAction[key] < time) {
@@ -43,10 +32,11 @@ function cooldown(key, time) {
 
 // ================= AUTH =================
 async function login() {
-  const email = $("email").value.trim();
-  const password = $("password").value.trim();
+  const { data, error } = await db.auth.signInWithPassword({
+    email: $("email").value,
+    password: $("password").value
+  });
 
-  const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) return alert(error.message);
 
   state.user = data.user;
@@ -54,13 +44,12 @@ async function login() {
 }
 
 async function signup() {
-  const email = $("email").value.trim();
-  const password = $("password").value.trim();
+  await db.auth.signUp({
+    email: $("email").value,
+    password: $("password").value
+  });
 
-  const { error } = await db.auth.signUp({ email, password });
-  if (error) return alert(error.message);
-
-  alert("Signup success");
+  alert("Account created");
 }
 
 // ================= BOOT =================
@@ -78,33 +67,18 @@ async function loadProfile() {
     .eq("user_id", state.user.id)
     .maybeSingle();
 
-  if (!data) {
-    const username = "user" + Math.floor(Math.random()*9999);
+  state.profile = data;
+  state.balance = data?.balance || 0;
 
-    await db.from("profiles").insert([{
-      user_id: state.user.id,
-      username,
-      balance: 0
-    }]);
-
-    state.profile = { username, balance: 0 };
-  } else {
-    state.profile = data;
-    state.balance = data.balance || 0;
-  }
-
-  $("userTag").textContent = state.profile.username;
+  $("userTag").textContent = data?.username;
 }
 
 // ================= POSTS =================
 async function createPost() {
   if (!cooldown("post", 3000)) return;
 
-  const text = $("postInput").value.trim();
-  if (!text) return;
-
   await db.from("posts").insert([{
-    content: text,
+    content: $("postInput").value,
     user_id: state.user.id
   }]);
 
@@ -115,10 +89,8 @@ async function createPost() {
 async function loadFeed() {
   const { data } = await db.from("posts").select("*");
 
-  state.posts = (data || []).sort((a,b)=>{
-    const scoreA = (a.likes || 0) + new Date(a.created_at).getTime()/10000000;
-    const scoreB = (b.likes || 0) + new Date(b.created_at).getTime()/10000000;
-    return scoreB - scoreA;
+  state.posts = data.sort((a,b)=>{
+    return (b.likes||0) + new Date(b.created_at) - ((a.likes||0)+ new Date(a.created_at));
   });
 
   renderFeed();
@@ -133,9 +105,9 @@ function renderFeed() {
     div.className = "post";
 
     div.innerHTML = `
-      <b>${escapeHTML(p.user_id)}</b>
-      <p>${escapeHTML(p.content)}</p>
-      <button onclick="like('${p.id}')">❤️ ${p.likes || 0}</button>
+      <b>${p.user_id}</b>
+      <p>${p.content}</p>
+      <button class="btn" onclick="like('${p.id}')">❤️ ${p.likes||0}</button>
     `;
 
     feed.appendChild(div);
@@ -154,23 +126,31 @@ async function like(id) {
   loadFeed();
 }
 
-// ================= TASK =================
+// ================= SECURE EARN =================
 function goTasks() {
-  const feed = $("feed");
-
-  feed.innerHTML = `
+  $("feed").innerHTML = `
     <div class="post">
-      <h2>Earn</h2>
-      <button onclick="earn()">Earn +10</button>
-      <p>K${state.balance}</p>
+      <h2>Earn System</h2>
+      <button class="btn" onclick="earn()">Complete Task (+K10)</button>
+      <p class="highlight">Balance: K${state.balance}</p>
     </div>
   `;
 }
 
 async function earn() {
-  if (!cooldown("earn", 10000)) return;
+  if (!cooldown("earn", 15000)) return;
 
-  state.balance += 10;
+  const amount = 10;
+
+  // 🔥 record transaction FIRST
+  await db.from("transactions").insert([{
+    user_id: state.user.id,
+    amount,
+    type: "task"
+  }]);
+
+  // then update balance
+  state.balance += amount;
 
   await db.from("profiles")
     .update({ balance: state.balance })
@@ -183,8 +163,8 @@ async function earn() {
 function goProfile() {
   $("feed").innerHTML = `
     <div class="post">
-      <h2>${state.profile.username}</h2>
-      <p>K${state.balance}</p>
+      <h2>${state.profile?.username}</h2>
+      <p>Balance: K${state.balance}</p>
     </div>
   `;
 }
