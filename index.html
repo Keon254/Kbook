@@ -12,14 +12,15 @@
   --bg: radial-gradient(circle at top, #0a0a0a, #000);
   --glass: rgba(255,255,255,0.06);
   --border: rgba(255,255,255,0.08);
-  --accent: #ffffff;
+  --text: #fff;
+  --muted: rgba(255,255,255,0.6);
 }
 
 body {
   margin: 0;
   font-family: Inter, sans-serif;
   background: var(--bg);
-  color: white;
+  color: var(--text);
 }
 
 /* AUTH */
@@ -39,11 +40,6 @@ body {
   border: 1px solid var(--border);
 }
 
-.box h2 {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
 .box input {
   width: 100%;
   padding: 14px;
@@ -60,7 +56,6 @@ body {
   padding: 14px;
   border-radius: 12px;
   border: none;
-  cursor: pointer;
   background: linear-gradient(135deg,#fff,#bbb);
 }
 
@@ -93,18 +88,59 @@ body {
   padding: 12px;
 }
 
-/* POST CARD */
+/* POST CARD (UPGRADED) */
 .post {
   background: var(--glass);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 16px;
   margin-bottom: 14px;
-  transition: 0.2s;
 }
 
-.post:hover {
-  transform: translateY(-2px);
+/* USER ROW */
+.post-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.avatar {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background: #222;
+}
+
+.username {
+  font-weight: bold;
+}
+
+.time {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ACTIONS */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* PROFILE */
+.profile {
+  text-align: center;
+}
+
+.profile .avatar {
+  width: 80px;
+  height: 80px;
+  margin: auto;
+}
+
+.profile h2 {
+  margin-top: 10px;
 }
 
 /* COMPOSER */
@@ -138,18 +174,12 @@ body {
   border-top: 1px solid #222;
 }
 
-/* BUTTON STYLE */
 .btn {
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: 10px;
-  border: none;
   background: #222;
+  border: none;
   color: white;
-  cursor: pointer;
-}
-
-.highlight {
-  font-weight: bold;
 }
 </style>
 </head>
@@ -160,7 +190,7 @@ body {
   <div class="box">
     <h2>KUDASAI</h2>
     <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
+    <input id="password" type="password">
     <button id="signupBtn">Create Account</button>
     <button id="loginBtn">Login</button>
   </div>
