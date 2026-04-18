@@ -8,39 +8,83 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 <style>
+
+/* =========================
+   🌌 DESIGN SYSTEM
+========================= */
 :root {
   --bg: radial-gradient(circle at top, #0a0a0a, #000);
   --glass: rgba(255,255,255,0.06);
   --border: rgba(255,255,255,0.08);
-  --text: #fff;
-  --muted: rgba(255,255,255,0.6);
 }
 
 body {
   margin: 0;
   font-family: Inter, sans-serif;
   background: var(--bg);
-  color: var(--text);
+  color: white;
 }
 
-/* AUTH */
+/* =========================
+   🌌 AUTH + STARFIELD
+========================= */
 .auth {
   height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
+  position: relative;
+  overflow: hidden;
 }
 
-.box {
+/* ⭐ STAR LAYERS */
+.stars, .stars2, .stars3 {
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  pointer-events: none;
+}
+
+.stars {
+  background: radial-gradient(white 1px, transparent 1px);
+  background-size: 3px 3px;
+  animation: moveStars 120s linear infinite;
+  opacity: 0.4;
+}
+
+.stars2 {
+  background: radial-gradient(white 2px, transparent 2px);
+  background-size: 6px 6px;
+  animation: moveStars 80s linear infinite;
+  opacity: 0.3;
+}
+
+.stars3 {
+  background: radial-gradient(white 3px, transparent 3px);
+  background-size: 10px 10px;
+  animation: moveStars 50s linear infinite;
+  opacity: 0.2;
+}
+
+@keyframes moveStars {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+
+/* LOGIN BOX */
+.auth-box {
   width: 340px;
   padding: 35px;
   border-radius: 22px;
   background: var(--glass);
   backdrop-filter: blur(20px);
   border: 1px solid var(--border);
+  position: relative;
+  z-index: 2;
+  text-align: center;
 }
 
-.box input {
+.auth-box input {
   width: 100%;
   padding: 14px;
   margin-top: 12px;
@@ -50,16 +94,19 @@ body {
   color: white;
 }
 
-.box button {
+.auth-box button {
   width: 100%;
   margin-top: 12px;
   padding: 14px;
   border-radius: 12px;
   border: none;
+  cursor: pointer;
   background: linear-gradient(135deg,#fff,#bbb);
 }
 
-/* APP */
+/* =========================
+   APP
+========================= */
 #app {
   display: none;
   flex-direction: column;
@@ -88,7 +135,7 @@ body {
   padding: 12px;
 }
 
-/* POST CARD (UPGRADED) */
+/* POST */
 .post {
   background: var(--glass);
   border: 1px solid var(--border);
@@ -97,17 +144,17 @@ body {
   margin-bottom: 14px;
 }
 
-/* USER ROW */
+/* POST HEADER */
 .post-header {
   display: flex;
-  align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 .avatar {
-  width: 35px;
-  height: 35px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #222;
 }
@@ -118,29 +165,17 @@ body {
 
 .time {
   font-size: 12px;
-  color: var(--muted);
+  opacity: 0.6;
 }
 
-/* ACTIONS */
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-/* PROFILE */
-.profile {
-  text-align: center;
-}
-
-.profile .avatar {
-  width: 80px;
-  height: 80px;
-  margin: auto;
-}
-
-.profile h2 {
-  margin-top: 10px;
+/* BUTTON */
+.btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  background: #222;
+  color: white;
+  cursor: pointer;
 }
 
 /* COMPOSER */
@@ -174,28 +209,30 @@ body {
   border-top: 1px solid #222;
 }
 
-.btn {
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: #222;
-  border: none;
-  color: white;
-}
 </style>
 </head>
 
 <body>
 
+<!-- AUTH -->
 <div class="auth">
-  <div class="box">
+
+  <div class="stars"></div>
+  <div class="stars2"></div>
+  <div class="stars3"></div>
+
+  <div class="auth-box">
     <h2>KUDASAI</h2>
+
     <input id="email" placeholder="Email">
-    <input id="password" type="password">
+    <input id="password" type="password" placeholder="Password">
+
     <button id="signupBtn">Create Account</button>
     <button id="loginBtn">Login</button>
   </div>
 </div>
 
+<!-- APP -->
 <div id="app">
 
   <div class="header">
@@ -219,5 +256,6 @@ body {
 </div>
 
 <script src="script.js"></script>
+
 </body>
 </html>
