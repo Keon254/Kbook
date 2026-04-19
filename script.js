@@ -1,5 +1,6 @@
 // ========================================
-// KUDASAI STAGE 11 — VIRAL + USERNAME ENGINE
+// KUDASAI STAGE 12 — FULL ENGINE
+// COMMENTS + WALLET + VIRAL + UI SAFE
 // ========================================
 
 const { createClient } = supabase;
@@ -13,12 +14,14 @@ const state = {
   user: null,
   profile: null,
   posts: [],
+  comments: {},
+  balance: 0,
   lastAction: {}
 };
 
 const $ = id => document.getElementById(id);
 
-// ================= COOLDOWN =================
+// ================= SAFE =================
 function cooldown(key, time) {
   const now = Date.now();
   if (state.lastAction[key] && now - state.lastAction[key] < time) {
@@ -35,9 +38,7 @@ async function login() {
     email: $("email").value,
     password: $("password").value
   });
-
   if (error) return alert(error.message);
-
   state.user = data.user;
   await bootstrap();
 }
@@ -47,7 +48,6 @@ async function signup() {
     email: $("email").value,
     password: $("password").value
   });
-
   alert("Account created");
 }
 
@@ -67,7 +67,8 @@ async function loadProfile() {
     .eq("user_id", state.user.id)
     .maybeSingle();
 
-  state.profile = data;
+  state.profile = data || {};
+  state.balance = data?.balance || 0;
 
   $("userTag").textContent = data?.username || "User";
 }
@@ -89,25 +90,17 @@ async function createPost() {
 
 // ================= LOAD FEED =================
 async function loadFeed() {
-  const { data, error } = await db
-    .from("posts")
-    .select(`
-      *,
-      profiles (username)
-    `);
+  const { data } = await db.from("posts").select(`
+    *,
+    profiles(username),
+    comments(*)
+  `);
 
-  if (error) return alert(error.message);
+  if (!data) return;
 
-  // 🔥 VIRAL ALGO
   state.posts = data.sort((a, b) => {
-    const scoreA =
-      (a.likes_count || 0) * 5 +
-      (Date.now() - new Date(a.created_at).getTime()) * -0.0001;
-
-    const scoreB =
-      (b.likes_count || 0) * 5 +
-      (Date.now() - new Date(b.created_at).getTime()) * -0.0001;
-
+    const scoreA = (a.likes_count || 0) * 5 - (Date.now() - new Date(a.created_at)) * 0.0001;
+    const scoreB = (b.likes_count || 0) * 5 - (Date.now() - new Date(b.created_at)) * 0.0001;
     return scoreB - scoreA;
   });
 
@@ -123,12 +116,23 @@ function renderFeed() {
     const div = document.createElement("div");
     div.className = "post";
 
+    const commentsHTML = (p.comments || [])
+      .slice(0, 3)
+      .map(c => `<div class="comment">${c.content}</div>`)
+      .join("");
+
     div.innerHTML = `
       <b>@${p.profiles?.username || "user"}</b>
       <p>${p.content}</p>
+
       <button onclick="like('${p.id}')">
         ❤️ ${p.likes_count || 0}
       </button>
+
+      <div class="comments">${commentsHTML}</div>
+
+      <input placeholder="Write comment..." id="c-${p.id}">
+      <button onclick="addComment('${p.id}')">Send</button>
     `;
 
     feed.appendChild(div);
@@ -139,26 +143,84 @@ function renderFeed() {
 async function like(id) {
   if (!cooldown("like", 1500)) return;
 
-  await db.from("likes").insert([{
+  const { error } = await db.from("likes").insert([{
     post_id: id,
     user_id: state.user.id
   }]);
+
+  if (error && error.code !== "23505") {
+    alert(error.message);
+  }
+}
+
+// ================= COMMENTS =================
+async function addComment(postId) {
+  const input = $(`c-${postId}`);
+  const content = input.value.trim();
+
+  if (!content) return;
+
+  await db.from("comments").insert([{
+    post_id: postId,
+    user_id: state.user.id,
+    content
+  }]);
+
+  input.value = "";
+}
+
+// ================= WALLET =================
+async function earn(amount = 10) {
+  if (!cooldown("earn", 10000)) return;
+
+  // transaction first (ANTI-CHEAT)
+  await db.from("transactions").insert([{
+    user_id: state.user.id,
+    amount,
+    type: "earn"
+  }]);
+
+  // then update balance
+  state.balance += amount;
+
+  await db.from("profiles")
+    .update({ balance: state.balance })
+    .eq("user_id", state.user.id);
+
+  alert(`+K${amount}`);
+}
+
+// ================= TASK PAGE =================
+function goTasks() {
+  $("feed").innerHTML = `
+    <div class="panel">
+      <h2>Earn</h2>
+      <button onclick="earn(10)">Task (+K10)</button>
+      <p>Balance: K${state.balance}</p>
+    </div>
+  `;
+}
+
+// ================= PROFILE =================
+function goProfile() {
+  $("feed").innerHTML = `
+    <div class="panel">
+      <h2>${state.profile.username || "User"}</h2>
+      <p>Balance: K${state.balance}</p>
+    </div>
+  `;
 }
 
 // ================= REALTIME =================
 function startRealtime() {
-  db.channel("live-feed")
-    .on("postgres_changes",
-      { event: "*", schema: "public", table: "posts" },
-      () => loadFeed()
-    )
+  db.channel("live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, loadFeed)
+    .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, loadFeed)
     .subscribe();
 }
 
 // ================= NAV =================
-function goHome() {
-  loadFeed();
-}
+function goHome() { loadFeed(); }
 
 // ================= UI =================
 function showApp() {
