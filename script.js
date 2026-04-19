@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI STAGE 13 — REALTIME + ANTI-BUG CORE
+// KUDASAI STAGE 13 — REALTIME + COMMENTS + HARDENED CORE
 // ========================================
 
 const { createClient } = supabase;
@@ -14,32 +14,25 @@ const state = {
   user: null,
   profile: null,
   posts: [],
-  loading: false,
-  listeners: [],
-  cache: {},
-  lastAction: {}
+  comments: {},
+  balance: 0,
+  lastAction: {},
+  realtimeSub: null
 };
 
+// ================= SAFE =================
 const $ = id => document.getElementById(id);
 
-// ================= SAFE WRAPPER =================
 function safe(fn) {
   return async (...args) => {
-    if (state.loading) return;
-    state.loading = true;
-
-    try {
-      await fn(...args);
-    } catch (err) {
+    try { await fn(...args); }
+    catch (err) {
       console.error(err);
       alert(err.message || "Error");
     }
-
-    state.loading = false;
   };
 }
 
-// ================= COOLDOWN SYSTEM =================
 function cooldown(key, time) {
   const now = Date.now();
   if (state.lastAction[key] && now - state.lastAction[key] < time) {
@@ -50,27 +43,28 @@ function cooldown(key, time) {
 }
 
 // ================= AUTH =================
-async function login() {
-  const { data, error } = await db.auth.signInWithPassword({
-    email: $("email").value,
-    password: $("password").value
-  });
+const login = safe(async () => {
+  const email = $("email").value.trim();
+  const password = $("password").value.trim();
 
-  if (error) return alert(error.message);
+  if (!email || !password) return alert("Fill fields");
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
+  if (error) throw error;
 
   state.user = data.user;
   await bootstrap();
-}
+});
 
-async function signup() {
-  const { error } = await db.auth.signUp({
-    email: $("email").value,
-    password: $("password").value
-  });
+const signup = safe(async () => {
+  const email = $("email").value.trim();
+  const password = $("password").value.trim();
 
-  if (error) return alert(error.message);
-  alert("Account created");
-}
+  const { error } = await db.auth.signUp({ email, password });
+  if (error) throw error;
+
+  alert("Signup success");
+});
 
 // ================= BOOT =================
 async function bootstrap() {
@@ -89,56 +83,41 @@ async function loadProfile() {
     .maybeSingle();
 
   state.profile = data;
-  $("userTag").textContent = data?.username || "user";
+  state.balance = data?.balance || 0;
+
+  if ($("userTag")) {
+    $("userTag").textContent = data?.username || "user";
+  }
 }
 
-// ================= CREATE POST =================
+// ================= POSTS =================
 const createPost = safe(async () => {
   if (!cooldown("post", 2000)) return;
 
-  const content = $("postInput").value.trim();
-  if (!content) return;
+  const text = $("postInput").value.trim();
+  if (!text) return;
 
-  // optimistic UI
-  const tempPost = {
-    id: "temp_" + Date.now(),
-    content,
+  await db.from("posts").insert([{
+    content: text,
     user_id: state.user.id,
     likes: 0
-  };
-
-  state.posts.unshift(tempPost);
-  renderFeed();
-
-  $("postInput").value = "";
-
-  const { error } = await db.from("posts").insert([{
-    content,
-    user_id: state.user.id
   }]);
 
-  if (error) {
-    alert("Post failed");
-    state.posts = state.posts.filter(p => p.id !== tempPost.id);
-    renderFeed();
-  }
+  $("postInput").value = "";
 });
 
 // ================= LOAD FEED =================
 async function loadFeed() {
-  if (state.cache.feed) {
-    state.posts = state.cache.feed;
-    renderFeed();
-  }
-
   const { data } = await db
     .from("posts")
     .select("*")
-    .order("created_at", { ascending: false })
-    .limit(50);
+    .order("created_at", { ascending: false });
 
-  state.posts = data || [];
-  state.cache.feed = state.posts;
+  state.posts = (data || []).map(p => ({
+    ...p,
+    score: (p.likes || 0) * 2 + new Date(p.created_at).getTime() / 100000
+  }))
+  .sort((a, b) => b.score - a.score);
 
   renderFeed();
 }
@@ -146,9 +125,9 @@ async function loadFeed() {
 // ================= RENDER =================
 function renderFeed() {
   const feed = $("feed");
-  feed.innerHTML = "";
+  if (!feed) return;
 
-  const fragment = document.createDocumentFragment();
+  feed.innerHTML = "";
 
   state.posts.forEach(p => {
     const div = document.createElement("div");
@@ -156,76 +135,88 @@ function renderFeed() {
 
     div.innerHTML = `
       <b>${p.user_id}</b>
-      <p>${p.content}</p>
-      <button class="btn likeBtn" data-id="${p.id}">
-        ❤️ ${p.likes || 0}
-      </button>
+      <p>${escapeHTML(p.content)}</p>
+
+      <div class="actions">
+        <button onclick="like('${p.id}')">❤️ ${p.likes || 0}</button>
+        <button onclick="openComments('${p.id}')">💬</button>
+      </div>
+
+      <div id="comments-${p.id}" class="comments"></div>
     `;
 
-    fragment.appendChild(div);
-  });
-
-  feed.appendChild(fragment);
-
-  document.querySelectorAll(".likeBtn").forEach(btn => {
-    btn.onclick = () => like(btn.dataset.id);
+    feed.appendChild(div);
   });
 }
 
 // ================= LIKE =================
 const like = safe(async (id) => {
-  if (!cooldown("like", 1000)) return;
+  if (!cooldown("like", 1500)) return;
 
-  const post = state.posts.find(p => p.id === id);
-  if (post) {
-    post.likes = (post.likes || 0) + 1;
-    renderFeed();
-  }
-
-  const { error } = await db.from("likes").insert([{
+  await db.from("likes").insert([{
     post_id: id,
     user_id: state.user.id
   }]);
 
-  if (error) {
-    alert("Like failed");
-    loadFeed();
-  }
+  await db.rpc("increment_likes", { post_id_input: id });
+
+  loadFeed();
+});
+
+// ================= COMMENTS =================
+const openComments = safe(async (postId) => {
+  const container = document.getElementById(`comments-${postId}`);
+
+  const { data } = await db
+    .from("comments")
+    .select("*")
+    .eq("post_id", postId)
+    .order("created_at", { ascending: true });
+
+  container.innerHTML = `
+    <div class="comment-box">
+      ${(data || []).map(c => `<p><b>${c.user_id}</b>: ${c.content}</p>`).join("")}
+      <input id="c-${postId}" placeholder="Write comment...">
+      <button onclick="addComment('${postId}')">Send</button>
+    </div>
+  `;
+});
+
+const addComment = safe(async (postId) => {
+  const input = $(`c-${postId}`);
+  const text = input.value.trim();
+  if (!text) return;
+
+  await db.from("comments").insert([{
+    post_id: postId,
+    user_id: state.user.id,
+    content: text
+  }]);
+
+  openComments(postId);
 });
 
 // ================= REALTIME =================
 function setupRealtime() {
-  // clear old listeners
-  state.listeners.forEach(l => l.unsubscribe());
-  state.listeners = [];
+  if (state.realtimeSub) return;
 
-  const channel = db
+  state.realtimeSub = db
     .channel("posts-live")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "posts" },
-      payload => {
-        loadFeed(); // safe refresh
-      }
-    )
+    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => {
+      loadFeed();
+    })
     .subscribe();
-
-  state.listeners.push(channel);
 }
 
-// ================= PROFILE =================
-function goProfile() {
-  $("feed").innerHTML = `
-    <div class="post">
-      <h2>${state.profile?.username}</h2>
-      <p>Balance: K${state.profile?.balance || 0}</p>
-    </div>
-  `;
-}
-
-// ================= NAV =================
-function goHome() {
-  loadFeed();
+// ================= SECURITY =================
+function escapeHTML(str) {
+  return str.replace(/[&<>"']/g, s => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[s]));
 }
 
 // ================= UI =================
