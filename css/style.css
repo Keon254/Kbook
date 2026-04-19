@@ -271,3 +271,18 @@ body {
   background: #111;
   color: white;
 }
+/* Prevent layout shifts */
+.post {
+  will-change: transform;
+}
+
+/* Smooth rendering */
+.feed {
+  scroll-behavior: smooth;
+}
+
+/* Prevent spam click glitch */
+button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
