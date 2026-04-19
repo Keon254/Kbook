@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI STAGE 9 — REALTIME ENGINE
+// KUDASAI STAGE 10 — REALTIME ENGINE
 // ========================================
 
 const { createClient } = supabase;
@@ -9,183 +9,163 @@ const db = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4"
 );
 
+// ================= STATE =================
 const state = {
   user: null,
   profile: null,
   posts: [],
-  comments: [],
-  likesMap: {},
-  follows: [],
   balance: 0,
-  lastAction: {},
-  view: "foryou"
+  lastAction: {}
 };
 
 const $ = id => document.getElementById(id);
 
-// ================= SAFE =================
-function safe(fn){
-  return async (...a)=>{
-    try{ await fn(...a); }
-    catch(e){ console.error(e); alert(e.message); }
+// ================= COOLDOWN =================
+function cooldown(key, time) {
+  const now = Date.now();
+  if (state.lastAction[key] && now - state.lastAction[key] < time) {
+    alert("Slow down");
+    return false;
   }
+  state.lastAction[key] = now;
+  return true;
 }
 
 // ================= AUTH =================
-const login = safe(async ()=>{
+async function login() {
   const { data, error } = await db.auth.signInWithPassword({
     email: $("email").value,
     password: $("password").value
   });
 
-  if(error) throw error;
+  if (error) return alert(error.message);
 
   state.user = data.user;
   await bootstrap();
-});
+}
 
-const signup = safe(async ()=>{
+async function signup() {
   await db.auth.signUp({
     email: $("email").value,
     password: $("password").value
   });
 
-  alert("Signup done");
-});
+  alert("Account created");
+}
 
 // ================= BOOT =================
-async function bootstrap(){
+async function bootstrap() {
   await loadProfile();
   showApp();
   await loadFeed();
-  startRealtime(); // 🔥 STAGE 9
+  startRealtime();
 }
 
 // ================= PROFILE =================
-async function loadProfile(){
-  const { data } = await db.from("profiles")
+async function loadProfile() {
+  const { data } = await db
+    .from("profiles")
     .select("*")
     .eq("user_id", state.user.id)
     .maybeSingle();
 
   state.profile = data;
-  $("userTag").textContent = "@" + data.username;
+  state.balance = data?.balance || 0;
+
+  $("userTag").textContent = data?.username || "User";
 }
 
-// ================= CREATE POST =================
-const createPost = safe(async ()=>{
-  const text = $("postInput").value.trim();
-  if(!text) return;
+// ================= POSTS =================
+async function createPost() {
+  if (!cooldown("post", 2000)) return;
+
+  const content = $("postInput").value.trim();
+  if (!content) return;
 
   await db.from("posts").insert([{
-    content: text,
+    content,
     user_id: state.user.id
   }]);
 
   $("postInput").value = "";
-});
+}
 
 // ================= LOAD FEED =================
-async function loadFeed(){
-  const { data: posts } = await db.from("posts").select("*");
-  const { data: profiles } = await db.from("profiles").select("*");
-  const { data: comments } = await db.from("comments").select("*");
+async function loadFeed() {
+  const { data } = await db.from("posts").select("*");
 
-  state.comments = comments || [];
-
-  const userMap = {};
-  profiles.forEach(p=> userMap[p.user_id] = p);
-
-  state.posts = posts.map(p=>({
-    ...p,
-    username: userMap[p.user_id]?.username || "user"
-  }));
+  state.posts = data.sort((a, b) => {
+    const scoreA = (a.likes || 0) + new Date(a.created_at).getTime();
+    const scoreB = (b.likes || 0) + new Date(b.created_at).getTime();
+    return scoreB - scoreA;
+  });
 
   renderFeed();
 }
 
 // ================= RENDER =================
-function renderFeed(){
+function renderFeed() {
   const feed = $("feed");
   feed.innerHTML = "";
 
-  state.posts.forEach(p=>{
-    const postComments = state.comments.filter(c=>c.post_id === p.id);
-
+  state.posts.forEach(p => {
     const div = document.createElement("div");
     div.className = "post";
 
     div.innerHTML = `
-      <div class="username">@${p.username}</div>
+      <b>${p.user_id}</b>
       <p>${p.content}</p>
-
-      <div class="actions">
-        <button onclick="openComment('${p.id}')">💬 ${postComments.length}</button>
-      </div>
-
-      <div class="comment-box" id="c-${p.id}"></div>
+      <button onclick="like('${p.id}')">❤️ ${p.likes || 0}</button>
     `;
 
     feed.appendChild(div);
   });
 }
 
-// ================= COMMENT =================
-function openComment(postId){
-  const box = $("c-"+postId);
+// ================= LIKE =================
+async function like(id) {
+  if (!cooldown("like", 1500)) return;
 
-  const list = state.comments
-    .filter(c=>c.post_id===postId)
-    .map(c=>`<div class="comment">💬 ${c.content}</div>`)
-    .join("");
-
-  box.innerHTML = `
-    ${list}
-    <input id="input-${postId}" placeholder="Comment...">
-    <button onclick="sendComment('${postId}')">Send</button>
-  `;
+  await db.from("likes").insert([{
+    post_id: id,
+    user_id: state.user.id
+  }]);
 }
 
-const sendComment = safe(async (postId)=>{
-  const text = $("input-"+postId).value;
-
-  await db.from("comments").insert([{
-    post_id: postId,
-    user_id: state.user.id,
-    content: text
-  }]);
-});
-
 // ================= REALTIME =================
-function startRealtime(){
-  db.channel("realtime")
-    .on("postgres_changes", { event: "*", schema: "public" }, payload=>{
-      loadFeed(); // 🔥 live update
-    })
+function startRealtime() {
+  db.channel("posts-live")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "posts" },
+      payload => {
+        console.log("Realtime update:", payload);
+        loadFeed();
+      }
+    )
     .subscribe();
 }
 
 // ================= NAV =================
-function goHome(){ loadFeed(); }
-function goFollowing(){ alert("Following feed already wired earlier"); }
-function goTasks(){ alert("Money system active"); }
-function goProfile(){ alert("Profile exists"); }
+function goHome() {
+  loadFeed();
+}
 
 // ================= UI =================
-function showApp(){
-  document.querySelector(".auth").style.display="none";
-  $("app").style.display="flex";
+function showApp() {
+  document.querySelector(".auth").style.display = "none";
+  $("app").style.display = "flex";
 }
 
 // ================= INIT =================
-document.addEventListener("DOMContentLoaded", async ()=>{
+document.addEventListener("DOMContentLoaded", async () => {
   $("loginBtn").onclick = login;
   $("signupBtn").onclick = signup;
   $("postBtn").onclick = createPost;
 
   const { data } = await db.auth.getSession();
 
-  if(data?.session?.user){
+  if (data?.session?.user) {
     state.user = data.session.user;
     await bootstrap();
   }
