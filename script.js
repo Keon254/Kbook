@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI STAGE 10 — REALTIME ENGINE
+// KUDASAI STAGE 11 — VIRAL + USERNAME ENGINE
 // ========================================
 
 const { createClient } = supabase;
@@ -9,12 +9,10 @@ const db = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4"
 );
 
-// ================= STATE =================
 const state = {
   user: null,
   profile: null,
   posts: [],
-  balance: 0,
   lastAction: {}
 };
 
@@ -70,12 +68,11 @@ async function loadProfile() {
     .maybeSingle();
 
   state.profile = data;
-  state.balance = data?.balance || 0;
 
   $("userTag").textContent = data?.username || "User";
 }
 
-// ================= POSTS =================
+// ================= CREATE POST =================
 async function createPost() {
   if (!cooldown("post", 2000)) return;
 
@@ -92,11 +89,25 @@ async function createPost() {
 
 // ================= LOAD FEED =================
 async function loadFeed() {
-  const { data } = await db.from("posts").select("*");
+  const { data, error } = await db
+    .from("posts")
+    .select(`
+      *,
+      profiles (username)
+    `);
 
+  if (error) return alert(error.message);
+
+  // 🔥 VIRAL ALGO
   state.posts = data.sort((a, b) => {
-    const scoreA = (a.likes || 0) + new Date(a.created_at).getTime();
-    const scoreB = (b.likes || 0) + new Date(b.created_at).getTime();
+    const scoreA =
+      (a.likes_count || 0) * 5 +
+      (Date.now() - new Date(a.created_at).getTime()) * -0.0001;
+
+    const scoreB =
+      (b.likes_count || 0) * 5 +
+      (Date.now() - new Date(b.created_at).getTime()) * -0.0001;
+
     return scoreB - scoreA;
   });
 
@@ -113,9 +124,11 @@ function renderFeed() {
     div.className = "post";
 
     div.innerHTML = `
-      <b>${p.user_id}</b>
+      <b>@${p.profiles?.username || "user"}</b>
       <p>${p.content}</p>
-      <button onclick="like('${p.id}')">❤️ ${p.likes || 0}</button>
+      <button onclick="like('${p.id}')">
+        ❤️ ${p.likes_count || 0}
+      </button>
     `;
 
     feed.appendChild(div);
@@ -134,14 +147,10 @@ async function like(id) {
 
 // ================= REALTIME =================
 function startRealtime() {
-  db.channel("posts-live")
-    .on(
-      "postgres_changes",
+  db.channel("live-feed")
+    .on("postgres_changes",
       { event: "*", schema: "public", table: "posts" },
-      payload => {
-        console.log("Realtime update:", payload);
-        loadFeed();
-      }
+      () => loadFeed()
     )
     .subscribe();
 }
