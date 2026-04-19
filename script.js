@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI STAGE 13 — REALTIME + COMMENTS + HARDENED CORE
+// KUDASAI STAGE 14 — SOCIAL + VIRAL + MONEY
 // ========================================
 
 const { createClient } = supabase;
@@ -14,22 +14,18 @@ const state = {
   user: null,
   profile: null,
   posts: [],
-  comments: {},
+  profilesMap: {},
   balance: 0,
-  lastAction: {},
-  realtimeSub: null
+  lastAction: {}
 };
 
-// ================= SAFE =================
 const $ = id => document.getElementById(id);
 
+// ================= SAFE =================
 function safe(fn) {
   return async (...args) => {
     try { await fn(...args); }
-    catch (err) {
-      console.error(err);
-      alert(err.message || "Error");
-    }
+    catch (e) { alert(e.message); console.error(e); }
   };
 }
 
@@ -44,12 +40,11 @@ function cooldown(key, time) {
 
 // ================= AUTH =================
 const login = safe(async () => {
-  const email = $("email").value.trim();
-  const password = $("password").value.trim();
+  const { data, error } = await db.auth.signInWithPassword({
+    email: $("email").value,
+    password: $("password").value
+  });
 
-  if (!email || !password) return alert("Fill fields");
-
-  const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
   state.user = data.user;
@@ -57,12 +52,12 @@ const login = safe(async () => {
 });
 
 const signup = safe(async () => {
-  const email = $("email").value.trim();
-  const password = $("password").value.trim();
+  const { error } = await db.auth.signUp({
+    email: $("email").value,
+    password: $("password").value
+  });
 
-  const { error } = await db.auth.signUp({ email, password });
   if (error) throw error;
-
   alert("Signup success");
 });
 
@@ -71,7 +66,6 @@ async function bootstrap() {
   await loadProfile();
   showApp();
   await loadFeed();
-  setupRealtime();
 }
 
 // ================= PROFILE =================
@@ -85,12 +79,33 @@ async function loadProfile() {
   state.profile = data;
   state.balance = data?.balance || 0;
 
-  if ($("userTag")) {
-    $("userTag").textContent = data?.username || "user";
-  }
+  $("userTag").textContent = data?.username || "user";
 }
 
-// ================= POSTS =================
+// ================= LOAD FEED =================
+async function loadFeed() {
+  const { data: posts } = await db.from("posts").select("*");
+  const { data: profiles } = await db.from("profiles").select("*");
+
+  // map users
+  state.profilesMap = {};
+  profiles.forEach(p => {
+    state.profilesMap[p.user_id] = p;
+  });
+
+  state.posts = posts.map(p => {
+    const age = (Date.now() - new Date(p.created_at)) / 1000;
+
+    return {
+      ...p,
+      score: (p.likes || 0) * 3 + (100000 / (age + 1))
+    };
+  }).sort((a,b)=>b.score-a.score);
+
+  renderFeed();
+}
+
+// ================= CREATE POST =================
 const createPost = safe(async () => {
   if (!cooldown("post", 2000)) return;
 
@@ -104,45 +119,32 @@ const createPost = safe(async () => {
   }]);
 
   $("postInput").value = "";
+  loadFeed();
 });
-
-// ================= LOAD FEED =================
-async function loadFeed() {
-  const { data } = await db
-    .from("posts")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  state.posts = (data || []).map(p => ({
-    ...p,
-    score: (p.likes || 0) * 2 + new Date(p.created_at).getTime() / 100000
-  }))
-  .sort((a, b) => b.score - a.score);
-
-  renderFeed();
-}
 
 // ================= RENDER =================
 function renderFeed() {
   const feed = $("feed");
-  if (!feed) return;
-
   feed.innerHTML = "";
 
   state.posts.forEach(p => {
+    const user = state.profilesMap[p.user_id] || {};
+
     const div = document.createElement("div");
     div.className = "post";
 
     div.innerHTML = `
-      <b>${p.user_id}</b>
-      <p>${escapeHTML(p.content)}</p>
+      <div class="post-head">
+        <div class="avatar"></div>
+        <b>${user.username || "user"}</b>
+      </div>
+
+      <p>${p.content}</p>
 
       <div class="actions">
         <button onclick="like('${p.id}')">❤️ ${p.likes || 0}</button>
-        <button onclick="openComments('${p.id}')">💬</button>
+        <button onclick="comment('${p.id}')">💬</button>
       </div>
-
-      <div id="comments-${p.id}" class="comments"></div>
     `;
 
     feed.appendChild(div);
@@ -163,61 +165,62 @@ const like = safe(async (id) => {
   loadFeed();
 });
 
-// ================= COMMENTS =================
-const openComments = safe(async (postId) => {
-  const container = document.getElementById(`comments-${postId}`);
-
-  const { data } = await db
-    .from("comments")
-    .select("*")
-    .eq("post_id", postId)
-    .order("created_at", { ascending: true });
-
-  container.innerHTML = `
-    <div class="comment-box">
-      ${(data || []).map(c => `<p><b>${c.user_id}</b>: ${c.content}</p>`).join("")}
-      <input id="c-${postId}" placeholder="Write comment...">
-      <button onclick="addComment('${postId}')">Send</button>
-    </div>
-  `;
-});
-
-const addComment = safe(async (postId) => {
-  const input = $(`c-${postId}`);
-  const text = input.value.trim();
+// ================= COMMENT =================
+const comment = safe(async (id) => {
+  const text = prompt("Comment:");
   if (!text) return;
 
   await db.from("comments").insert([{
-    post_id: postId,
+    post_id: id,
     user_id: state.user.id,
     content: text
   }]);
-
-  openComments(postId);
 });
 
-// ================= REALTIME =================
-function setupRealtime() {
-  if (state.realtimeSub) return;
-
-  state.realtimeSub = db
-    .channel("posts-live")
-    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => {
-      loadFeed();
-    })
-    .subscribe();
+// ================= TASK SYSTEM =================
+function goTasks() {
+  $("feed").innerHTML = `
+    <div class="panel">
+      <h2>Earn</h2>
+      <button onclick="earn()">Complete Task (+K10)</button>
+      <p>Balance: K${state.balance}</p>
+    </div>
+  `;
 }
 
-// ================= SECURITY =================
-function escapeHTML(str) {
-  return str.replace(/[&<>"']/g, s => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  }[s]));
+const earn = safe(async () => {
+  if (!cooldown("earn", 10000)) return;
+
+  const amount = 10;
+
+  await db.from("transactions").insert([{
+    user_id: state.user.id,
+    amount,
+    type: "task"
+  }]);
+
+  state.balance += amount;
+
+  await db.from("profiles")
+    .update({ balance: state.balance })
+    .eq("user_id", state.user.id);
+
+  goTasks();
+});
+
+// ================= PROFILE =================
+function goProfile() {
+  $("feed").innerHTML = `
+    <div class="panel">
+      <div class="avatar big"></div>
+      <h2>${state.profile.username}</h2>
+      <p>Balance: K${state.balance}</p>
+    </div>
+  `;
 }
+
+// ================= NAV =================
+function goHome(){ loadFeed(); }
 
 // ================= UI =================
 function showApp() {
@@ -226,7 +229,7 @@ function showApp() {
 }
 
 // ================= INIT =================
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", async ()=>{
   $("loginBtn").onclick = login;
   $("signupBtn").onclick = signup;
   $("postBtn").onclick = createPost;
