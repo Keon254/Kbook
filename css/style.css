@@ -229,3 +229,21 @@ body {
   font-size: 13px;
   opacity: 0.8;
 }
+.post b {
+  color: #fff;
+  font-weight: 600;
+}
+
+.post button {
+  margin-top: 10px;
+  background: #111;
+  border: 1px solid #333;
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: white;
+  cursor: pointer;
+}
+
+.post button:hover {
+  background: #222;
+}
