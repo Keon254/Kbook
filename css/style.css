@@ -224,3 +224,8 @@ body {
   background: rgba(0,0,0,0.9);
   border-top: 1px solid #222;
 }
+.comments {
+  margin-top: 10px;
+  font-size: 13px;
+  opacity: 0.8;
+}
