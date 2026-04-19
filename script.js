@@ -1,6 +1,5 @@
 // ========================================
-// KUDASAI STAGE 12 — FULL ENGINE
-// COMMENTS + WALLET + VIRAL + UI SAFE
+// KUDASAI STAGE 13 — REALTIME + ANTI-BUG CORE
 // ========================================
 
 const { createClient } = supabase;
@@ -10,22 +9,40 @@ const db = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4"
 );
 
+// ================= STATE =================
 const state = {
   user: null,
   profile: null,
   posts: [],
-  comments: {},
-  balance: 0,
+  loading: false,
+  listeners: [],
+  cache: {},
   lastAction: {}
 };
 
 const $ = id => document.getElementById(id);
 
-// ================= SAFE =================
+// ================= SAFE WRAPPER =================
+function safe(fn) {
+  return async (...args) => {
+    if (state.loading) return;
+    state.loading = true;
+
+    try {
+      await fn(...args);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Error");
+    }
+
+    state.loading = false;
+  };
+}
+
+// ================= COOLDOWN SYSTEM =================
 function cooldown(key, time) {
   const now = Date.now();
   if (state.lastAction[key] && now - state.lastAction[key] < time) {
-    alert("Slow down");
     return false;
   }
   state.lastAction[key] = now;
@@ -38,16 +55,20 @@ async function login() {
     email: $("email").value,
     password: $("password").value
   });
+
   if (error) return alert(error.message);
+
   state.user = data.user;
   await bootstrap();
 }
 
 async function signup() {
-  await db.auth.signUp({
+  const { error } = await db.auth.signUp({
     email: $("email").value,
     password: $("password").value
   });
+
+  if (error) return alert(error.message);
   alert("Account created");
 }
 
@@ -56,7 +77,7 @@ async function bootstrap() {
   await loadProfile();
   showApp();
   await loadFeed();
-  startRealtime();
+  setupRealtime();
 }
 
 // ================= PROFILE =================
@@ -67,42 +88,57 @@ async function loadProfile() {
     .eq("user_id", state.user.id)
     .maybeSingle();
 
-  state.profile = data || {};
-  state.balance = data?.balance || 0;
-
-  $("userTag").textContent = data?.username || "User";
+  state.profile = data;
+  $("userTag").textContent = data?.username || "user";
 }
 
 // ================= CREATE POST =================
-async function createPost() {
+const createPost = safe(async () => {
   if (!cooldown("post", 2000)) return;
 
   const content = $("postInput").value.trim();
   if (!content) return;
 
-  await db.from("posts").insert([{
+  // optimistic UI
+  const tempPost = {
+    id: "temp_" + Date.now(),
+    content,
+    user_id: state.user.id,
+    likes: 0
+  };
+
+  state.posts.unshift(tempPost);
+  renderFeed();
+
+  $("postInput").value = "";
+
+  const { error } = await db.from("posts").insert([{
     content,
     user_id: state.user.id
   }]);
 
-  $("postInput").value = "";
-}
+  if (error) {
+    alert("Post failed");
+    state.posts = state.posts.filter(p => p.id !== tempPost.id);
+    renderFeed();
+  }
+});
 
 // ================= LOAD FEED =================
 async function loadFeed() {
-  const { data } = await db.from("posts").select(`
-    *,
-    profiles(username),
-    comments(*)
-  `);
+  if (state.cache.feed) {
+    state.posts = state.cache.feed;
+    renderFeed();
+  }
 
-  if (!data) return;
+  const { data } = await db
+    .from("posts")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(50);
 
-  state.posts = data.sort((a, b) => {
-    const scoreA = (a.likes_count || 0) * 5 - (Date.now() - new Date(a.created_at)) * 0.0001;
-    const scoreB = (b.likes_count || 0) * 5 - (Date.now() - new Date(b.created_at)) * 0.0001;
-    return scoreB - scoreA;
-  });
+  state.posts = data || [];
+  state.cache.feed = state.posts;
 
   renderFeed();
 }
@@ -112,115 +148,85 @@ function renderFeed() {
   const feed = $("feed");
   feed.innerHTML = "";
 
+  const fragment = document.createDocumentFragment();
+
   state.posts.forEach(p => {
     const div = document.createElement("div");
     div.className = "post";
 
-    const commentsHTML = (p.comments || [])
-      .slice(0, 3)
-      .map(c => `<div class="comment">${c.content}</div>`)
-      .join("");
-
     div.innerHTML = `
-      <b>@${p.profiles?.username || "user"}</b>
+      <b>${p.user_id}</b>
       <p>${p.content}</p>
-
-      <button onclick="like('${p.id}')">
-        ❤️ ${p.likes_count || 0}
+      <button class="btn likeBtn" data-id="${p.id}">
+        ❤️ ${p.likes || 0}
       </button>
-
-      <div class="comments">${commentsHTML}</div>
-
-      <input placeholder="Write comment..." id="c-${p.id}">
-      <button onclick="addComment('${p.id}')">Send</button>
     `;
 
-    feed.appendChild(div);
+    fragment.appendChild(div);
+  });
+
+  feed.appendChild(fragment);
+
+  document.querySelectorAll(".likeBtn").forEach(btn => {
+    btn.onclick = () => like(btn.dataset.id);
   });
 }
 
 // ================= LIKE =================
-async function like(id) {
-  if (!cooldown("like", 1500)) return;
+const like = safe(async (id) => {
+  if (!cooldown("like", 1000)) return;
+
+  const post = state.posts.find(p => p.id === id);
+  if (post) {
+    post.likes = (post.likes || 0) + 1;
+    renderFeed();
+  }
 
   const { error } = await db.from("likes").insert([{
     post_id: id,
     user_id: state.user.id
   }]);
 
-  if (error && error.code !== "23505") {
-    alert(error.message);
+  if (error) {
+    alert("Like failed");
+    loadFeed();
   }
-}
+});
 
-// ================= COMMENTS =================
-async function addComment(postId) {
-  const input = $(`c-${postId}`);
-  const content = input.value.trim();
+// ================= REALTIME =================
+function setupRealtime() {
+  // clear old listeners
+  state.listeners.forEach(l => l.unsubscribe());
+  state.listeners = [];
 
-  if (!content) return;
+  const channel = db
+    .channel("posts-live")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "posts" },
+      payload => {
+        loadFeed(); // safe refresh
+      }
+    )
+    .subscribe();
 
-  await db.from("comments").insert([{
-    post_id: postId,
-    user_id: state.user.id,
-    content
-  }]);
-
-  input.value = "";
-}
-
-// ================= WALLET =================
-async function earn(amount = 10) {
-  if (!cooldown("earn", 10000)) return;
-
-  // transaction first (ANTI-CHEAT)
-  await db.from("transactions").insert([{
-    user_id: state.user.id,
-    amount,
-    type: "earn"
-  }]);
-
-  // then update balance
-  state.balance += amount;
-
-  await db.from("profiles")
-    .update({ balance: state.balance })
-    .eq("user_id", state.user.id);
-
-  alert(`+K${amount}`);
-}
-
-// ================= TASK PAGE =================
-function goTasks() {
-  $("feed").innerHTML = `
-    <div class="panel">
-      <h2>Earn</h2>
-      <button onclick="earn(10)">Task (+K10)</button>
-      <p>Balance: K${state.balance}</p>
-    </div>
-  `;
+  state.listeners.push(channel);
 }
 
 // ================= PROFILE =================
 function goProfile() {
   $("feed").innerHTML = `
-    <div class="panel">
-      <h2>${state.profile.username || "User"}</h2>
-      <p>Balance: K${state.balance}</p>
+    <div class="post">
+      <h2>${state.profile?.username}</h2>
+      <p>Balance: K${state.profile?.balance || 0}</p>
     </div>
   `;
 }
 
-// ================= REALTIME =================
-function startRealtime() {
-  db.channel("live")
-    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, loadFeed)
-    .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, loadFeed)
-    .subscribe();
-}
-
 // ================= NAV =================
-function goHome() { loadFeed(); }
+function goHome() {
+  loadFeed();
+}
 
 // ================= UI =================
 function showApp() {
