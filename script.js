@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI STABLE ENGINE (FINAL CLEAN)
+// KUDASAI STAGE 6 — REAL SOCIAL ENGINE
 // ========================================
 
 const { createClient } = supabase;
@@ -14,18 +14,19 @@ const state = {
   user: null,
   profile: null,
   posts: [],
+  likesMap: {},
+  commentsMap: {},
   balance: 0,
   lastAction: {}
 };
 
-// ================= HELPERS =================
 const $ = id => document.getElementById(id);
 
+// ================= SAFE =================
 function safe(fn) {
   return async (...args) => {
-    try {
-      await fn(...args);
-    } catch (err) {
+    try { await fn(...args); }
+    catch (err) {
       console.error(err);
       alert(err.message || "Error");
     }
@@ -48,8 +49,6 @@ const login = safe(async () => {
   const email = $("email").value.trim();
   const password = $("password").value.trim();
 
-  if (!email || !password) return alert("Fill fields");
-
   const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
@@ -58,10 +57,10 @@ const login = safe(async () => {
 });
 
 const signup = safe(async () => {
-  const email = $("email").value.trim();
-  const password = $("password").value.trim();
-
-  const { error } = await db.auth.signUp({ email, password });
+  const { error } = await db.auth.signUp({
+    email: $("email").value.trim(),
+    password: $("password").value.trim()
+  });
   if (error) throw error;
 
   alert("Signup success");
@@ -83,7 +82,7 @@ async function loadProfile() {
     .maybeSingle();
 
   if (!data) {
-    const username = "user" + Math.floor(Math.random() * 9999);
+    const username = "user" + Math.floor(Math.random()*9999);
 
     await db.from("profiles").insert([{
       user_id: state.user.id,
@@ -117,18 +116,57 @@ const createPost = safe(async () => {
   loadFeed();
 });
 
+// ================= LOAD FEED =================
 async function loadFeed() {
-  const { data } = await db.from("posts").select("*");
+  const { data: posts } = await db.from("posts").select("*");
 
-  state.posts = (data || []).sort((a, b) => {
-    const scoreA = (a.likes || 0) + new Date(a.created_at).getTime() / 10000000;
-    const scoreB = (b.likes || 0) + new Date(b.created_at).getTime() / 10000000;
+  const { data: profiles } = await db.from("profiles").select("*");
+
+  const { data: likes } = await db.from("likes").select("*");
+
+  const { data: comments } = await db.from("comments").select("*");
+
+  // Map profiles
+  const profileMap = {};
+  profiles.forEach(p => profileMap[p.user_id] = p);
+
+  // Count likes
+  const likeCount = {};
+  likes.forEach(l => {
+    likeCount[l.post_id] = (likeCount[l.post_id] || 0) + 1;
+  });
+
+  // Prevent duplicate like
+  state.likesMap = {};
+  likes.forEach(l => {
+    state.likesMap[`${l.post_id}_${l.user_id}`] = true;
+  });
+
+  // Comments map
+  state.commentsMap = {};
+  comments.forEach(c => {
+    if (!state.commentsMap[c.post_id]) state.commentsMap[c.post_id] = [];
+    state.commentsMap[c.post_id].push(c);
+  });
+
+  // Merge everything
+  state.posts = posts.map(p => ({
+    ...p,
+    username: profileMap[p.user_id]?.username || "user",
+    likes: likeCount[p.id] || 0
+  }));
+
+  // 🧠 VIRAL ALGO
+  state.posts.sort((a, b) => {
+    const scoreA = a.likes * 2 + (Date.now() - new Date(a.created_at)) * -0.000001;
+    const scoreB = b.likes * 2 + (Date.now() - new Date(b.created_at)) * -0.000001;
     return scoreB - scoreA;
   });
 
   renderFeed();
 }
 
+// ================= RENDER =================
 function renderFeed() {
   const feed = $("feed");
   feed.innerHTML = "";
@@ -137,11 +175,13 @@ function renderFeed() {
     const div = document.createElement("div");
     div.className = "post";
 
+    const comments = state.commentsMap[p.id] || [];
+
     div.innerHTML = `
       <div class="post-header">
         <div class="avatar"></div>
         <div>
-          <div class="username">${p.user_id}</div>
+          <div class="username">@${p.username}</div>
           <div class="time">${new Date(p.created_at).toLocaleString()}</div>
         </div>
       </div>
@@ -150,8 +190,15 @@ function renderFeed() {
 
       <div class="actions">
         <button class="btn likeBtn" data-id="${p.id}">
-          ❤️ ${p.likes || 0}
+          ❤️ ${p.likes}
         </button>
+        <button class="btn commentBtn" data-id="${p.id}">
+          💬 ${comments.length}
+        </button>
+      </div>
+
+      <div class="comments">
+        ${comments.map(c => `<p>💬 ${c.content}</p>`).join("")}
       </div>
     `;
 
@@ -161,64 +208,51 @@ function renderFeed() {
   document.querySelectorAll(".likeBtn").forEach(btn => {
     btn.onclick = () => like(btn.dataset.id);
   });
+
+  document.querySelectorAll(".commentBtn").forEach(btn => {
+    btn.onclick = () => addComment(btn.dataset.id);
+  });
 }
 
 // ================= LIKE =================
-const like = safe(async (id) => {
-  if (!cooldown("like", 2000)) return;
+const like = safe(async (postId) => {
+  if (!cooldown("like", 1500)) return;
+
+  const key = `${postId}_${state.user.id}`;
+  if (state.likesMap[key]) return alert("Already liked");
 
   await db.from("likes").insert([{
-    post_id: id,
+    post_id: postId,
     user_id: state.user.id
   }]);
 
   loadFeed();
 });
 
-// ================= TASK =================
-function goTasks() {
-  $("feed").innerHTML = `
-    <div class="post">
-      <h2>Earn</h2>
-      <button class="btn" onclick="earn()">+K10</button>
-      <p>Balance: K${state.balance}</p>
-    </div>
-  `;
-}
+// ================= COMMENT =================
+const addComment = safe(async (postId) => {
+  const text = prompt("Comment:");
+  if (!text) return;
 
-const earn = safe(async () => {
-  if (!cooldown("earn", 15000)) return;
-
-  await db.from("transactions").insert([{
+  await db.from("comments").insert([{
+    post_id: postId,
     user_id: state.user.id,
-    amount: 10,
-    type: "task",
-    status: "completed"
+    content: text
   }]);
 
-  state.balance += 10;
-
-  await db.from("profiles")
-    .update({ balance: state.balance })
-    .eq("user_id", state.user.id);
-
-  goTasks();
+  loadFeed();
 });
 
-// ================= PROFILE =================
+// ================= NAV =================
+function goHome() { loadFeed(); }
+
 function goProfile() {
   $("feed").innerHTML = `
     <div class="post">
       <h2>${state.profile.username}</h2>
       <p>Balance: K${state.balance}</p>
-      <p>Role: ${state.profile.role}</p>
     </div>
   `;
-}
-
-// ================= NAV =================
-function goHome() {
-  loadFeed();
 }
 
 // ================= UI =================
