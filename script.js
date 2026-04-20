@@ -1,287 +1,242 @@
-// ========================================
-// KUDASAI STAGE 16 — GOD MODE
-// ========================================
-
 const { createClient } = supabase;
 
-const db = createClient(
-  "https://zoipwzvfkbzszpiectzb.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4"
-);
+const db = createClient("https://zoipwzvfkbzszpiectzb.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4");
 
-// ================= STATE =================
 const state = {
-  user: null,
-  profile: null,
-  posts: [],
-  profilesMap: {},
-  balance: 0,
-  lastAction: {}
+  user:null,
+  profile:null,
+  posts:[],
+  profilesMap:{},
+  balance:0
 };
 
 const $ = id => document.getElementById(id);
 
-// ================= SAFE =================
-function safe(fn) {
-  return async (...args) => {
-    try { await fn(...args); }
-    catch (e) { console.error(e); alert(e.message); }
-  };
-}
-
-function cooldown(key, time) {
-  const now = Date.now();
-  if (state.lastAction[key] && now - state.lastAction[key] < time) return false;
-  state.lastAction[key] = now;
-  return true;
-}
-
 // ================= AUTH =================
-const login = safe(async () => {
-  const { data, error } = await db.auth.signInWithPassword({
-    email: $("email").value,
-    password: $("password").value
+async function login(){
+  const {data,error}=await db.auth.signInWithPassword({
+    email:$("email").value,
+    password:$("password").value
   });
-  if (error) throw error;
+  if(error) return alert(error.message);
 
-  state.user = data.user;
-  await bootstrap();
-});
+  state.user=data.user;
+  bootstrap();
+}
 
-const signup = safe(async () => {
-  const { error } = await db.auth.signUp({
-    email: $("email").value,
-    password: $("password").value
+async function signup(){
+  const {error}=await db.auth.signUp({
+    email:$("email").value,
+    password:$("password").value
   });
-  if (error) throw error;
-
+  if(error) return alert(error.message);
   alert("Signup success");
-});
+}
 
 // ================= BOOT =================
-async function bootstrap() {
+async function bootstrap(){
+  document.querySelector(".auth").style.display="none";
+  $("app").style.display="block";
+
   await loadProfile();
-  showApp();
-  await loadFeed();
-  setupRealtime();
+  loadFeed();
 }
 
 // ================= PROFILE =================
-async function loadProfile() {
-  const { data } = await db
-    .from("profiles")
+async function loadProfile(){
+  const {data}=await db.from("profiles")
     .select("*")
-    .eq("user_id", state.user.id)
-    .maybeSingle();
+    .eq("user_id",state.user.id)
+    .single();
 
-  state.profile = data || { username: "user", balance: 0 };
-  state.balance = state.profile.balance || 0;
-
-  $("userTag").textContent = state.profile.username;
+  state.profile=data;
+  $("userTag").innerText=data.username;
 }
-
-const changeUsername = safe(async () => {
-  const name = prompt("New username:");
-  if (!name) return;
-
-  await db.from("profiles")
-    .update({ username: name })
-    .eq("user_id", state.user.id);
-
-  state.profile.username = name;
-  $("userTag").textContent = name;
-});
 
 // ================= FEED =================
-async function loadFeed() {
-  const { data: posts } = await db.from("posts").select("*");
-  const { data: profiles } = await db.from("profiles").select("*");
+async function loadFeed(){
+  const {data}=await db.from("posts").select("*");
 
-  state.profilesMap = {};
-  profiles.forEach(p => state.profilesMap[p.user_id] = p);
+  state.posts=data;
 
-  state.posts = (posts || []).map(p => {
-    const age = (Date.now() - new Date(p.created_at)) / 1000;
-    return {
-      ...p,
-      score: (p.likes * 5) + (100000 / (age + 1))
-    };
-  }).sort((a,b)=>b.score-a.score);
-
-  renderFeed();
+  $("feed").innerHTML=data.map(p=>`
+    <div class="post">
+      <b>${p.content}</b>
+      <br>
+      ❤️ ${p.likes||0}
+      <button onclick="like('${p.id}')">Like</button>
+      <button onclick="openComments('${p.id}')">Comment</button>
+    </div>
+  `).join("");
 }
 
-function renderFeed() {
-  $("feed").innerHTML = state.posts.map(p => {
-    const user = state.profilesMap[p.user_id];
-
-    return `
-      <div class="post">
-        <div class="post-head">
-          <div class="avatar"></div>
-          <div class="username">${user?.username || "user"}</div>
-        </div>
-
-        <p>${p.content}</p>
-
-        <div class="actions">
-          <button onclick="like('${p.id}')">❤️ ${p.likes || 0}</button>
-          <button onclick="openComments('${p.id}')">💬</button>
-        </div>
-      </div>
-    `;
-  }).join("");
-}
-
-// ================= POSTS =================
-const createPost = safe(async () => {
-  if (!cooldown("post", 2000)) return;
-
-  const text = $("postInput").value.trim();
-  if (!text) return;
-
+// ================= POST =================
+async function createPost(){
   await db.from("posts").insert([{
-    content: text,
-    user_id: state.user.id,
-    likes: 0
+    content:$("postInput").value,
+    user_id:state.user.id,
+    likes:0
   }]);
-
-  $("postInput").value = "";
+  $("postInput").value="";
   loadFeed();
-});
+}
 
-// ================= LIKE =================
-const like = safe(async (id) => {
-  if (!cooldown("like", 1500)) return;
-
-  const { data: existing } = await db.from("likes")
-    .select("*")
-    .eq("post_id", id)
-    .eq("user_id", state.user.id);
-
-  if (existing.length) return alert("Already liked");
-
-  await db.from("likes").insert([{
-    post_id: id,
-    user_id: state.user.id
-  }]);
-
-  const post = state.posts.find(p => p.id === id);
+// ================= LIKE + NOTIFY =================
+async function like(id){
+  const post=state.posts.find(p=>p.id===id);
 
   await db.from("posts")
-    .update({ likes: (post.likes || 0) + 1 })
-    .eq("id", id);
+    .update({likes:(post.likes||0)+1})
+    .eq("id",id);
+
+  await db.from("notifications").insert([{
+    user_id:post.user_id,
+    type:"like",
+    message:`${state.profile.username} liked your post`
+  }]);
 
   loadFeed();
-});
+}
 
 // ================= COMMENTS =================
-const openComments = safe(async (postId) => {
-  const { data } = await db.from("comments").select("*").eq("post_id", postId);
+async function openComments(postId){
+  const {data}=await db.from("comments")
+    .select("*").eq("post_id",postId);
 
-  $("feed").innerHTML = `
+  $("feed").innerHTML=`
     <h2>Comments</h2>
-
-    ${(data || []).map(c => {
-      const user = state.profilesMap[c.user_id];
-      return `<p><b>${user?.username || "user"}:</b> ${c.content}</p>`;
-    }).join("")}
-
-    <input id="commentInput" placeholder="Write comment...">
+    ${data.map(c=>`<p>${c.content}</p>`).join("")}
+    <input id="commentInput">
     <button onclick="addComment('${postId}')">Send</button>
   `;
-});
+}
 
-const addComment = safe(async (postId) => {
-  const text = $("commentInput").value.trim();
-  if (!text) return;
-
+async function addComment(postId){
   await db.from("comments").insert([{
-    post_id: postId,
-    user_id: state.user.id,
-    content: text
+    post_id:postId,
+    user_id:state.user.id,
+    content:$("commentInput").value
+  }]);
+
+  await db.from("notifications").insert([{
+    user_id:state.user.id,
+    type:"comment",
+    message:"Someone commented"
   }]);
 
   openComments(postId);
-});
-
-// ================= JOBS (FIVERR STYLE) =================
-function goJobs() {
-  $("feed").innerHTML = `
-    <h2>💼 Jobs</h2>
-    <input id="jobTitle" placeholder="Job title">
-    <input id="jobPrice" placeholder="Price">
-    <button onclick="createJob()">Post Job</button>
-  `;
 }
 
-const createJob = safe(async () => {
+// ================= JOB SYSTEM =================
+function goJobs(){
+  db.from("jobs").select("*").then(({data})=>{
+    $("feed").innerHTML=`
+      <h2>Jobs</h2>
+      <input id="jobTitle" placeholder="Title">
+      <input id="jobPrice" placeholder="Price">
+      <button onclick="createJob()">Create</button>
+
+      ${data.map(j=>`
+        <div class="post">
+          ${j.title} - $${j.price}
+          <button onclick="acceptJob('${j.id}','${j.user_id}')">Accept</button>
+        </div>
+      `).join("")}
+    `;
+  });
+}
+
+async function createJob(){
   await db.from("jobs").insert([{
-    title: $("jobTitle").value,
-    price: $("jobPrice").value,
-    user_id: state.user.id
+    title:$("jobTitle").value,
+    price:$("jobPrice").value,
+    user_id:state.user.id
+  }]);
+  goJobs();
+}
+
+async function acceptJob(jobId,ownerId){
+  await db.from("notifications").insert([{
+    user_id:ownerId,
+    type:"job",
+    message:"Your job was accepted"
+  }]);
+  alert("Job accepted");
+}
+
+// ================= SURVEY =================
+function goSurvey(){
+  db.from("surveys").select("*").then(({data})=>{
+    $("feed").innerHTML=data.map(s=>`
+      <div class="post">
+        <p>${s.question}</p>
+        <input id="ans${s.id}">
+        <button onclick="submitSurvey('${s.id}',${s.reward})">
+          Earn ${s.reward}
+        </button>
+      </div>
+    `).join("");
+  });
+}
+
+async function submitSurvey(id,reward){
+  await db.from("survey_responses").insert([{
+    survey_id:id,
+    user_id:state.user.id,
+    answer:$("ans"+id).value
   }]);
 
-  alert("Job posted");
-});
+  state.balance+=reward;
 
-// ================= TASKS =================
-function goTasks() {
-  $("feed").innerHTML = `
-    <h2>💰 Earn</h2>
-    <button onclick="earn(10)">Watch Ad</button>
-    <button onclick="earn(20)">Survey</button>
-    <p>Balance: K${state.balance}</p>
+  await db.from("profiles")
+    .update({balance:state.balance})
+    .eq("user_id",state.user.id);
+
+  alert("Earned!");
+}
+
+// ================= NOTIFICATIONS UI =================
+function goNotifications(){
+  db.from("notifications")
+    .select("*")
+    .eq("user_id",state.user.id)
+    .then(({data})=>{
+      $("feed").innerHTML=data.map(n=>`
+        <div class="post">${n.message}</div>
+      `).join("");
+    });
+}
+
+// ================= AI =================
+function openAI(){
+  $("feed").innerHTML=`
+    <h2>AI</h2>
+    <input id="aiInput">
+    <button onclick="askAI()">Ask</button>
+    <div id="aiRes"></div>
   `;
 }
 
-const earn = safe(async (amount) => {
-  if (!cooldown("earn", 10000)) return;
-
-  state.balance += amount;
-
-  await db.from("profiles")
-    .update({ balance: state.balance })
-    .eq("user_id", state.user.id);
-
-  goTasks();
-});
+function askAI(){
+  const q=$("aiInput").value;
+  $("aiRes").innerText="Thinking...";
+  setTimeout(()=>{
+    $("aiRes").innerText="AI: "+q;
+  },1000);
+}
 
 // ================= NAV =================
 function goHome(){ loadFeed(); }
-function goFollowing(){ alert("Coming soon"); }
-function goProfile(){
-  $("feed").innerHTML = `
-    <h2>${state.profile.username}</h2>
-    <button onclick="changeUsername()">Edit Username</button>
-    <p>Balance: K${state.balance}</p>
-  `;
-}
-
-// ================= REALTIME =================
-function setupRealtime() {
-  db.channel('posts')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' },
-      () => loadFeed()
-    )
-    .subscribe();
-}
-
-// ================= UI =================
-function showApp() {
-  document.querySelector(".auth").style.display = "none";
-  $("app").style.display = "flex";
-}
 
 // ================= INIT =================
-document.addEventListener("DOMContentLoaded", async ()=> {
-  $("loginBtn").onclick = login;
-  $("signupBtn").onclick = signup;
-  $("postBtn").onclick = createPost;
+document.addEventListener("DOMContentLoaded",async()=>{
+  $("loginBtn").onclick=login;
+  $("signupBtn").onclick=signup;
+  $("postBtn").onclick=createPost;
 
-  const { data } = await db.auth.getSession();
-  if (data?.session?.user) {
-    state.user = data.session.user;
-    await bootstrap();
+  const {data}=await db.auth.getSession();
+  if(data.session){
+    state.user=data.session.user;
+    bootstrap();
   }
 });
