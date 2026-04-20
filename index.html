@@ -8,60 +8,11 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 <style>
-:root {
-  --bg: radial-gradient(circle at top, #0a0a0a, #000);
-  --glass: rgba(255,255,255,0.06);
-  --border: rgba(255,255,255,0.08);
-}
-
 body {
   margin: 0;
   font-family: Inter, sans-serif;
-  background: var(--bg);
+  background: #000;
   color: white;
-}
-
-/* AUTH */
-.auth {
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.box {
-  width: 340px;
-  padding: 35px;
-  border-radius: 22px;
-  background: var(--glass);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--border);
-}
-
-.box input {
-  width: 100%;
-  padding: 14px;
-  margin-top: 12px;
-  border-radius: 12px;
-  border: none;
-  background: #111;
-  color: white;
-}
-
-.box button {
-  width: 100%;
-  margin-top: 12px;
-  padding: 14px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-}
-
-/* APP */
-#app {
-  display: none;
-  flex-direction: column;
-  height: 100vh;
 }
 
 /* HEADER */
@@ -72,71 +23,38 @@ body {
   padding: 14px;
   display: flex;
   justify-content: space-between;
-  background: rgba(0,0,0,0.8);
-  border-bottom: 1px solid #222;
+  background: rgba(0,0,0,0.9);
 }
 
-.feed-toggle span {
-  margin-right: 10px;
-  cursor: pointer;
+.logo {
+  font-size: 26px;
+  font-weight: 900;
+  background: linear-gradient(135deg,#fff,#666);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* FEED */
 .feed {
-  flex: 1;
   margin-top: 70px;
-  margin-bottom: 120px;
-  overflow-y: auto;
+  margin-bottom: 100px;
   padding: 12px;
 }
 
-/* POST */
 .post {
-  background: var(--glass);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 16px;
-  margin-bottom: 14px;
-}
-
-.username {
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.actions {
-  margin-top: 10px;
-  display: flex;
-  gap: 10px;
-}
-
-/* COMMENTS */
-.comment-box {
-  margin-top: 10px;
-}
-
-.comment {
-  font-size: 12px;
-  opacity: 0.8;
-}
-
-/* COMPOSER */
-.composer {
-  position: fixed;
-  bottom: 80px;
-  width: 100%;
-  display: flex;
-  gap: 10px;
-  padding: 10px;
-}
-
-.composer input {
-  flex: 1;
-  padding: 14px;
-  border-radius: 12px;
-  border: none;
   background: #111;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+button {
+  background: #222;
   color: white;
+  border: none;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 /* NAV */
@@ -146,50 +64,54 @@ body {
   width: 100%;
   display: flex;
   justify-content: space-around;
-  padding: 14px;
-  background: rgba(0,0,0,0.9);
-  border-top: 1px solid #222;
+  padding: 10px;
+  background: #000;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  background: #111;
+  border: none;
+  color: white;
 }
 </style>
 </head>
 
 <body>
 
+<!-- AUTH -->
 <div class="auth">
-  <div class="box">
-    <h2>KUDASAI</h2>
-    <input id="email" placeholder="Email">
-    <input id="password" type="password">
-    <button id="signupBtn">Create Account</button>
-    <button id="loginBtn">Login</button>
-  </div>
+  <input id="email" placeholder="Email">
+  <input id="password" type="password">
+  <button id="signupBtn">Signup</button>
+  <button id="loginBtn">Login</button>
 </div>
 
-<div id="app">
+<!-- APP -->
+<div id="app" style="display:none;">
 
-  <div class="header">
-    <div>KUDASAI</div>
+<div class="header">
+  <div class="logo">K</div>
 
-    <div class="feed-toggle">
-      <span onclick="goHome()">For You</span>
-      <span onclick="goFollowing()">Following</span>
-    </div>
-
-    <div id="userTag"></div>
+  <div>
+    <span onclick="goHome()">🏠</span>
+    <span onclick="goJobs()">💼</span>
+    <span onclick="goSurvey()">📊</span>
+    <span onclick="goNotifications()">🔔</span>
+    <span onclick="openAI()">🤖</span>
   </div>
 
-  <div id="feed" class="feed"></div>
+  <div id="userTag"></div>
+</div>
 
-  <div class="composer">
-    <input id="postInput" placeholder="Say something...">
-    <button id="postBtn">➤</button>
-  </div>
+<div id="feed" class="feed"></div>
 
-  <div class="nav">
-    <div onclick="goHome()">🏠</div>
-    <div onclick="goTasks()">💰</div>
-    <div onclick="goProfile()">👤</div>
-  </div>
+<div class="nav">
+  <input id="postInput" placeholder="Say something...">
+  <button id="postBtn">Post</button>
+</div>
 
 </div>
 
