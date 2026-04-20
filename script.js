@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI STAGE 15 — FIXED + EXPANDED
+// KUDASAI STAGE 16 — GOD MODE
 // ========================================
 
 const { createClient } = supabase;
@@ -16,8 +16,7 @@ const state = {
   posts: [],
   profilesMap: {},
   balance: 0,
-  lastAction: {},
-  notifications: []
+  lastAction: {}
 };
 
 const $ = id => document.getElementById(id);
@@ -26,7 +25,7 @@ const $ = id => document.getElementById(id);
 function safe(fn) {
   return async (...args) => {
     try { await fn(...args); }
-    catch (e) { alert(e.message); console.error(e); }
+    catch (e) { console.error(e); alert(e.message); }
   };
 }
 
@@ -43,7 +42,6 @@ const login = safe(async () => {
     email: $("email").value,
     password: $("password").value
   });
-
   if (error) throw error;
 
   state.user = data.user;
@@ -55,8 +53,8 @@ const signup = safe(async () => {
     email: $("email").value,
     password: $("password").value
   });
-
   if (error) throw error;
+
   alert("Signup success");
 });
 
@@ -65,6 +63,7 @@ async function bootstrap() {
   await loadProfile();
   showApp();
   await loadFeed();
+  setupRealtime();
 }
 
 // ================= PROFILE =================
@@ -75,13 +74,12 @@ async function loadProfile() {
     .eq("user_id", state.user.id)
     .maybeSingle();
 
-  state.profile = data;
-  state.balance = data?.balance || 0;
+  state.profile = data || { username: "user", balance: 0 };
+  state.balance = state.profile.balance || 0;
 
-  $("userTag").textContent = data?.username || "user";
+  $("userTag").textContent = state.profile.username;
 }
 
-// 🔥 USERNAME EDIT (FIXED)
 const changeUsername = safe(async () => {
   const name = prompt("New username:");
   if (!name) return;
@@ -92,11 +90,9 @@ const changeUsername = safe(async () => {
 
   state.profile.username = name;
   $("userTag").textContent = name;
-
-  alert("Username updated");
 });
 
-// ================= LOAD FEED =================
+// ================= FEED =================
 async function loadFeed() {
   const { data: posts } = await db.from("posts").select("*");
   const { data: profiles } = await db.from("profiles").select("*");
@@ -104,18 +100,40 @@ async function loadFeed() {
   state.profilesMap = {};
   profiles.forEach(p => state.profilesMap[p.user_id] = p);
 
-  state.posts = posts.map(p => {
+  state.posts = (posts || []).map(p => {
     const age = (Date.now() - new Date(p.created_at)) / 1000;
     return {
       ...p,
-      score: (p.likes || 0) * 3 + (100000 / (age + 1))
+      score: (p.likes * 5) + (100000 / (age + 1))
     };
   }).sort((a,b)=>b.score-a.score);
 
   renderFeed();
 }
 
-// ================= CREATE POST =================
+function renderFeed() {
+  $("feed").innerHTML = state.posts.map(p => {
+    const user = state.profilesMap[p.user_id];
+
+    return `
+      <div class="post">
+        <div class="post-head">
+          <div class="avatar"></div>
+          <div class="username">${user?.username || "user"}</div>
+        </div>
+
+        <p>${p.content}</p>
+
+        <div class="actions">
+          <button onclick="like('${p.id}')">❤️ ${p.likes || 0}</button>
+          <button onclick="openComments('${p.id}')">💬</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+// ================= POSTS =================
 const createPost = safe(async () => {
   if (!cooldown("post", 2000)) return;
 
@@ -132,11 +150,10 @@ const createPost = safe(async () => {
   loadFeed();
 });
 
-// ================= LIKE (FIXED NO RPC) =================
+// ================= LIKE =================
 const like = safe(async (id) => {
   if (!cooldown("like", 1500)) return;
 
-  // prevent duplicate like
   const { data: existing } = await db.from("likes")
     .select("*")
     .eq("post_id", id)
@@ -149,8 +166,8 @@ const like = safe(async (id) => {
     user_id: state.user.id
   }]);
 
-  // increment manually
   const post = state.posts.find(p => p.id === id);
+
   await db.from("posts")
     .update({ likes: (post.likes || 0) + 1 })
     .eq("id", id);
@@ -158,32 +175,20 @@ const like = safe(async (id) => {
   loadFeed();
 });
 
-// ================= COMMENTS (UPGRADED UI) =================
+// ================= COMMENTS =================
 const openComments = safe(async (postId) => {
-  const { data } = await db
-    .from("comments")
-    .select("*")
-    .eq("post_id", postId);
+  const { data } = await db.from("comments").select("*").eq("post_id", postId);
 
   $("feed").innerHTML = `
-    <div class="panel">
-      <h2>Comments</h2>
+    <h2>Comments</h2>
 
-      <div class="comment-list">
-        ${(data || []).map(c => `
-          <div class="comment">
-            <div class="avatar small"></div>
-            <div>
-              <b>${c.user_id}</b>
-              <p>${c.content}</p>
-            </div>
-          </div>
-        `).join("")}
-      </div>
+    ${(data || []).map(c => {
+      const user = state.profilesMap[c.user_id];
+      return `<p><b>${user?.username || "user"}:</b> ${c.content}</p>`;
+    }).join("")}
 
-      <input id="commentInput" placeholder="Write comment...">
-      <button onclick="addComment('${postId}')">Send</button>
-    </div>
+    <input id="commentInput" placeholder="Write comment...">
+    <button onclick="addComment('${postId}')">Send</button>
   `;
 });
 
@@ -200,35 +205,38 @@ const addComment = safe(async (postId) => {
   openComments(postId);
 });
 
-// ================= EARN UI (UPGRADED) =================
+// ================= JOBS (FIVERR STYLE) =================
+function goJobs() {
+  $("feed").innerHTML = `
+    <h2>💼 Jobs</h2>
+    <input id="jobTitle" placeholder="Job title">
+    <input id="jobPrice" placeholder="Price">
+    <button onclick="createJob()">Post Job</button>
+  `;
+}
+
+const createJob = safe(async () => {
+  await db.from("jobs").insert([{
+    title: $("jobTitle").value,
+    price: $("jobPrice").value,
+    user_id: state.user.id
+  }]);
+
+  alert("Job posted");
+});
+
+// ================= TASKS =================
 function goTasks() {
   $("feed").innerHTML = `
-    <div class="panel">
-      <h2>💰 Earn Hub</h2>
-
-      <div class="task-card">
-        <p>Watch Ad</p>
-        <button onclick="earn(10)">Start</button>
-      </div>
-
-      <div class="task-card">
-        <p>Survey</p>
-        <button onclick="earn(20)">Start</button>
-      </div>
-
-      <h3>Balance: K${state.balance}</h3>
-    </div>
+    <h2>💰 Earn</h2>
+    <button onclick="earn(10)">Watch Ad</button>
+    <button onclick="earn(20)">Survey</button>
+    <p>Balance: K${state.balance}</p>
   `;
 }
 
 const earn = safe(async (amount) => {
   if (!cooldown("earn", 10000)) return;
-
-  await db.from("transactions").insert([{
-    user_id: state.user.id,
-    amount,
-    type: "task"
-  }]);
 
   state.balance += amount;
 
@@ -239,34 +247,25 @@ const earn = safe(async (amount) => {
   goTasks();
 });
 
-// ================= PROFILE =================
-function goProfile() {
-  $("feed").innerHTML = `
-    <div class="panel">
-      <div class="avatar big"></div>
-      <h2>${state.profile.username}</h2>
-
-      <button onclick="changeUsername()">Edit Username</button>
-
-      <p>Balance: K${state.balance}</p>
-    </div>
-  `;
-}
-
-// ================= EXPLORE (NEW) =================
-function goExplore() {
-  const trending = [...state.posts].slice(0,5);
-
-  $("feed").innerHTML = `
-    <div class="panel">
-      <h2>🔥 Trending</h2>
-      ${trending.map(p => `<p>${p.content}</p>`).join("")}
-    </div>
-  `;
-}
-
 // ================= NAV =================
 function goHome(){ loadFeed(); }
+function goFollowing(){ alert("Coming soon"); }
+function goProfile(){
+  $("feed").innerHTML = `
+    <h2>${state.profile.username}</h2>
+    <button onclick="changeUsername()">Edit Username</button>
+    <p>Balance: K${state.balance}</p>
+  `;
+}
+
+// ================= REALTIME =================
+function setupRealtime() {
+  db.channel('posts')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' },
+      () => loadFeed()
+    )
+    .subscribe();
+}
 
 // ================= UI =================
 function showApp() {
@@ -275,13 +274,12 @@ function showApp() {
 }
 
 // ================= INIT =================
-document.addEventListener("DOMContentLoaded", async ()=>{
+document.addEventListener("DOMContentLoaded", async ()=> {
   $("loginBtn").onclick = login;
   $("signupBtn").onclick = signup;
   $("postBtn").onclick = createPost;
 
   const { data } = await db.auth.getSession();
-
   if (data?.session?.user) {
     state.user = data.session.user;
     await bootstrap();
