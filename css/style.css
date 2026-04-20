@@ -343,3 +343,12 @@ button:hover {
   border-radius: 12px;
   margin-bottom: 10px;
 }
+.logo {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg,#fff,#777);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 20px rgba(255,255,255,0.3);
+}
