@@ -164,16 +164,22 @@ const like = safe(async (id)=>{
 
 // ================= RENDER =================
 function renderFeed(){
-  const feed = $("feed");
-  feed.innerHTML = "";
+  const twitter = $("feed");
+  const tiktok = $("tiktokFeed");
+  const ig = $("igFeed");
 
-  state.posts.forEach(p=>{
+  twitter.innerHTML = "";
+  tiktok.innerHTML = "";
+  ig.innerHTML = "";
+
+  state.posts.forEach(p => {
+
     const user = state.profilesMap[p.user_id] || {};
 
-    const div = document.createElement("div");
-    div.className = "post";
+    const post = document.createElement("div");
+    post.className = "post";
 
-    div.innerHTML = `
+    post.innerHTML = `
       <div class="post-header">
         <div class="avatar"></div>
         <div>
@@ -189,7 +195,16 @@ function renderFeed(){
       </div>
     `;
 
-    feed.appendChild(div);
+    // 🧠 ROUTING SYSTEM (THIS is key)
+    twitter.appendChild(post.cloneNode(true));
+
+    if(p.content.includes("video") || p.content.includes("tiktok")){
+      tiktok.appendChild(post.cloneNode(true));
+    }
+
+    if(p.content.includes("image") || p.content.includes("insta")){
+      ig.appendChild(post.cloneNode(true));
+    }
   });
 }
 
