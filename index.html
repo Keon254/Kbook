@@ -6,34 +6,37 @@
 <title>KUDASAI</title>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
 <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<!-- AUTH -->
+<!-- 🌌 AUTH SCREEN -->
 <div class="auth" id="auth">
+
+  <!-- STARFIELD -->
+  <div class="stars"></div>
+  <div class="stars2"></div>
+  <div class="stars3"></div>
+
   <div class="auth-box">
-    <h2>KUDASAI</h2>
+    <h1 class="logo">KUDASAI</h1>
+
     <input id="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
+
     <button id="signupBtn">Create Account</button>
     <button id="loginBtn">Login</button>
   </div>
 </div>
 
-<!-- APP -->
+<!-- 🚀 APP -->
 <div id="app">
 
   <!-- HEADER -->
   <div class="header">
     <div class="logo">KUDASAI</div>
-    <div class="nav-icons">
-      <span onclick="goHome()">🏠</span>
-      <span onclick="goExplore()">🔥</span>
-      <span onclick="goTasks()">💰</span>
-      <span onclick="goProfile()">👤</span>
-    </div>
     <div id="userTag"></div>
   </div>
 
@@ -44,6 +47,12 @@
   <div class="composer">
     <input id="postInput" placeholder="What’s happening?">
     <button id="postBtn">➤</button>
+  </div>
+
+  <!-- NAV -->
+  <div class="nav">
+    <div onclick="goHome()">🏠</div>
+    <div onclick="goProfile()">👤</div>
   </div>
 
 </div>
