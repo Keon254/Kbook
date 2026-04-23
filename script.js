@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI STAGE 15 — FIXED + EXPANDED
+// KUDASAI FINAL ENGINE v2 (NO DOWNGRADE)
 // ========================================
 
 const { createClient } = supabase;
@@ -16,8 +16,7 @@ const state = {
   posts: [],
   profilesMap: {},
   balance: 0,
-  lastAction: {},
-  notifications: []
+  lastAction: {}
 };
 
 const $ = id => document.getElementById(id);
@@ -26,24 +25,31 @@ const $ = id => document.getElementById(id);
 function safe(fn) {
   return async (...args) => {
     try { await fn(...args); }
-    catch (e) { alert(e.message); console.error(e); }
+    catch (e) {
+      console.error(e);
+      alert(e.message || "Error occurred");
+    }
   };
 }
 
+// ================= COOLDOWN =================
 function cooldown(key, time) {
   const now = Date.now();
-  if (state.lastAction[key] && now - state.lastAction[key] < time) return false;
+  if (state.lastAction[key] && now - state.lastAction[key] < time) {
+    return false;
+  }
   state.lastAction[key] = now;
   return true;
 }
 
 // ================= AUTH =================
 const login = safe(async () => {
-  const { data, error } = await db.auth.signInWithPassword({
-    email: $("email").value,
-    password: $("password").value
-  });
+  const email = $("email").value.trim();
+  const password = $("password").value.trim();
 
+  if (!email || !password) return alert("Fill all fields");
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
   state.user = data.user;
@@ -51,12 +57,14 @@ const login = safe(async () => {
 });
 
 const signup = safe(async () => {
-  const { error } = await db.auth.signUp({
-    email: $("email").value,
-    password: $("password").value
-  });
+  const email = $("email").value.trim();
+  const password = $("password").value.trim();
 
+  if (!email || !password) return alert("Fill all fields");
+
+  const { error } = await db.auth.signUp({ email, password });
   if (error) throw error;
+
   alert("Signup success");
 });
 
@@ -75,13 +83,18 @@ async function loadProfile() {
     .eq("user_id", state.user.id)
     .maybeSingle();
 
-  state.profile = data;
-  state.balance = data?.balance || 0;
+  state.profile = data || {
+    username: "user",
+    balance: 0,
+    role: "user"
+  };
 
-  $("userTag").textContent = data?.username || "user";
+  state.balance = state.profile.balance || 0;
+
+  $("userTag").textContent = state.profile.username;
 }
 
-// 🔥 USERNAME EDIT (FIXED)
+// 🔥 USERNAME UPDATE (FULL FIX)
 const changeUsername = safe(async () => {
   const name = prompt("New username:");
   if (!name) return;
@@ -93,24 +106,27 @@ const changeUsername = safe(async () => {
   state.profile.username = name;
   $("userTag").textContent = name;
 
-  alert("Username updated");
+  await loadFeed(); // refresh everywhere
 });
 
 // ================= LOAD FEED =================
 async function loadFeed() {
+  $("feed").innerHTML = "<p>Loading...</p>";
+
   const { data: posts } = await db.from("posts").select("*");
   const { data: profiles } = await db.from("profiles").select("*");
 
   state.profilesMap = {};
-  profiles.forEach(p => state.profilesMap[p.user_id] = p);
+  (profiles || []).forEach(p => state.profilesMap[p.user_id] = p);
 
-  state.posts = posts.map(p => {
+  state.posts = (posts || []).map(p => {
     const age = (Date.now() - new Date(p.created_at)) / 1000;
+
     return {
       ...p,
       score: (p.likes || 0) * 3 + (100000 / (age + 1))
     };
-  }).sort((a,b)=>b.score-a.score);
+  }).sort((a, b) => b.score - a.score);
 
   renderFeed();
 }
@@ -132,36 +148,72 @@ const createPost = safe(async () => {
   loadFeed();
 });
 
-// ================= LIKE (FIXED NO RPC) =================
+// ================= LIKE (ANTI-RACE + INSTANT UI) =================
 const like = safe(async (id) => {
-  if (!cooldown("like", 1500)) return;
+  if (!cooldown("like", 1000)) return;
 
-  // prevent duplicate like
+  const btn = document.querySelector(`[data-like="${id}"]`);
+  if (btn) btn.disabled = true;
+
   const { data: existing } = await db.from("likes")
     .select("*")
     .eq("post_id", id)
     .eq("user_id", state.user.id);
 
-  if (existing.length) return alert("Already liked");
+  if (existing.length) return;
+
+  // 🔥 instant UI update
+  const post = state.posts.find(p => p.id === id);
+  post.likes = (post.likes || 0) + 1;
+  renderFeed();
 
   await db.from("likes").insert([{
     post_id: id,
     user_id: state.user.id
   }]);
 
-  // increment manually
-  const post = state.posts.find(p => p.id === id);
   await db.from("posts")
-    .update({ likes: (post.likes || 0) + 1 })
+    .update({ likes: post.likes })
     .eq("id", id);
-
-  loadFeed();
 });
 
-// ================= COMMENTS (UPGRADED UI) =================
+// ================= RENDER =================
+function renderFeed() {
+  const feed = $("feed");
+  feed.innerHTML = "";
+
+  state.posts.forEach(p => {
+    const user = state.profilesMap[p.user_id] || {};
+
+    const div = document.createElement("div");
+    div.className = "post";
+
+    div.innerHTML = `
+      <div class="post-header">
+        <div class="avatar"></div>
+        <div>
+          <div class="username">${user.username || "user"}</div>
+          <div class="time">${new Date(p.created_at).toLocaleString()}</div>
+        </div>
+      </div>
+
+      <p>${p.content}</p>
+
+      <div class="actions">
+        <button data-like="${p.id}" onclick="like('${p.id}')">
+          ❤️ ${p.likes || 0}
+        </button>
+        <button onclick="openComments('${p.id}')">💬</button>
+      </div>
+    `;
+
+    feed.appendChild(div);
+  });
+}
+
+// ================= COMMENTS =================
 const openComments = safe(async (postId) => {
-  const { data } = await db
-    .from("comments")
+  const { data } = await db.from("comments")
     .select("*")
     .eq("post_id", postId);
 
@@ -170,15 +222,18 @@ const openComments = safe(async (postId) => {
       <h2>Comments</h2>
 
       <div class="comment-list">
-        ${(data || []).map(c => `
-          <div class="comment">
-            <div class="avatar small"></div>
-            <div>
-              <b>${c.user_id}</b>
-              <p>${c.content}</p>
+        ${(data || []).map(c => {
+          const user = state.profilesMap[c.user_id] || {};
+          return `
+            <div class="comment">
+              <div class="avatar small"></div>
+              <div>
+                <b>${user.username || "user"}</b>
+                <p>${c.content}</p>
+              </div>
             </div>
-          </div>
-        `).join("")}
+          `;
+        }).join("")}
       </div>
 
       <input id="commentInput" placeholder="Write comment...">
@@ -200,19 +255,19 @@ const addComment = safe(async (postId) => {
   openComments(postId);
 });
 
-// ================= EARN UI (UPGRADED) =================
+// ================= TASKS =================
 function goTasks() {
   $("feed").innerHTML = `
     <div class="panel">
       <h2>💰 Earn Hub</h2>
 
       <div class="task-card">
-        <p>Watch Ad</p>
+        <p>Watch Ad (+10)</p>
         <button onclick="earn(10)">Start</button>
       </div>
 
       <div class="task-card">
-        <p>Survey</p>
+        <p>Survey (+20)</p>
         <button onclick="earn(20)">Start</button>
       </div>
 
@@ -222,7 +277,7 @@ function goTasks() {
 }
 
 const earn = safe(async (amount) => {
-  if (!cooldown("earn", 10000)) return;
+  if (!cooldown("earn", 8000)) return;
 
   await db.from("transactions").insert([{
     user_id: state.user.id,
@@ -253,9 +308,9 @@ function goProfile() {
   `;
 }
 
-// ================= EXPLORE (NEW) =================
+// ================= EXPLORE =================
 function goExplore() {
-  const trending = [...state.posts].slice(0,5);
+  const trending = [...state.posts].slice(0, 5);
 
   $("feed").innerHTML = `
     <div class="panel">
@@ -275,7 +330,7 @@ function showApp() {
 }
 
 // ================= INIT =================
-document.addEventListener("DOMContentLoaded", async ()=>{
+document.addEventListener("DOMContentLoaded", async () => {
   $("loginBtn").onclick = login;
   $("signupBtn").onclick = signup;
   $("postBtn").onclick = createPost;
