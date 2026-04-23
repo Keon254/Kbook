@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI STAGE 17 — IMMERSIVE ENGINE
+// KUDASAI STAGE 17 — PATCHED STABLE ENGINE
 // ========================================
 
 const { createClient } = supabase;
@@ -15,18 +15,19 @@ const state = {
   profile: null,
   posts: [],
   profilesMap: {},
-  balance: 0,
-  lastAction: {},
-  notifications: []
+  lastAction: {}
 };
 
 const $ = id => document.getElementById(id);
 
-// ================= SAFE =================
+// ================= SAFE WRAPPER =================
 function safe(fn){
   return async (...args)=>{
     try { await fn(...args); }
-    catch(e){ console.error(e); alert(e.message); }
+    catch(e){
+      console.error(e);
+      alert(e.message || "Error occurred");
+    }
   };
 }
 
@@ -45,16 +46,29 @@ const login = safe(async ()=>{
     password: $("password").value
   });
   if(error) throw error;
+
   state.user = data.user;
   await bootstrap();
 });
 
 const signup = safe(async ()=>{
-  const { error } = await db.auth.signUp({
-    email: $("email").value,
-    password: $("password").value
+  const email = $("email").value;
+  const password = $("password").value;
+
+  const { data, error } = await db.auth.signUp({
+    email,
+    password
   });
+
   if(error) throw error;
+
+  // ✅ AUTO PROFILE CREATE FIX
+  await db.from("profiles").insert([{
+    user_id: data.user.id,
+    username: email.split("@")[0],
+    balance: 0
+  }]);
+
   alert("Signup success");
 });
 
@@ -74,42 +88,34 @@ async function loadProfile(){
     .eq("user_id", state.user.id)
     .maybeSingle();
 
-  state.profile = data;
-  state.balance = data?.balance || 0;
+  if(!data){
+    // fallback fix
+    await db.from("profiles").insert([{
+      user_id: state.user.id,
+      username: "user",
+      balance: 0
+    }]);
+  }
 
-  $("userTag").textContent = data?.username || "user";
+  state.profile = data || { username:"user", balance:0 };
+  $("userTag").textContent = state.profile.username;
 }
-
-const changeUsername = safe(async ()=>{
-  const name = prompt("New username:");
-  if(!name) return;
-
-  await db.from("profiles")
-    .update({ username:name })
-    .eq("user_id", state.user.id);
-
-  state.profile.username = name;
-  $("userTag").textContent = name;
-
-  loadFeed();
-});
 
 // ================= FEED =================
 async function loadFeed(){
-  const { data: posts } = await db.from("posts").select("*");
-  const { data: profiles } = await db.from("profiles").select("*");
+  const { data: posts } = await db
+    .from("posts")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  const { data: profiles } = await db
+    .from("profiles")
+    .select("*");
 
   state.profilesMap = {};
-  profiles.forEach(p=> state.profilesMap[p.user_id]=p);
+  profiles.forEach(p => state.profilesMap[p.user_id] = p);
 
-  state.posts = posts.map(p=>{
-    const age = (Date.now() - new Date(p.created_at))/1000;
-    return {
-      ...p,
-      score: (p.likes||0)*4 + (200000/(age+1))
-    };
-  }).sort((a,b)=>b.score-a.score);
-
+  state.posts = posts || [];
   renderFeed();
 }
 
@@ -121,47 +127,51 @@ const createPost = safe(async ()=>{
   if(!text) return;
 
   await db.from("posts").insert([{
-    content:text,
+    content: text,
     user_id: state.user.id,
-    likes:0
+    likes: 0
   }]);
 
-  $("postInput").value="";
+  $("postInput").value = "";
 });
 
 // ================= LIKE =================
 const like = safe(async (id)=>{
-  if(!cooldown("like",1000)) return;
+  if(!cooldown("like",800)) return;
 
-  const { data:existing } = await db.from("likes")
+  const { data: existing } = await db
+    .from("likes")
     .select("*")
-    .eq("post_id",id)
-    .eq("user_id",state.user.id);
+    .eq("post_id", id)
+    .eq("user_id", state.user.id);
 
-  if(existing.length) return;
+  if(existing?.length) return;
 
   await db.from("likes").insert([{
-    post_id:id,
-    user_id:state.user.id
+    post_id: id,
+    user_id: state.user.id
   }]);
 
-  const post = state.posts.find(p=>p.id===id);
+  const post = state.posts.find(p => p.id === id);
+  if(!post) return;
 
   await db.from("posts")
-    .update({ likes:(post.likes||0)+1 })
-    .eq("id",id);
+    .update({ likes: (post.likes || 0) + 1 })
+    .eq("id", id);
+
+  loadFeed(); // 🔥 FIX: instant UI refresh
 });
 
 // ================= RENDER =================
 function renderFeed(){
   const feed = $("feed");
-  feed.innerHTML="";
+  feed.innerHTML = "";
 
   state.posts.forEach(p=>{
     const user = state.profilesMap[p.user_id] || {};
 
     const div = document.createElement("div");
-    div.className="post";
+    div.className = "post";
 
     div.innerHTML = `
       <div class="post-header">
@@ -175,8 +185,7 @@ function renderFeed(){
       <div class="post-content">${p.content}</div>
 
       <div class="actions">
-        <button onclick="like('${p.id}')">❤️ ${p.likes||0}</button>
-        <button onclick="openComments('${p.id}')">💬</button>
+        <button onclick="like('${p.id}')">❤️ ${p.likes || 0}</button>
       </div>
     `;
 
@@ -184,73 +193,21 @@ function renderFeed(){
   });
 }
 
-// ================= COMMENTS =================
-const openComments = safe(async (postId)=>{
-  const { data } = await db.from("comments")
-    .select("*")
-    .eq("post_id",postId);
-
-  $("feed").innerHTML = `
-    <div class="panel">
-      <h2>Comments</h2>
-
-      <div class="comment-list">
-        ${(data||[]).map(c=>`
-          <div class="comment">
-            <div class="avatar small"></div>
-            <div>
-              <b>${c.user_id}</b>
-              <p>${c.content}</p>
-            </div>
-          </div>
-        `).join("")}
-      </div>
-
-      <input id="commentInput" placeholder="Write...">
-      <button onclick="addComment('${postId}')">Send</button>
-    </div>
-  `;
-});
-
-const addComment = safe(async(postId)=>{
-  const text = $("commentInput").value.trim();
-  if(!text) return;
-
-  await db.from("comments").insert([{
-    post_id:postId,
-    user_id:state.user.id,
-    content:text
-  }]);
-
-  openComments(postId);
-});
-
-// ================= REALTIME =================
+// ================= REALTIME (FIXED) =================
 function startRealtime(){
   db.channel("posts-live")
-    .on("postgres_changes",{event:"*",schema:"public",table:"posts"},()=>{
-      loadFeed();
-    })
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "posts" },
+      () => loadFeed()
+    )
     .subscribe();
-}
-
-// ================= NAV =================
-function goHome(){ loadFeed(); }
-function goProfile(){
-  $("feed").innerHTML = `
-    <div class="panel">
-      <div class="avatar big"></div>
-      <h2>${state.profile.username}</h2>
-      <button onclick="changeUsername()">Edit</button>
-      <p>Balance: K${state.balance}</p>
-    </div>
-  `;
 }
 
 // ================= UI =================
 function showApp(){
-  document.querySelector(".auth").style.display="none";
-  $("app").style.display="flex";
+  document.querySelector(".auth").style.display = "none";
+  $("app").style.display = "flex";
 }
 
 // ================= INIT =================
@@ -260,6 +217,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   $("postBtn").onclick = createPost;
 
   const { data } = await db.auth.getSession();
+
   if(data?.session?.user){
     state.user = data.session.user;
     await bootstrap();
