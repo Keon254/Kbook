@@ -3,7 +3,7 @@
 ========================= */
 :root {
   --bg: radial-gradient(circle at top, #0a0a0a, #000);
-  --glass: rgba(255,255,255,0.05);
+  --glass: rgba(255,255,255,0.06);
   --border: rgba(255,255,255,0.08);
   --accent: #ffffff;
   --soft: rgba(255,255,255,0.6);
@@ -14,6 +14,68 @@ body {
   font-family: Inter, sans-serif;
   background: var(--bg);
   color: white;
+  overflow-x: hidden;
+}
+
+/* ================= AUTH + STARFIELD ================= */
+.auth {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.stars, .stars2, .stars3 {
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  pointer-events: none;
+}
+
+.stars {
+  background: radial-gradient(white 1px, transparent 1px);
+  background-size: 3px 3px;
+  animation: moveStars 120s linear infinite;
+  opacity: 0.5;
+}
+
+.stars2 {
+  background: radial-gradient(white 2px, transparent 2px);
+  background-size: 6px 6px;
+  animation: moveStars 80s linear infinite;
+  opacity: 0.3;
+}
+
+.stars3 {
+  background: radial-gradient(white 3px, transparent 3px);
+  background-size: 10px 10px;
+  animation: moveStars 50s linear infinite;
+  opacity: 0.2;
+}
+
+@keyframes moveStars {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+
+/* AUTH BOX */
+.auth-box {
+  width: 340px;
+  padding: 35px;
+  border-radius: 22px;
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  z-index: 2;
+}
+
+/* ================= APP ================= */
+#app {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
 }
 
 /* HEADER */
@@ -24,55 +86,60 @@ body {
   padding: 16px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.8);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid #222;
   z-index: 10;
-}
-
-.logo {
-  font-weight: bold;
-  letter-spacing: 2px;
-}
-
-.userTag {
-  font-size: 12px;
-  color: var(--soft);
 }
 
 /* FEED */
 .feed {
+  flex: 1;
   margin-top: 70px;
-  margin-bottom: 100px;
+  margin-bottom: 110px;
+  overflow-y: auto;
   padding: 12px;
+  scroll-behavior: smooth;
 }
 
-/* POST CARD (TWITTER STYLE + MODERN) */
+/* POST (UPGRADED HYBRID UI) */
 .post {
   display: flex;
   gap: 12px;
   background: var(--glass);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 14px;
   margin-bottom: 14px;
-  transition: 0.2s;
+  animation: fadeIn 0.3s ease;
+  will-change: transform;
 }
 
 .post:hover {
   transform: translateY(-3px);
+  box-shadow: 0 0 60px rgba(255,255,255,0.08);
 }
 
-/* AVATAR */
+/* AVATAR SYSTEM */
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: #222;
+  background: linear-gradient(135deg,#444,#999);
 }
 
-/* CONTENT */
+.avatar.big {
+  width: 80px;
+  height: 80px;
+}
+
+.avatar.small {
+  width: 30px;
+  height: 30px;
+}
+
+/* POST BODY */
 .post-body {
   flex: 1;
 }
@@ -80,15 +147,14 @@ body {
 .post-header {
   font-size: 13px;
   color: var(--soft);
-  margin-bottom: 5px;
 }
 
 .post-text {
   font-size: 15px;
-  margin-bottom: 10px;
+  margin: 8px 0;
 }
 
-/* ACTIONS (LIKE TIKTOK STYLE) */
+/* ACTIONS */
 .post-actions {
   display: flex;
   gap: 15px;
@@ -98,10 +164,21 @@ body {
   cursor: pointer;
   font-size: 14px;
   color: var(--soft);
+  transition: 0.2s;
 }
 
 .action:hover {
   color: white;
+  transform: scale(1.1);
+}
+
+/* COMMENTS */
+.comment {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: 0.8;
 }
 
 /* COMPOSER */
@@ -117,7 +194,7 @@ body {
 .composer input {
   flex: 1;
   padding: 14px;
-  border-radius: 14px;
+  border-radius: 12px;
   border: none;
   background: #111;
   color: white;
@@ -125,7 +202,7 @@ body {
 
 .composer button {
   width: 60px;
-  border-radius: 14px;
+  border-radius: 12px;
   border: none;
   background: white;
   color: black;
@@ -141,14 +218,35 @@ body {
   justify-content: space-around;
   padding: 14px;
   background: rgba(0,0,0,0.9);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid #222;
 }
 
-.nav div {
-  cursor: pointer;
-  opacity: 0.7;
+/* TASK CARD */
+.task-card {
+  background: rgba(255,255,255,0.05);
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 10px;
 }
 
-.nav div:hover {
-  opacity: 1;
+/* LOGO */
+.logo {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg,#fff,#777);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ANIMATIONS */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* SAFE UI */
+button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
