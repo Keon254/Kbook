@@ -242,3 +242,52 @@ body {
 .panel {
   padding: 20px;
 }
+/* ===== APP LAYOUT ===== */
+#app {
+  display: flex;
+  height: 100vh;
+}
+
+/* LEFT SIDEBAR */
+.sidebar {
+  width: 240px;
+  background: rgba(255,255,255,0.03);
+  border-right: 1px solid rgba(255,255,255,0.08);
+  padding: 20px;
+  backdrop-filter: blur(20px);
+}
+
+.nav-item {
+  padding: 12px;
+  margin: 6px 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+/* FEEDS GRID */
+.feeds {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  overflow: hidden;
+}
+
+/* EACH COLUMN */
+.feed-column {
+  overflow-y: auto;
+  padding: 10px;
+  border-right: 1px solid rgba(255,255,255,0.05);
+}
+
+/* RIGHT PANEL */
+.rightbar {
+  width: 300px;
+  background: rgba(255,255,255,0.03);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  padding: 15px;
+  backdrop-filter: blur(20px);
+}
