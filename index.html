@@ -6,112 +6,45 @@
 <title>KUDASAI</title>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-
-<style>
-body {
-  margin: 0;
-  font-family: Inter, sans-serif;
-  background: #000;
-  color: white;
-}
-
-/* HEADER */
-.header {
-  position: fixed;
-  top: 0;
-  width: 100%;
-  padding: 14px;
-  display: flex;
-  justify-content: space-between;
-  background: rgba(0,0,0,0.9);
-}
-
-.logo {
-  font-size: 26px;
-  font-weight: 900;
-  background: linear-gradient(135deg,#fff,#666);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* FEED */
-.feed {
-  margin-top: 70px;
-  margin-bottom: 100px;
-  padding: 12px;
-}
-
-.post {
-  background: #111;
-  padding: 15px;
-  border-radius: 12px;
-  margin-bottom: 12px;
-}
-
-button {
-  background: #222;
-  color: white;
-  border: none;
-  padding: 8px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-/* NAV */
-.nav {
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  display: flex;
-  justify-content: space-around;
-  padding: 10px;
-  background: #000;
-}
-
-input {
-  width: 100%;
-  padding: 10px;
-  margin-top: 10px;
-  background: #111;
-  border: none;
-  color: white;
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
 <!-- AUTH -->
-<div class="auth">
-  <input id="email" placeholder="Email">
-  <input id="password" type="password">
-  <button id="signupBtn">Signup</button>
-  <button id="loginBtn">Login</button>
+<div class="auth" id="auth">
+  <div class="auth-box">
+    <h2>KUDASAI</h2>
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+    <button id="signupBtn">Create Account</button>
+    <button id="loginBtn">Login</button>
+  </div>
 </div>
 
 <!-- APP -->
-<div id="app" style="display:none;">
+<div id="app">
 
-<div class="header">
-  <div class="logo">K</div>
-
-  <div>
-    <span onclick="goHome()">🏠</span>
-    <span onclick="goJobs()">💼</span>
-    <span onclick="goSurvey()">📊</span>
-    <span onclick="goNotifications()">🔔</span>
-    <span onclick="openAI()">🤖</span>
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">KUDASAI</div>
+    <div class="nav-icons">
+      <span onclick="goHome()">🏠</span>
+      <span onclick="goExplore()">🔥</span>
+      <span onclick="goTasks()">💰</span>
+      <span onclick="goProfile()">👤</span>
+    </div>
+    <div id="userTag"></div>
   </div>
 
-  <div id="userTag"></div>
-</div>
+  <!-- FEED -->
+  <div id="feed" class="feed"></div>
 
-<div id="feed" class="feed"></div>
-
-<div class="nav">
-  <input id="postInput" placeholder="Say something...">
-  <button id="postBtn">Post</button>
-</div>
+  <!-- COMPOSER -->
+  <div class="composer">
+    <input id="postInput" placeholder="What’s happening?">
+    <button id="postBtn">➤</button>
+  </div>
 
 </div>
 
