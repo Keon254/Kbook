@@ -1,11 +1,98 @@
 /* =========================
    🌌 DESIGN SYSTEM
 ========================= */
+:root {
+  --bg: radial-gradient(circle at top, #0a0a0a, #000);
+  --glass: rgba(255,255,255,0.05);
+  --border: rgba(255,255,255,0.08);
+}
+
+/* GLOBAL */
 body {
   margin: 0;
   font-family: Inter, sans-serif;
-  background: #000;
+  background: var(--bg);
   color: white;
+  overflow-x: hidden;
+}
+
+/* 🌌 AUTH */
+.auth {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ⭐ STARS */
+.stars, .stars2, .stars3 {
+  position: absolute;
+  width: 200%;
+  height: 200%;
+}
+
+.stars {
+  background: radial-gradient(white 1px, transparent 1px);
+  background-size: 3px 3px;
+  animation: moveStars 120s linear infinite;
+}
+
+.stars2 {
+  background: radial-gradient(white 2px, transparent 2px);
+  background-size: 6px 6px;
+  animation: moveStars 80s linear infinite;
+}
+
+.stars3 {
+  background: radial-gradient(white 3px, transparent 3px);
+  background-size: 10px 10px;
+  animation: moveStars 50s linear infinite;
+}
+
+@keyframes moveStars {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+
+/* AUTH BOX */
+.auth-box {
+  width: 340px;
+  padding: 35px;
+  border-radius: 20px;
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  text-align: center;
+  z-index: 2;
+}
+
+.auth-box input {
+  width: 100%;
+  padding: 14px;
+  margin-top: 12px;
+  border-radius: 12px;
+  border: none;
+  background: #111;
+  color: white;
+}
+
+.auth-box button {
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg,#fff,#bbb);
+}
+
+/* APP */
+#app {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
 }
 
 /* HEADER */
@@ -13,112 +100,145 @@ body {
   position: fixed;
   top: 0;
   width: 100%;
-  padding: 14px;
+  padding: 16px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  background: rgba(0,0,0,0.9);
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid #222;
+  z-index: 10;
 }
 
 .logo {
   font-weight: 900;
   font-size: 20px;
-}
-
-.nav-icons span {
-  margin: 0 8px;
-  cursor: pointer;
+  background: linear-gradient(135deg,#fff,#777);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* FEED */
 .feed {
+  flex: 1;
   margin-top: 70px;
-  margin-bottom: 100px;
+  margin-bottom: 110px;
+  overflow-y: auto;
   padding: 12px;
 }
 
 /* POST */
 .post {
-  background: #111;
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 12px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 14px;
   transition: 0.2s;
 }
 
 .post:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
 }
 
-/* POST HEADER */
-.post-head {
+/* HEADER */
+.post-header {
   display: flex;
   gap: 10px;
   align-items: center;
 }
 
+/* AVATAR */
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: linear-gradient(135deg,#444,#999);
 }
 
+.avatar.big {
+  width: 80px;
+  height: 80px;
+}
+
+/* TEXT */
 .username {
   font-weight: bold;
+}
+
+.time {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.post-content {
+  margin-top: 10px;
+  font-size: 15px;
 }
 
 /* ACTIONS */
 .actions {
   display: flex;
-  gap: 15px;
+  gap: 10px;
   margin-top: 10px;
 }
 
-.actions span {
+.actions button {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 6px 10px;
   cursor: pointer;
-  opacity: 0.8;
-}
-
-.actions span:hover {
-  opacity: 1;
 }
 
 /* COMMENTS */
 .comment {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
-  font-size: 13px;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.avatar.small {
+  width: 28px;
+  height: 28px;
+}
+
+.comment-list {
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 /* COMPOSER */
 .composer {
   position: fixed;
-  bottom: 0;
+  bottom: 80px;
   width: 100%;
   display: flex;
   gap: 10px;
   padding: 10px;
-  background: #000;
-  border-top: 1px solid #222;
 }
 
 .composer input {
   flex: 1;
-  padding: 12px;
-  border-radius: 10px;
+  padding: 14px;
+  border-radius: 12px;
   border: none;
   background: #111;
   color: white;
 }
 
-.composer button {
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: #fff;
-  color: black;
-  border: none;
-  cursor: pointer;
+/* NAV */
+.nav {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  padding: 14px;
+  background: rgba(0,0,0,0.9);
+  border-top: 1px solid #222;
+}
+
+/* PANEL */
+.panel {
+  padding: 20px;
 }
