@@ -3,9 +3,10 @@
 ========================= */
 :root {
   --bg: radial-gradient(circle at top, #0a0a0a, #000);
-  --glass: rgba(255,255,255,0.06);
+  --glass: rgba(255,255,255,0.05);
   --border: rgba(255,255,255,0.08);
   --accent: #ffffff;
+  --soft: rgba(255,255,255,0.6);
 }
 
 body {
@@ -13,109 +14,6 @@ body {
   font-family: Inter, sans-serif;
   background: var(--bg);
   color: white;
-  overflow-x: hidden;
-}
-
-/* =========================
-   🌌 AUTH + STARFIELD
-========================= */
-.auth {
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  overflow: hidden;
-}
-
-/* ⭐ STAR LAYERS */
-.stars, .stars2, .stars3 {
-  position: absolute;
-  width: 200%;
-  height: 200%;
-  pointer-events: none;
-}
-
-.stars {
-  background: radial-gradient(white 1px, transparent 1px);
-  background-size: 3px 3px;
-  animation: moveStars 120s linear infinite;
-  opacity: 0.5;
-}
-
-.stars2 {
-  background: radial-gradient(white 2px, transparent 2px);
-  background-size: 6px 6px;
-  animation: moveStars 80s linear infinite;
-  opacity: 0.3;
-}
-
-.stars3 {
-  background: radial-gradient(white 3px, transparent 3px);
-  background-size: 10px 10px;
-  animation: moveStars 50s linear infinite;
-  opacity: 0.2;
-}
-
-@keyframes moveStars {
-  from { transform: translateY(0); }
-  to { transform: translateY(-50%); }
-}
-
-/* AUTH BOX */
-.auth-box {
-  width: 340px;
-  padding: 35px;
-  border-radius: 22px;
-  background: var(--glass);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--border);
-  position: relative;
-  z-index: 2;
-  text-align: center;
-}
-
-.auth-box h2 {
-  margin-bottom: 15px;
-}
-
-.auth-box input {
-  width: 100%;
-  padding: 14px;
-  margin-top: 12px;
-  border-radius: 12px;
-  border: none;
-  background: #111;
-  color: white;
-  outline: none;
-}
-
-.auth-box input:focus {
-  box-shadow: 0 0 0 1px white;
-}
-
-.auth-box button {
-  width: 100%;
-  margin-top: 12px;
-  padding: 14px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  background: linear-gradient(135deg,#fff,#bbb);
-  transition: 0.2s;
-}
-
-.auth-box button:hover {
-  transform: translateY(-1px);
-}
-
-/* =========================
-   APP LAYOUT
-========================= */
-#app {
-  display: none;
-  flex-direction: column;
-  height: 100vh;
 }
 
 /* HEADER */
@@ -126,72 +24,84 @@ body {
   padding: 16px;
   display: flex;
   justify-content: space-between;
-  background: rgba(0,0,0,0.8);
+  align-items: center;
+  background: rgba(0,0,0,0.7);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid var(--border);
   z-index: 10;
+}
+
+.logo {
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.userTag {
+  font-size: 12px;
+  color: var(--soft);
 }
 
 /* FEED */
 .feed {
-  flex: 1;
   margin-top: 70px;
-  margin-bottom: 110px;
-  overflow-y: auto;
+  margin-bottom: 100px;
   padding: 12px;
 }
 
-/* POST CARD */
+/* POST CARD (TWITTER STYLE + MODERN) */
 .post {
+  display: flex;
+  gap: 12px;
   background: var(--glass);
   border: 1px solid var(--border);
   border-radius: 18px;
-  padding: 16px;
+  padding: 14px;
   margin-bottom: 14px;
   transition: 0.2s;
 }
 
 .post:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
 }
 
-/* POST HEADER */
-.post-header {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
+/* AVATAR */
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: #222;
 }
 
-.username {
-  font-weight: bold;
+/* CONTENT */
+.post-body {
+  flex: 1;
 }
 
-.time {
-  font-size: 12px;
-  opacity: 0.6;
+.post-header {
+  font-size: 13px;
+  color: var(--soft);
+  margin-bottom: 5px;
 }
 
-/* ACTIONS */
-.actions {
-  margin-top: 10px;
+.post-text {
+  font-size: 15px;
+  margin-bottom: 10px;
 }
 
-/* BUTTON */
-.btn {
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: none;
-  background: #222;
-  color: white;
+/* ACTIONS (LIKE TIKTOK STYLE) */
+.post-actions {
+  display: flex;
+  gap: 15px;
+}
+
+.action {
   cursor: pointer;
+  font-size: 14px;
+  color: var(--soft);
+}
+
+.action:hover {
+  color: white;
 }
 
 /* COMPOSER */
@@ -207,10 +117,19 @@ body {
 .composer input {
   flex: 1;
   padding: 14px;
-  border-radius: 12px;
+  border-radius: 14px;
   border: none;
   background: #111;
   color: white;
+}
+
+.composer button {
+  width: 60px;
+  border-radius: 14px;
+  border: none;
+  background: white;
+  color: black;
+  cursor: pointer;
 }
 
 /* NAV */
@@ -222,166 +141,14 @@ body {
   justify-content: space-around;
   padding: 14px;
   background: rgba(0,0,0,0.9);
-  border-top: 1px solid #222;
-}
-.comments {
-  margin-top: 10px;
-  font-size: 13px;
-  opacity: 0.8;
-}
-.post b {
-  color: #fff;
-  font-weight: 600;
+  border-top: 1px solid var(--border);
 }
 
-.post button {
-  margin-top: 10px;
-  background: #111;
-  border: 1px solid #333;
-  padding: 8px 12px;
-  border-radius: 10px;
-  color: white;
+.nav div {
   cursor: pointer;
+  opacity: 0.7;
 }
 
-.post button:hover {
-  background: #222;
-}
-.post {
-  animation: fadeIn 0.4s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.comment {
-  font-size: 13px;
-  opacity: 0.8;
-  margin-top: 4px;
-}
-
-.post input {
-  width: 100%;
-  margin-top: 8px;
-  padding: 8px;
-  border-radius: 8px;
-  border: none;
-  background: #111;
-  color: white;
-}
-/* Prevent layout shifts */
-.post {
-  will-change: transform;
-}
-
-/* Smooth rendering */
-.feed {
-  scroll-behavior: smooth;
-}
-
-/* Prevent spam click glitch */
-button:disabled {
-  opacity: 0.5;
-  pointer-events: none;
-}
-.post-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.avatar {
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  background: linear-gradient(135deg,#444,#999);
-}
-
-.avatar.big {
-  width: 80px;
-  height: 80px;
-  margin-bottom: 10px;
-}
-
-.post {
-  animation: fadeIn 0.3s ease;
-}
-
-button {
-  transition: 0.2s;
-}
-
-button:hover {
-  transform: scale(1.05);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.comment {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.avatar.small {
-  width: 30px;
-  height: 30px;
-}
-
-.comment-list {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.task-card {
-  background: rgba(255,255,255,0.05);
-  padding: 12px;
-  border-radius: 12px;
-  margin-bottom: 10px;
-}
-.logo {
-  font-size: 26px;
-  font-weight: 900;
-  letter-spacing: 2px;
-  background: linear-gradient(135deg,#fff,#777);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 0 0 20px rgba(255,255,255,0.3);
-}
-.post {
-  background: rgba(255,255,255,0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 0 30px rgba(255,255,255,0.05);
-}
-
-.post:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 0 60px rgba(255,255,255,0.1);
-}
-.comment {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.avatar.small {
-  width: 30px;
-  height: 30px;
-}
-
-.comment-list {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.task-card {
-  background: rgba(255,255,255,0.05);
-  padding: 12px;
-  border-radius: 12px;
-  margin-bottom: 10px;
+.nav div:hover {
+  opacity: 1;
 }
