@@ -36,29 +36,45 @@
 
   <!-- LEFT SIDEBAR -->
   <aside class="sidebar">
-    <h2>KUDASAI</h2>
+    <div class="logo">KUDASAI</div>
+    <div id="userTag"></div>
+
     <div class="nav-item">🏠 Home</div>
     <div class="nav-item">🔥 Explore</div>
     <div class="nav-item">🔔 Notifications</div>
     <div class="nav-item">💬 Messages</div>
     <div class="nav-item">👤 Profile</div>
+
+    <button class="create-btn">+ Create</button>
   </aside>
 
-  <!-- MAIN MULTI FEEDS -->
-  <main class="feeds">
+  <!-- MAIN -->
+  <main class="main">
 
-    <section class="feed-column tiktok" id="tiktokFeed"></section>
+    <!-- TIKTOK -->
+    <section class="column tiktok" id="tiktokFeed"></section>
 
-    <section class="feed-column twitter" id="feed"></section>
+    <!-- TWITTER -->
+    <section class="column twitter">
+      <div class="composer">
+        <input id="postInput" placeholder="What’s happening?">
+        <button id="postBtn">Post</button>
+      </div>
+      <div id="feed"></div>
+    </section>
 
-    <section class="feed-column instagram" id="igFeed"></section>
+    <!-- INSTAGRAM -->
+    <section class="column instagram" id="igFeed"></section>
 
   </main>
 
   <!-- RIGHT PANEL -->
   <aside class="rightbar">
     <h3>Messages</h3>
-    <div id="messages"></div>
+    <div class="panel-box">No messages yet</div>
+
+    <h3>Trending</h3>
+    <div class="panel-box">#Kudasai 🔥</div>
   </aside>
 
 </div>
