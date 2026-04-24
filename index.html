@@ -7,97 +7,153 @@
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
-<link rel="stylesheet" href="style.css">
+<style>
+:root{
+  --bg:#000;
+  --glass:rgba(255,255,255,0.05);
+  --border:rgba(255,255,255,0.08);
+}
+
+body{
+  margin:0;
+  font-family:Inter,sans-serif;
+  background:#000;
+  color:#fff;
+}
+
+/* AUTH */
+.auth{
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+.box{
+  background:var(--glass);
+  padding:30px;
+  border-radius:20px;
+  backdrop-filter:blur(20px);
+  width:320px;
+}
+
+input{
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border-radius:10px;
+  border:none;
+  background:#111;
+  color:#fff;
+}
+
+button{
+  margin-top:10px;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  background:#222;
+  color:#fff;
+  cursor:pointer;
+}
+
+/* APP */
+#app{
+  display:none;
+}
+
+/* HEADER */
+.header{
+  position:fixed;
+  top:0;
+  width:100%;
+  padding:15px;
+  display:flex;
+  justify-content:space-between;
+  background:#000;
+  border-bottom:1px solid #222;
+  z-index:10;
+}
+
+/* FEED */
+.feed{
+  margin-top:70px;
+  margin-bottom:100px;
+  padding:10px;
+}
+
+/* POST */
+.post{
+  background:var(--glass);
+  border:1px solid var(--border);
+  padding:15px;
+  border-radius:15px;
+  margin-bottom:10px;
+}
+
+.post img{
+  width:100%;
+  border-radius:10px;
+  margin-top:10px;
+}
+
+/* COMPOSER */
+.composer{
+  position:fixed;
+  bottom:70px;
+  width:100%;
+  display:flex;
+  gap:10px;
+  padding:10px;
+}
+
+/* NAV */
+.nav{
+  position:fixed;
+  bottom:0;
+  width:100%;
+  display:flex;
+  justify-content:space-around;
+  padding:15px;
+  background:#000;
+  border-top:1px solid #222;
+}
+</style>
 </head>
 
 <body>
 
-<!-- 🌌 AUTH SCREEN -->
-<div class="auth" id="auth">
-
-  <!-- STARFIELD -->
-  <div class="stars"></div>
-  <div class="stars2"></div>
-  <div class="stars3"></div>
-
-  <div class="auth-box">
-    <h1 class="logo">KUDASAI</h1>
-
+<div class="auth">
+  <div class="box">
+    <h2>KUDASAI</h2>
     <input id="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
-
-    <button id="signupBtn">Create Account</button>
+    <button id="signupBtn">Sign Up</button>
     <button id="loginBtn">Login</button>
   </div>
 </div>
 
-<!-- 🚀 APP -->
 <div id="app">
 
-  <!-- LEFT SIDEBAR -->
-  <aside class="sidebar">
-    <div class="logo">KUDASAI</div>
-    <div id="userTag"></div>
-
-    <div class="nav-item">🏠 Home</div>
-    <div class="nav-item">🔥 Explore</div>
-    <div class="nav-item">🔔 Notifications</div>
-    <div class="nav-item">💬 Messages</div>
-    <div class="nav-item">👤 Profile</div>
-
-    <button class="create-btn">+ Create</button>
-  </aside>
-
-  <!-- MAIN -->
-  <main class="main">
-
-    <!-- TIKTOK -->
-    <section class="column tiktok" id="tiktokFeed"></section>
-
-    <!-- TWITTER -->
-    <section class="column twitter">
-      <div class="composer">
-        <input id="postInput" placeholder="What’s happening?">
-        <button id="postBtn">Post</button>
-      </div>
-      <div id="feed"></div>
-    </section>
-
-    <!-- INSTAGRAM -->
-    <section class="column instagram" id="igFeed"></section>
-
-  </main>
-
-  <!-- RIGHT PANEL -->
-  <aside class="rightbar">
-    <h3>Messages</h3>
-    <div class="panel-box">No messages yet</div>
-
-    <h3>Trending</h3>
-    <div class="panel-box">#Kudasai 🔥</div>
-  </aside>
-
-</div>
-
-  <!-- HEADER -->
   <div class="header">
-    <div class="logo">KUDASAI</div>
+    <div>KUDASAI</div>
     <div id="userTag"></div>
   </div>
 
-  <!-- FEED -->
   <div id="feed" class="feed"></div>
 
-  <!-- COMPOSER -->
   <div class="composer">
-    <input id="postInput" placeholder="What’s happening?">
-    <button id="postBtn">➤</button>
+    <input id="postInput" placeholder="Say something...">
+    <input type="file" id="imageInput">
+    <button id="postBtn">Post</button>
   </div>
 
-  <!-- NAV -->
   <div class="nav">
     <div onclick="goHome()">🏠</div>
-    <div onclick="goProfile()">👤</div>
+    <div onclick="goJobs()">💼</div>
+    <div onclick="goSurvey()">💰</div>
+    <div onclick="goNotifications()">🔔</div>
+    <div onclick="openAI()">🤖</div>
   </div>
 
 </div>
