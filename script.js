@@ -87,20 +87,35 @@ function score(p){
 
 // RENDER
 function render(){
-  $("feed").innerHTML = state.posts
+  const feed = state.posts
     .sort((a,b)=>score(b)-score(a))
-    .map(p=>`
-      <div class="post">
-        <b>${p.content}</b>
+    .map(p=>{
+      const user = state.profilesMap[p.user_id] || {};
 
-        ${p.image?`<img src="${p.image}">`:""}
-        ${p.video?`<video autoplay loop controls src="${p.video}"></video>`:""}
+      return `
+        <div class="post">
+          <div class="post-header">
+            <div class="avatar"></div>
+            <div>
+              <div class="username">${user.username || "user"}</div>
+              <div class="time">${new Date(p.created_at).toLocaleString()}</div>
+            </div>
+          </div>
 
-        ❤️ ${p.likes||0}
-        <button onclick="like('${p.id}')">Like</button>
-        <button onclick="sharePost('${p.id}')">Share</button>
-      </div>
-    `).join("");
+          <div class="post-content">${p.content}</div>
+
+          ${p.image ? `<img src="${p.image}">` : ""}
+          ${p.video ? `<video controls src="${p.video}"></video>` : ""}
+
+          <div class="actions">
+            <button onclick="like('${p.id}')">❤️ ${p.likes||0}</button>
+            <button onclick="sharePost('${p.id}')">🚀 Share</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+  $("feed").innerHTML = feed;
 }
 
 // SCROLL
