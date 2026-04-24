@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI STAGE 17 — PATCHED STABLE ENGINE
+// KUDASAI STAGE 18 — STABLE + VIRAL ENGINE
 // ========================================
 
 const { createClient } = supabase;
@@ -15,18 +15,20 @@ const state = {
   profile: null,
   posts: [],
   profilesMap: {},
-  lastAction: {}
+  lastAction: {},
+  page: 0,
+  loading: false
 };
 
 const $ = id => document.getElementById(id);
 
-// ================= SAFE WRAPPER =================
+// ================= SAFE =================
 function safe(fn){
   return async (...args)=>{
     try { await fn(...args); }
     catch(e){
       console.error(e);
-      alert(e.message || "Error occurred");
+      alert(e.message || "Error");
     }
   };
 }
@@ -55,14 +57,9 @@ const signup = safe(async ()=>{
   const email = $("email").value;
   const password = $("password").value;
 
-  const { data, error } = await db.auth.signUp({
-    email,
-    password
-  });
-
+  const { data, error } = await db.auth.signUp({ email, password });
   if(error) throw error;
 
-  // ✅ AUTO PROFILE CREATE FIX
   await db.from("profiles").insert([{
     user_id: data.user.id,
     username: email.split("@")[0],
@@ -76,7 +73,7 @@ const signup = safe(async ()=>{
 async function bootstrap(){
   await loadProfile();
   showApp();
-  await loadFeed();
+  await loadFeed(true);
   startRealtime();
 }
 
@@ -89,7 +86,6 @@ async function loadProfile(){
     .maybeSingle();
 
   if(!data){
-    // fallback fix
     await db.from("profiles").insert([{
       user_id: state.user.id,
       username: "user",
@@ -97,42 +93,108 @@ async function loadProfile(){
     }]);
   }
 
-  state.profile = data || { username:"user", balance:0 };
+  state.profile = data || { username:"user" };
   $("userTag").textContent = state.profile.username;
 }
 
 // ================= FEED =================
-async function loadFeed(){
+async function loadFeed(reset=false){
+  if(state.loading) return;
+  state.loading = true;
+
+  if(reset){
+    state.posts = [];
+    state.page = 0;
+  }
+
   const { data: posts } = await db
     .from("posts")
     .select("*")
-    .order("created_at", { ascending: false });
+    .range(state.page*10, state.page*10+9);
 
   const { data: profiles } = await db
     .from("profiles")
     .select("*");
 
-  state.profilesMap = {};
   profiles.forEach(p => state.profilesMap[p.user_id] = p);
 
-  state.posts = posts || [];
+  state.posts = [...state.posts, ...(posts || [])];
+
   renderFeed();
+  state.page++;
+  state.loading = false;
 }
+
+// ================= ALGORITHM =================
+function score(p){
+  const age = (Date.now() - new Date(p.created_at)) / 1000;
+
+  return (
+    (p.likes || 0) * 6 +
+    (p.shares || 0) * 8 +
+    (100000 / (age + 1))
+  );
+}
+
+// ================= RENDER =================
+function renderFeed(){
+  const feed = $("feed");
+
+  const sorted = [...state.posts].sort((a,b)=>score(b)-score(a));
+
+  feed.innerHTML = sorted.map(p=>{
+    const user = state.profilesMap[p.user_id] || {};
+
+    return `
+      <div class="post">
+        <div class="username">${user.username || "user"}</div>
+
+        <div>${p.content}</div>
+
+        ${p.image ? `<img src="${p.image}" />` : ""}
+
+        ❤️ ${p.likes || 0}
+
+        <button onclick="like('${p.id}')">Like</button>
+        <button onclick="sharePost('${p.id}')">Share</button>
+      </div>
+    `;
+  }).join("");
+}
+
+// ================= SCROLL =================
+window.addEventListener("scroll", ()=>{
+  if(window.innerHeight + window.scrollY >= document.body.offsetHeight - 200){
+    loadFeed();
+  }
+});
 
 // ================= CREATE POST =================
 const createPost = safe(async ()=>{
   if(!cooldown("post",2000)) return;
 
   const text = $("postInput").value.trim();
-  if(!text) return;
+  const file = $("imageInput")?.files?.[0];
+
+  let imageUrl = null;
+
+  if(file){
+    const { data } = await db.storage
+      .from("images")
+      .upload(Date.now()+"_"+file.name, file);
+
+    imageUrl = data.path;
+  }
 
   await db.from("posts").insert([{
     content: text,
     user_id: state.user.id,
+    image: imageUrl,
     likes: 0
   }]);
 
   $("postInput").value = "";
+  loadFeed(true);
 });
 
 // ================= LIKE =================
@@ -152,77 +214,40 @@ const like = safe(async (id)=>{
     user_id: state.user.id
   }]);
 
-  const post = state.posts.find(p => p.id === id);
-  if(!post) return;
+  const post = state.posts.find(p=>p.id===id);
 
   await db.from("posts")
-    .update({ likes: (post.likes || 0) + 1 })
+    .update({ likes:(post.likes||0)+1 })
     .eq("id", id);
 
-  loadFeed(); // 🔥 FIX: instant UI refresh
+  loadFeed(true);
 });
 
-// ================= RENDER =================
-function renderFeed(){
-  const twitter = $("feed");
-  const tiktok = $("tiktokFeed");
-  const ig = $("igFeed");
+// ================= SHARE =================
+const sharePost = safe(async (id)=>{
+  const post = state.posts.find(p=>p.id===id);
 
-  twitter.innerHTML = "";
-  tiktok.innerHTML = "";
-  ig.innerHTML = "";
+  await db.from("posts")
+    .update({ shares:(post.shares||0)+1 })
+    .eq("id", id);
 
-  state.posts.forEach(p => {
+  alert("Shared 🚀");
+});
 
-    const user = state.profilesMap[p.user_id] || {};
-
-    const html = `
-      <div class="post">
-        <div class="post-header">
-          <div class="avatar"></div>
-          <div>
-            <div class="username">${user.username || "user"}</div>
-            <div class="time">${new Date(p.created_at).toLocaleString()}</div>
-          </div>
-        </div>
-
-        <div class="post-content">${p.content}</div>
-
-        <div class="actions">
-          <button onclick="like('${p.id}')">❤️ ${p.likes || 0}</button>
-        </div>
-      </div>
-    `;
-
-    // Twitter (main)
-    twitter.innerHTML += html;
-
-    // Smart distribution
-    if(p.content.toLowerCase().includes("video")){
-      tiktok.innerHTML += html;
-    }
-
-    if(p.content.toLowerCase().includes("image")){
-      ig.innerHTML += html;
-    }
-  });
-}
-
-// ================= REALTIME (FIXED) =================
+// ================= REALTIME =================
 function startRealtime(){
-  db.channel("posts-live")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "posts" },
-      () => loadFeed()
+  db.channel("live-posts")
+    .on("postgres_changes",
+      { event:"*", schema:"public", table:"posts" },
+      ()=>loadFeed(true)
     )
     .subscribe();
 }
 
 // ================= UI =================
 function showApp(){
-  document.querySelector(".auth").style.display = "none";
-  $("app").style.display = "flex";
+  document.querySelector(".auth").style.display="none";
+  $("app").style.display="flex";
 }
 
 // ================= INIT =================
