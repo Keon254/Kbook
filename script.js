@@ -142,17 +142,40 @@ const createPost = safe(async()=>{
 });
 
 // LIKE
-const like = safe(async(id)=>{
+const like = safe(async (id)=>{
   if(!cooldown("like",800)) return;
 
-  await db.from("likes").insert([{post_id:id,user_id:state.user.id}]);
+  // check existing like
+  const { data: existing } = await db
+    .from("likes")
+    .select("*")
+    .eq("post_id", id)
+    .eq("user_id", state.user.id);
 
-  const post=state.posts.find(p=>p.id===id);
+  if(existing?.length){
+    alert("Already liked");
+    return;
+  }
+
+  // insert like
+  await db.from("likes").insert([{
+    post_id:id,
+    user_id:state.user.id
+  }]);
+
+  // increment
+  const post = state.posts.find(p=>p.id===id);
+
+  const newLikes = (post.likes || 0) + 1;
+
   await db.from("posts")
-    .update({likes:(post.likes||0)+1})
+    .update({ likes:newLikes })
     .eq("id",id);
 
-  loadFeed(true);
+  // 🔥 CRITICAL FIX
+  post.likes = newLikes;
+
+  render(); // instant UI update
 });
 
 // SHARE
