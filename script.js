@@ -176,34 +176,34 @@ function renderFeed(){
 
     const user = state.profilesMap[p.user_id] || {};
 
-    const post = document.createElement("div");
-    post.className = "post";
-
-    post.innerHTML = `
-      <div class="post-header">
-        <div class="avatar"></div>
-        <div>
-          <div class="username">${user.username || "user"}</div>
-          <div class="time">${new Date(p.created_at).toLocaleString()}</div>
+    const html = `
+      <div class="post">
+        <div class="post-header">
+          <div class="avatar"></div>
+          <div>
+            <div class="username">${user.username || "user"}</div>
+            <div class="time">${new Date(p.created_at).toLocaleString()}</div>
+          </div>
         </div>
-      </div>
 
-      <div class="post-content">${p.content}</div>
+        <div class="post-content">${p.content}</div>
 
-      <div class="actions">
-        <button onclick="like('${p.id}')">❤️ ${p.likes || 0}</button>
+        <div class="actions">
+          <button onclick="like('${p.id}')">❤️ ${p.likes || 0}</button>
+        </div>
       </div>
     `;
 
-    // 🧠 ROUTING SYSTEM (THIS is key)
-    twitter.appendChild(post.cloneNode(true));
+    // Twitter (main)
+    twitter.innerHTML += html;
 
-    if(p.content.includes("video") || p.content.includes("tiktok")){
-      tiktok.appendChild(post.cloneNode(true));
+    // Smart distribution
+    if(p.content.toLowerCase().includes("video")){
+      tiktok.innerHTML += html;
     }
 
-    if(p.content.includes("image") || p.content.includes("insta")){
-      ig.appendChild(post.cloneNode(true));
+    if(p.content.toLowerCase().includes("image")){
+      ig.innerHTML += html;
     }
   });
 }
