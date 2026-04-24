@@ -1,6 +1,9 @@
+// ========================================
+// KUDASAI STAGE 18 — STABLE + VIRAL ENGINE
+// ========================================
 const { createClient } = supabase;
 
-const db = createClient("YOUR_URL","YOUR_KEY");
+const db = createClient("https://zoipwzvfkbzszpiectzb.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4");
 
 const state = {
   user:null,
