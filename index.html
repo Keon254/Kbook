@@ -8,17 +8,12 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 <style>
-:root{
-  --bg:#000;
-  --glass:rgba(255,255,255,0.05);
-  --border:rgba(255,255,255,0.08);
-}
-
 body{
   margin:0;
   font-family:Inter,sans-serif;
   background:#000;
   color:#fff;
+  overscroll-behavior:none;
 }
 
 /* AUTH */
@@ -30,19 +25,18 @@ body{
 }
 
 .box{
-  background:var(--glass);
   padding:30px;
+  background:rgba(255,255,255,0.05);
   border-radius:20px;
   backdrop-filter:blur(20px);
-  width:320px;
 }
 
 input{
   width:100%;
   padding:12px;
   margin-top:10px;
-  border-radius:10px;
   border:none;
+  border-radius:10px;
   background:#111;
   color:#fff;
 }
@@ -58,9 +52,7 @@ button{
 }
 
 /* APP */
-#app{
-  display:none;
-}
+#app{ display:none; }
 
 /* HEADER */
 .header{
@@ -80,31 +72,33 @@ button{
   margin-top:70px;
   margin-bottom:100px;
   padding:10px;
+  scroll-snap-type:y mandatory;
 }
 
 /* POST */
 .post{
-  background:var(--glass);
-  border:1px solid var(--border);
+  background:rgba(255,255,255,0.05);
   padding:15px;
   border-radius:15px;
   margin-bottom:10px;
+  scroll-snap-align:start;
+  transition:0.3s;
 }
 
-.post img{
+.post:active{
+  transform:scale(0.98);
+}
+
+.post img, video{
   width:100%;
   border-radius:10px;
   margin-top:10px;
 }
 
-/* COMPOSER */
-.composer{
-  position:fixed;
-  bottom:70px;
-  width:100%;
-  display:flex;
-  gap:10px;
-  padding:10px;
+/* CHAT */
+#chatBox{
+  max-height:300px;
+  overflow-y:auto;
 }
 
 /* NAV */
@@ -116,7 +110,6 @@ button{
   justify-content:space-around;
   padding:15px;
   background:#000;
-  border-top:1px solid #222;
 }
 </style>
 </head>
@@ -127,14 +120,13 @@ button{
   <div class="box">
     <h2>KUDASAI</h2>
     <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
+    <input id="password" type="password">
     <button id="signupBtn">Sign Up</button>
     <button id="loginBtn">Login</button>
   </div>
 </div>
 
 <div id="app">
-
   <div class="header">
     <div>KUDASAI</div>
     <div id="userTag"></div>
@@ -145,17 +137,17 @@ button{
   <div class="composer">
     <input id="postInput" placeholder="Say something...">
     <input type="file" id="imageInput">
+    <input type="file" id="videoInput" accept="video/*">
     <button id="postBtn">Post</button>
   </div>
 
   <div class="nav">
     <div onclick="goHome()">🏠</div>
+    <div onclick="goChat()">💬</div>
     <div onclick="goJobs()">💼</div>
-    <div onclick="goSurvey()">💰</div>
     <div onclick="goNotifications()">🔔</div>
     <div onclick="openAI()">🤖</div>
   </div>
-
 </div>
 
 <script src="script.js"></script>
