@@ -67,12 +67,28 @@ button{
   z-index:10;
 }
 
+/* MAIN LAYOUT (NEW) */
+.main{
+  display:flex;
+  margin-top:70px;
+}
+
+/* SIDEBAR */
+.sidebar{
+  width:200px;
+}
+
+/* RIGHTBAR */
+.rightbar{
+  width:200px;
+}
+
 /* FEED */
 .feed{
-  margin-top:70px;
-  margin-bottom:100px;
+  flex:1;
   padding:10px;
   scroll-snap-type:y mandatory;
+  margin-bottom:100px;
 }
 
 /* POST */
@@ -127,12 +143,20 @@ button{
 </div>
 
 <div id="app">
+
   <div class="header">
     <div>KUDASAI</div>
     <div id="userTag"></div>
   </div>
 
-  <div id="feed" class="feed"></div>
+  <!-- NEW STRUCTURE ADDED HERE -->
+  <div class="main">
+    <div class="sidebar"></div>
+
+    <div id="feed" class="feed"></div>
+
+    <div class="rightbar"></div>
+  </div>
 
   <div class="composer">
     <input id="postInput" placeholder="Say something...">
@@ -148,6 +172,7 @@ button{
     <div onclick="goNotifications()">🔔</div>
     <div onclick="openAI()">🤖</div>
   </div>
+
 </div>
 
 <script src="script.js"></script>
