@@ -87,37 +87,36 @@ function score(p){
 
 // RENDER
 function render(){
-  const feed = state.posts
-    .sort((a,b)=>score(b)-score(a))
-    .map(p=>{
-      const user = state.profilesMap[p.user_id] || {};
+  const container = document.getElementById("feed");
 
-      return `
-        <div class="post">
-          <div class="post-header">
-            <div class="avatar"></div>
-            <div>
-              <div class="username">${user.username || "user"}</div>
-              <div class="time">${new Date(p.created_at).toLocaleString()}</div>
-            </div>
-          </div>
+  container.innerHTML = state.posts.map(p=>`
+    <div class="post">
 
-          <div class="post-content">${p.content}</div>
-
-          ${p.image ? `<img src="${p.image}">` : ""}
-          ${p.video ? `<video controls src="${p.video}"></video>` : ""}
-
-          <div class="actions">
-            <button onclick="like('${p.id}')">❤️ ${p.likes||0}</button>
-            <button onclick="sharePost('${p.id}')">🚀 Share</button>
-          </div>
+      <div class="post-header">
+        <div class="avatar"></div>
+        <div>
+          <div class="username">@user</div>
+          <div class="time">${new Date(p.created_at).toLocaleString()}</div>
         </div>
-      `;
-    }).join("");
+      </div>
 
-  $("feed").innerHTML = feed;
+      <div class="post-content">${p.content}</div>
+
+      ${p.image ? `<img src="${p.image}">` : ""}
+      ${p.video ? `<video controls src="${p.video}"></video>` : ""}
+
+      <div class="actions">
+        <button onclick="like('${p.id}')">
+          ❤️ ${p.likes || 0}
+        </button>
+        <button onclick="sharePost('${p.id}')">
+          🚀 Share
+        </button>
+      </div>
+
+    </div>
+  `).join("");
 }
-
 // SCROLL
 window.addEventListener("scroll",()=>{
   if(window.innerHeight+window.scrollY>=document.body.offsetHeight-200){
