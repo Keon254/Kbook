@@ -1,6 +1,3 @@
-// ========================================
-// KUDASAI STAGE 18 — STABLE + VIRAL ENGINE
-// ========================================
 const { createClient } = supabase;
 
 const db = createClient("https://zoipwzvfkbzszpiectzb.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4");
@@ -9,17 +6,16 @@ const state = {
   user:null,
   posts:[],
   profilesMap:{},
-  page:0,
   lastAction:{}
 };
 
-const $ = id=>document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 // SAFE
 function safe(fn){
   return async (...args)=>{
     try{ await fn(...args); }
-    catch(e){ alert(e.message); }
+    catch(e){ console.error(e); alert(e.message); }
   };
 }
 
@@ -38,12 +34,13 @@ const login = safe(async()=>{
     password:$("password").value
   });
   if(error) throw error;
+
   state.user=data.user;
   start();
 });
 
 const signup = safe(async()=>{
-  const {data,error}=await db.auth.signUp({
+  const {data,error} = await db.auth.signUp({
     email:$("email").value,
     password:$("password").value
   });
@@ -61,89 +58,77 @@ const signup = safe(async()=>{
 async function start(){
   document.querySelector(".auth").style.display="none";
   $("app").style.display="block";
-  loadFeed(true);
-  realtime();
-  notifRealtime();
+  loadFeed();
 }
 
 // FEED
-async function loadFeed(reset=false){
-  if(reset){ state.posts=[]; state.page=0; }
-
-  const {data}=await db.from("posts")
+async function loadFeed(){
+  const {data:posts} = await db.from("posts")
     .select("*")
-    .range(state.page*10,state.page*10+9);
+    .order("created_at",{ascending:false});
 
-  state.posts=[...state.posts,...data];
+  state.posts = posts || [];
   render();
-  state.page++;
-}
-
-// SCORE
-function score(p){
-  const age=(Date.now()-new Date(p.created_at))/1000;
-  return (p.likes||0)*6+(p.shares||0)*8+(100000/(age+1));
 }
 
 // RENDER
 function render(){
-  const container = document.getElementById("feed");
-
-  container.innerHTML = state.posts.map(p=>`
+  $("feed").innerHTML = state.posts.map(p=>`
     <div class="post">
 
-      <div class="post-header">
-        <div class="avatar"></div>
-        <div>
-          <div class="username">@user</div>
-          <div class="time">${new Date(p.created_at).toLocaleString()}</div>
-        </div>
-      </div>
+      <div class="username">@user</div>
 
-      <div class="post-content">${p.content}</div>
+      <div>${p.content}</div>
 
-      ${p.image ? `<img src="${p.image}">` : ""}
-      ${p.video ? `<video controls src="${p.video}"></video>` : ""}
+      ${p.image?`<img src="${p.image}">`:""}
+      ${p.video?`<video controls src="${p.video}"></video>`:""}
 
       <div class="actions">
-        <button onclick="like('${p.id}')">
-          ❤️ ${p.likes || 0}
-        </button>
-        <button onclick="sharePost('${p.id}')">
-          🚀 Share
-        </button>
+        <button onclick="like('${p.id}')">❤️ ${p.likes||0}</button>
       </div>
 
     </div>
   `).join("");
 }
-// SCROLL
-window.addEventListener("scroll",()=>{
-  if(window.innerHeight+window.scrollY>=document.body.offsetHeight-200){
-    loadFeed();
-  }
-});
 
 // POST
 const createPost = safe(async()=>{
   if(!cooldown("post",2000)) return;
 
-  const text=$("postInput").value;
-  const img=$("imageInput").files[0];
-  const vid=$("videoInput").files[0];
+  const text = $("postInput").value.trim();
+  if(!text) return;
 
-  let image=null,video=null;
+  const imgInput = $("imageInput");
+  const vidInput = $("videoInput");
 
-  if(img){
-    const {data}=await db.storage.from("images")
-      .upload(Date.now()+img.name,img);
-    image=data.path;
+  let image=null, video=null;
+
+  if(imgInput && imgInput.files[0]){
+    const file = imgInput.files[0];
+
+    const {data} = await db.storage
+      .from("images")
+      .upload(Date.now()+file.name,file);
+
+    const {data:urlData} = db.storage
+      .from("images")
+      .getPublicUrl(data.path);
+
+    image = urlData.publicUrl;
   }
 
-  if(vid){
-    const {data}=await db.storage.from("videos")
-      .upload(Date.now()+vid.name,vid);
-    video=data.path;
+  if(vidInput && vidInput.files[0]){
+    const file = vidInput.files[0];
+
+    const {data} = await db.storage
+      .from("videos")
+      .upload(Date.now()+file.name,file);
+
+    const {data:urlData} = db.storage
+      .from("videos")
+      .getPublicUrl(data.path);
+
+    video = urlData.publicUrl;
   }
 
   await db.from("posts").insert([{
@@ -152,132 +137,45 @@ const createPost = safe(async()=>{
     image,video,likes:0
   }]);
 
-  loadFeed(true);
+  $("postInput").value="";
+  loadFeed();
 });
 
 // LIKE
-const like = safe(async (id)=>{
+const like = safe(async(id)=>{
   if(!cooldown("like",800)) return;
 
-  // check existing like
-  const { data: existing } = await db
-    .from("likes")
+  const {data:existing} = await db.from("likes")
     .select("*")
-    .eq("post_id", id)
-    .eq("user_id", state.user.id);
+    .eq("post_id",id)
+    .eq("user_id",state.user.id);
 
-  if(existing?.length){
-    alert("Already liked");
-    return;
-  }
+  if(existing?.length) return;
 
-  // insert like
   await db.from("likes").insert([{
     post_id:id,
     user_id:state.user.id
   }]);
 
-  // increment
   const post = state.posts.find(p=>p.id===id);
-
-  const newLikes = (post.likes || 0) + 1;
+  const newLikes = (post.likes||0)+1;
 
   await db.from("posts")
-    .update({ likes:newLikes })
+    .update({likes:newLikes})
     .eq("id",id);
 
-  // 🔥 CRITICAL FIX
   post.likes = newLikes;
-
-  render(); // instant UI update
+  render();
 });
 
-// SHARE
-const sharePost = safe(async(id)=>{
-  const post=state.posts.find(p=>p.id===id);
-  await db.from("posts")
-    .update({shares:(post.shares||0)+1})
-    .eq("id",id);
-});
-
-// CHAT
-function goChat(){
-  $("feed").innerHTML=`
-    <div id="chatBox"></div>
-    <input id="msgInput">
-    <button onclick="sendMsg()">Send</button>
-  `;
-  loadMsgs();
-}
-
-async function loadMsgs(){
-  const {data}=await db.from("messages").select("*");
-  $("chatBox").innerHTML=data.map(m=>`<div>${m.content}</div>`).join("");
-}
-
-async function sendMsg(){
-  await db.from("messages").insert([{
-    content:$("msgInput").value,
-    sender_id:state.user.id
-  }]);
-}
-
-// REALTIME
-function realtime(){
-  db.channel("posts")
-    .on("postgres_changes",{event:"*",schema:"public",table:"posts"},
-    ()=>loadFeed(true)).subscribe();
-}
-
-// NOTIF
-function notifRealtime(){
-  db.channel("notif")
-    .on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications"},
-    p=>{
-      if(p.new.user_id===state.user.id){
-        alert(p.new.message);
-      }
-    }).subscribe();
-}
-
-// JOBS
-function goJobs(){
-  db.from("jobs").select("*").then(({data})=>{
-    $("feed").innerHTML=data.map(j=>`<div>${j.title}</div>`).join("");
-  });
-}
-
-// NOTIF PAGE
-function goNotifications(){
-  db.from("notifications")
-    .select("*")
-    .eq("user_id",state.user.id)
-    .then(({data})=>{
-      $("feed").innerHTML=data.map(n=>`<div>${n.message}</div>`).join("");
-    });
-}
-
-// AI
-function openAI(){
-  $("feed").innerHTML=`
-    <input id="aiInput">
-    <button onclick="askAI()">Ask</button>
-    <div id="aiRes"></div>
-  `;
-}
-
-async function askAI(){
-  const res=await fetch("YOUR_AI_URL",{
-    method:"POST",
-    body:JSON.stringify({message:$("aiInput").value})
-  });
-  const data=await res.json();
-  $("aiRes").innerText=data.reply;
-}
+// NAV
+function goHome(){ loadFeed(); }
+function goChat(){ alert("Chat coming next"); }
+function goNotifications(){ alert("Notifications coming"); }
 
 // INIT
 document.addEventListener("DOMContentLoaded",()=>{
-  $("loginBtn").onclick=login;
-  $("signupBtn").onclick=signup;
-  $("postBtn").onclick=createPost;
+  $("loginBtn").onclick = login;
+  $("signupBtn").onclick = signup;
+  $("postBtn").onclick = createPost;
 });
