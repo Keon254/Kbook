@@ -24,128 +24,35 @@ body {
   color: white;
 }
 
-/* ===== SIDEBAR ===== */
+/* SIDEBAR */
 .sidebar {
   padding: 20px;
   border-right: 1px solid #111;
   background: rgba(0,0,0,0.6);
-  backdrop-filter: blur(20px);
 }
 
-.logo {
-  font-size: 22px;
-  font-weight: 900;
-  margin-bottom: 25px;
-  background: linear-gradient(135deg,#fff,#555);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.nav-item {
-  padding: 12px;
-  border-radius: 10px;
-  margin-bottom: 6px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.nav-item:hover {
-  background: rgba(255,255,255,0.05);
-}
-
-/* ===== FEED ===== */
+/* FEED */
 .feed {
   padding: 20px;
-  overflow-y: auto;
 }
 
-/* ===== POST BOX ===== */
-.post:first-child {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.post:first-child input {
-  flex: 1;
-}
-
-/* ===== POSTS ===== */
+/* POSTS */
 .post {
-  background: linear-gradient(145deg,#0a0a0a,#111);
-  border: 1px solid var(--border);
-  padding: 18px;
-  border-radius: 18px;
-  margin-bottom: 16px;
-  transition: 0.25s;
+  background: #111;
+  border: 1px solid #222;
+  padding: 15px;
+  border-radius: 15px;
+  margin-bottom: 10px;
 }
 
-.post:hover {
-  transform: translateY(-3px);
-  border-color: rgba(255,255,255,0.15);
-}
-
-/* HEADER */
-.username {
-  color: var(--accent);
-  font-weight: bold;
-  margin-bottom: 4px;
-}
-
-/* CONTENT */
-.post div {
-  margin-top: 6px;
-}
-
-/* MEDIA */
-.post img,
-.post video {
-  width: 100%;
-  border-radius: 12px;
-  margin-top: 10px;
-}
-
-/* ===== ACTION BUTTONS ===== */
+/* ACTIONS */
 .actions {
   display: flex;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
-.actions button {
-  background: #0f0f0f;
-  border: 1px solid #222;
-  border-radius: 10px;
-  padding: 6px 12px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.actions button:hover {
-  background: #1a1a1a;
-  transform: scale(1.05);
-}
-
-/* LIKE BUTTON SPECIAL */
-.actions button:first-child {
-  color: #ff4d6d;
-}
-
-/* ===== RIGHT PANEL ===== */
-.rightbar {
-  padding: 20px;
-  border-left: 1px solid #111;
-}
-
-.panel-box {
-  background: linear-gradient(145deg,#0a0a0a,#111);
-  padding: 15px;
-  border-radius: 15px;
-  margin-bottom: 15px;
-  border: 1px solid var(--border);
-}
-
-/* ===== INPUT ===== */
+/* INPUT */
 input {
   background: #0f0f0f;
   border: 1px solid #222;
@@ -155,21 +62,17 @@ input {
 }
 
 button {
-  background: linear-gradient(135deg,#222,#111);
+  background: #222;
   border: 1px solid #333;
   color: white;
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 10px;
 }
 
-/* ===== SCROLLBAR ===== */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-thumb {
-  background: #222;
-  border-radius: 10px;
-}
+</style>
+</head>
+
+<body>
 
 <!-- AUTH -->
 <div class="auth">
@@ -197,7 +100,6 @@ button {
     <!-- FEED -->
     <div class="feed">
 
-      <!-- POST BOX -->
       <div class="post">
         <input id="postInput" placeholder="What's on your mind?" />
         <input type="file" id="imageInput">
@@ -220,7 +122,6 @@ button {
 <script src="script.js"></script>
 
 <script>
-// ENTER TO POST
 document.addEventListener("DOMContentLoaded",()=>{
   const input = document.getElementById("postInput");
 
