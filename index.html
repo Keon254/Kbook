@@ -6,80 +6,18 @@
 <title>KUDASAI</title>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="style.css">
 
-<style>
-
-/* ===== GLOBAL ===== */
-:root {
-  --bg: radial-gradient(circle at top, #0a0a0a, #000);
-  --glass: rgba(255,255,255,0.06);
-  --border: rgba(255,255,255,0.08);
-  --accent: #00d4ff;
-}
-
-body {
-  margin: 0;
-  font-family: Inter, sans-serif;
-  background: var(--bg);
-  color: white;
-}
-
-/* SIDEBAR */
-.sidebar {
-  padding: 20px;
-  border-right: 1px solid #111;
-  background: rgba(0,0,0,0.6);
-}
-
-/* FEED */
-.feed {
-  padding: 20px;
-}
-
-/* POSTS */
-.post {
-  background: #111;
-  border: 1px solid #222;
-  padding: 15px;
-  border-radius: 15px;
-  margin-bottom: 10px;
-}
-
-/* ACTIONS */
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-/* INPUT */
-input {
-  background: #0f0f0f;
-  border: 1px solid #222;
-  border-radius: 10px;
-  padding: 12px;
-  color: white;
-}
-
-button {
-  background: #222;
-  border: 1px solid #333;
-  color: white;
-  border-radius: 10px;
-  padding: 10px;
-}
-
-</style>
 </head>
 
 <body>
 
 <!-- AUTH -->
-<div class="auth">
+<div class="auth" id="auth">
   <div class="auth-box">
     <h2>KUDASAI</h2>
     <input id="email" placeholder="Email">
-    <input id="password" type="password">
+    <input id="password" type="password" placeholder="Password">
     <button id="signupBtn">Sign Up</button>
     <button id="loginBtn">Login</button>
   </div>
@@ -87,44 +25,54 @@ button {
 
 <!-- APP -->
 <div id="app">
+
   <div class="main">
 
     <!-- SIDEBAR -->
     <div class="sidebar">
       <div class="logo">K</div>
-      <div class="nav-item" onclick="goHome()">Home</div>
-      <div class="nav-item" onclick="goChat()">Chat</div>
-      <div class="nav-item" onclick="goNotifications()">Notifications</div>
+
+      <div class="nav-item" onclick="goHome()">🏠 Home</div>
+      <div class="nav-item" onclick="goProfile()">👤 Profile</div>
+      <div class="nav-item" onclick="goChat()">💬 Chat</div>
+      <div class="nav-item" onclick="goNotifications()">🔔 Notifications</div>
+      <div class="nav-item" onclick="goTasks()">💰 Earn</div>
+      <div class="nav-item" onclick="goAI()">🤖 AI</div>
     </div>
 
     <!-- FEED -->
     <div class="feed">
 
-      <div class="post">
-        <input id="postInput" placeholder="What's on your mind?" />
-        <input type="file" id="imageInput">
-        <input type="file" id="videoInput">
+      <!-- POST BOX -->
+      <div class="composer">
+        <input id="postInput" placeholder="What's on your mind?">
         <button id="postBtn">Post</button>
       </div>
 
       <div id="feed"></div>
     </div>
 
-    <!-- RIGHT -->
+    <!-- RIGHT PANEL -->
     <div class="rightbar">
-      <h3>🔥 KUDASAI</h3>
-      <p>Social + Earn + AI</p>
+      <div class="panel-box">
+        🔥 Trending<br>#Kudasai
+      </div>
+
+      <div class="panel-box">
+        💰 Balance: <span id="balance">0</span>
+      </div>
     </div>
 
   </div>
+
 </div>
 
 <script src="script.js"></script>
 
 <script>
+// ENTER TO POST
 document.addEventListener("DOMContentLoaded",()=>{
   const input = document.getElementById("postInput");
-
   input.addEventListener("keydown",(e)=>{
     if(e.key==="Enter"){
       e.preventDefault();
