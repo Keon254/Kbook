@@ -21,9 +21,9 @@ body {
 }
 
 .auth-box {
-  width: 300px;
-  padding: 25px;
-  border-radius: 15px;
+  width: 320px;
+  padding: 30px;
+  border-radius: 18px;
   background: var(--glass);
   border: 1px solid var(--border);
 }
@@ -46,7 +46,7 @@ body {
   cursor: pointer;
 }
 
-/* APP LAYOUT */
+/* LAYOUT */
 #app {
   display: none;
   height: 100vh;
@@ -54,26 +54,26 @@ body {
 
 .main {
   display: grid;
-  grid-template-columns: 220px 1fr 300px;
-  width: 100%;
+  grid-template-columns: 240px 1fr 300px;
 }
 
 /* SIDEBAR */
 .sidebar {
   padding: 20px;
   border-right: 1px solid #111;
+  background: rgba(0,0,0,0.6);
 }
 
 .logo {
-  font-size: 22px;
-  font-weight: bold;
+  font-size: 24px;
+  font-weight: 900;
   margin-bottom: 20px;
 }
 
 .nav-item {
-  padding: 10px;
-  cursor: pointer;
+  padding: 12px;
   border-radius: 10px;
+  cursor: pointer;
 }
 
 .nav-item:hover {
@@ -95,8 +95,8 @@ body {
 
 .composer input {
   flex: 1;
-  padding: 12px;
-  border-radius: 10px;
+  padding: 14px;
+  border-radius: 12px;
   background: #111;
   border: none;
   color: white;
@@ -106,9 +106,14 @@ body {
 .post {
   background: linear-gradient(145deg,#0a0a0a,#111);
   border: 1px solid var(--border);
-  border-radius: 15px;
-  padding: 15px;
-  margin-bottom: 12px;
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 14px;
+  transition: 0.25s;
+}
+
+.post:hover {
+  transform: translateY(-3px);
 }
 
 .username {
@@ -123,10 +128,14 @@ body {
 .actions button {
   background: #111;
   border: 1px solid #222;
-  color: white;
   padding: 6px 10px;
   border-radius: 8px;
+  color: white;
   cursor: pointer;
+}
+
+.actions button:hover {
+  transform: scale(1.05);
 }
 
 /* RIGHT */
@@ -138,6 +147,6 @@ body {
 .panel-box {
   background: var(--glass);
   padding: 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   margin-bottom: 10px;
 }
