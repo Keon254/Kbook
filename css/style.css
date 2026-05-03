@@ -1,0 +1,143 @@
+:root {
+  --bg: radial-gradient(circle at top, #0a0a0a, #000);
+  --glass: rgba(255,255,255,0.05);
+  --border: rgba(255,255,255,0.08);
+  --accent: #00d4ff;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, sans-serif;
+  background: var(--bg);
+  color: white;
+}
+
+/* AUTH */
+.auth {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.auth-box {
+  width: 300px;
+  padding: 25px;
+  border-radius: 15px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+}
+
+.auth-box input, .auth-box button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+}
+
+.auth-box input {
+  background: #111;
+  color: white;
+}
+
+.auth-box button {
+  background: linear-gradient(135deg,#fff,#aaa);
+  cursor: pointer;
+}
+
+/* APP LAYOUT */
+#app {
+  display: none;
+  height: 100vh;
+}
+
+.main {
+  display: grid;
+  grid-template-columns: 220px 1fr 300px;
+  width: 100%;
+}
+
+/* SIDEBAR */
+.sidebar {
+  padding: 20px;
+  border-right: 1px solid #111;
+}
+
+.logo {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.nav-item {
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+.nav-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+/* FEED */
+.feed {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* COMPOSER */
+.composer {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.composer input {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  background: #111;
+  border: none;
+  color: white;
+}
+
+/* POSTS */
+.post {
+  background: linear-gradient(145deg,#0a0a0a,#111);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  padding: 15px;
+  margin-bottom: 12px;
+}
+
+.username {
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.actions {
+  margin-top: 10px;
+}
+
+.actions button {
+  background: #111;
+  border: 1px solid #222;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* RIGHT */
+.rightbar {
+  padding: 15px;
+  border-left: 1px solid #111;
+}
+
+.panel-box {
+  background: var(--glass);
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
