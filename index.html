@@ -5,78 +5,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KUDASAI</title>
 
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
 
 <!-- AUTH -->
-<div class="auth" id="auth">
+<div class="auth" id="authScreen">
+
+  <div class="stars"></div>
+  <div class="stars2"></div>
+  <div class="stars3"></div>
+
   <div class="auth-box">
-    <h2>KUDASAI</h2>
+    <div class="big-logo">K</div>
+
+    <h1>KUDASAI</h1>
+    <p>Social • Earn • Create</p>
+
     <input id="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
-    <button id="signupBtn">Sign Up</button>
+
+    <button id="signupBtn">Create Account</button>
     <button id="loginBtn">Login</button>
   </div>
 </div>
 
 <!-- APP -->
 <div id="app">
-  <div class="main">
 
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-      <div class="logo">K</div>
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
 
-      <div class="nav-item" onclick="goHome()">🏠 Home</div>
-      <div class="nav-item" onclick="goProfile()">👤 Profile</div>
-      <div class="nav-item" onclick="goChat()">💬 Chat</div>
-      <div class="nav-item" onclick="goNotifications()">🔔 Notifications</div>
-      <div class="nav-item" onclick="goTasks()">💰 Earn</div>
-      <div class="nav-item" onclick="goAI()">🤖 AI</div>
-    </div>
-
-    <!-- FEED -->
-    <div class="feed">
-
-      <!-- POST BOX -->
-      <div class="composer">
-        <input id="postInput" placeholder="What's on your mind?">
-        <button id="postBtn">Post</button>
-      </div>
-
-      <div id="feed"></div>
-    </div>
-
-    <!-- RIGHT PANEL -->
-    <div class="rightbar">
-      <div class="panel-box">
-        🔥 Trending<br>#Kudasai
-      </div>
-
-      <div class="panel-box">
-        💰 Balance: <span id="balance">0</span>
+    <div class="logo-wrap">
+      <div class="logo-k">K</div>
+      <div>
+        <div class="logo-text">KUDASAI</div>
+        <div class="logo-sub">Social OS</div>
       </div>
     </div>
 
-  </div>
-</div>
+    <div class="nav-menu">
 
-<script src="script.js"></script>
+      <div class="nav-item active" onclick="goHome()">
+        🏠 Home
+      </div>
 
-<script>
-document.addEventListener("DOMContentLoaded",()=>{
-  const input = document.getElementById("postInput");
-  input.addEventListener("keydown",(e)=>{
-    if(e.key==="Enter"){
-      e.preventDefault();
-      document.getElementById("postBtn").click();
-    }
-  });
-});
-</script>
-
-</body>
+      <div class="nav-item" onclick="goProfile()">
+        👤 Profile
+      </div>
 </html>
