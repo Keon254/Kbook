@@ -1,1 +1,0 @@
-// Surveys functionality coming soon
