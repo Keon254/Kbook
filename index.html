@@ -48,14 +48,15 @@
       <h2>KUDASAI</h2>
     </div>
 
-    <div class="nav-item" onclick="goHome()">🏠 Home</div>
-    <div class="nav-item" onclick="goProfile()">👤 Profile</div>
-    <div class="nav-item" onclick="goNotifications()" style="position:relative">
+    <div class="nav-item active-nav" id="nav-home" onclick="goHome()">🏠 Home</div>
+    <div class="nav-item" id="nav-profile" onclick="goProfile()">👤 Profile</div>
+    <div class="nav-item" id="nav-notifs" onclick="goNotifications()" style="position:relative">
       🔔 Notifications
       <span id="notifBadge" class="notif-badge" style="display:none"></span>
     </div>
-    <div class="nav-item" onclick="goJobs()">💼 Jobs</div>
-    <div class="nav-item" onclick="goSurveys()">📋 Surveys</div>
+    <div class="nav-item" id="nav-bookmarks" onclick="goBookmarks()">🔖 Bookmarks</div>
+    <div class="nav-item" id="nav-jobs" onclick="goJobs()">💼 Jobs</div>
+    <div class="nav-item" id="nav-surveys" onclick="goSurveys()">📋 Surveys</div>
 
   </aside>
 
@@ -67,7 +68,9 @@
 
       <input
         class="search"
-        placeholder="Search KUDASAI"
+        id="searchInput"
+        placeholder="Search posts or @users…"
+        oninput="handleSearch(this.value)"
       >
 
       <div id="userTag">@user</div>
@@ -75,7 +78,7 @@
     </div>
 
     <!-- COMPOSER -->
-    <div class="composer">
+    <div class="composer" id="composer">
 
       <textarea
         id="postInput"
@@ -84,15 +87,19 @@
 
       <div class="composer-actions">
 
-        <input type="file" id="imageInput">
-        <input type="file" id="videoInput">
+        <label class="file-label">📷 Photo <input type="file" id="imageInput" accept="image/*" style="display:none"></label>
+        <label class="file-label">🎥 Video <input type="file" id="videoInput" accept="video/*" style="display:none"></label>
 
-        <button id="postBtn">
-          Post
-        </button>
+        <button id="postBtn">Post</button>
 
       </div>
 
+    </div>
+
+    <!-- FEED TABS -->
+    <div class="feed-tabs" id="feedTabs">
+      <button class="tab-btn tab-active" id="tabForYou"   onclick="switchTab('forYou')">For You</button>
+      <button class="tab-btn"            id="tabFollowing" onclick="switchTab('following')">Following</button>
     </div>
 
     <!-- FEED -->
@@ -105,8 +112,16 @@
 
     <div class="panel">
       <h3>🔥 Trending</h3>
-      <p>#Kudasai</p>
-      <p>#SocialOS</p>
+      <div id="trendingList">
+        <p style="color:#555;font-size:13px">Loading…</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>👥 Who to Follow</h3>
+      <div id="whoToFollow">
+        <p style="color:#555;font-size:13px">Loading…</p>
+      </div>
     </div>
 
     <div class="panel">
