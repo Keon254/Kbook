@@ -104,7 +104,7 @@ function render(){
     const user = state.profilesMap[p.user_id] || {};
 
     return `
-      <div class="post">
+      <div class="post" id="post-${p.id}">
 
         <div class="username">
           @${user.username || "user"}
@@ -119,12 +119,85 @@ function render(){
           <button onclick="like('${p.id}')">
             ❤️ ${p.likes ?? 0}
           </button>
+          <button onclick="toggleComments('${p.id}')">
+            💬 Comment
+          </button>
+        </div>
+
+        <div class="comments-section" id="comments-${p.id}" style="display:none">
+          <div class="comments-list" id="comments-list-${p.id}"></div>
+          <div class="comment-input-row">
+            <input
+              class="comment-input"
+              id="comment-input-${p.id}"
+              placeholder="Write a comment…"
+              onkeydown="if(event.key==='Enter') submitComment('${p.id}')"
+            >
+            <button class="comment-btn" onclick="submitComment('${p.id}')">Send</button>
+          </div>
         </div>
 
       </div>
     `;
   }).join("");
 }
+
+// ================= COMMENTS =================
+const commentsCache = {};
+
+async function toggleComments(postId){
+  const section = $("comments-"+postId);
+  const isHidden = section.style.display === "none";
+  section.style.display = isHidden ? "block" : "none";
+  if(isHidden) await loadComments(postId);
+}
+
+async function loadComments(postId){
+  const {data} = await db.from("comments")
+    .select("*")
+    .eq("post_id", postId)
+    .order("created_at", {ascending:true});
+
+  commentsCache[postId] = data || [];
+  renderComments(postId);
+}
+
+function renderComments(postId){
+  const list = $("comments-list-"+postId);
+  if(!list) return;
+
+  const comments = commentsCache[postId] || [];
+
+  if(!comments.length){
+    list.innerHTML = `<div class="no-comments">No comments yet. Be first!</div>`;
+    return;
+  }
+
+  list.innerHTML = comments.map(c=>{
+    const user = state.profilesMap[c.user_id] || {};
+    return `
+      <div class="comment">
+        <span class="comment-username">@${user.username || "user"}</span>
+        <span class="comment-content">${c.content}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+const submitComment = safe(async(postId)=>{
+  const input = $("comment-input-"+postId);
+  const text = input.value.trim();
+  if(!text) return;
+
+  await db.from("comments").insert([{
+    post_id: postId,
+    user_id: state.user.id,
+    content: text
+  }]);
+
+  input.value = "";
+  await loadComments(postId);
+});
 
 // ================= CREATE POST =================
 const createPost = safe(async()=>{

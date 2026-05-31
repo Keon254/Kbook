@@ -71,7 +71,30 @@ create policy "Users can unlike their own likes"
   using (auth.uid() = user_id);
 
 
--- ── 4. REALTIME ─────────────────────────────────────────────
+-- ── 4. COMMENTS ─────────────────────────────────────────────
+create table if not exists public.comments (
+  id         uuid primary key default gen_random_uuid(),
+  post_id    uuid references public.posts(id) on delete cascade,
+  user_id    uuid references auth.users(id) on delete cascade,
+  content    text not null,
+  created_at timestamptz default now()
+);
+
+alter table public.comments enable row level security;
+
+create policy "Anyone can read comments"
+  on public.comments for select using (true);
+
+create policy "Authenticated users can comment"
+  on public.comments for insert
+  with check (auth.role() = 'authenticated');
+
+create policy "Users can delete their own comments"
+  on public.comments for delete
+  using (auth.uid() = user_id);
+
+
+-- ── 5. REALTIME ─────────────────────────────────────────────
 -- Enable realtime on the posts table so the live feed works
 alter publication supabase_realtime add table public.posts;
 

@@ -227,3 +227,78 @@ body{
   padding:18px;
   margin-bottom:18px;
 }
+
+/* COMMENTS */
+.comments-section{
+  margin-top:14px;
+  border-top:1px solid var(--border);
+  padding-top:14px;
+}
+
+.comments-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-bottom:12px;
+}
+
+.comment{
+  background:#0b0b0b;
+  border-radius:12px;
+  padding:10px 14px;
+  display:flex;
+  gap:8px;
+  align-items:baseline;
+  flex-wrap:wrap;
+}
+
+.comment-username{
+  color:var(--accent);
+  font-weight:700;
+  font-size:13px;
+  white-space:nowrap;
+}
+
+.comment-content{
+  color:#ccc;
+  font-size:14px;
+  line-height:1.4;
+}
+
+.no-comments{
+  color:#555;
+  font-size:13px;
+  text-align:center;
+  padding:8px 0;
+}
+
+.comment-input-row{
+  display:flex;
+  gap:8px;
+}
+
+.comment-input{
+  flex:1;
+  padding:10px 14px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:#0b0b0b;
+  color:white;
+  font-size:14px;
+}
+
+.comment-input:focus{
+  outline:none;
+  border-color:var(--accent);
+}
+
+.comment-btn{
+  padding:10px 18px;
+  border:none;
+  border-radius:12px;
+  background:linear-gradient(135deg,#00d4ff,#005eff);
+  color:white;
+  cursor:pointer;
+  font-size:14px;
+  font-weight:600;
+}
