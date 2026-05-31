@@ -1,1 +1,0 @@
-// Jobs board functionality coming soon
