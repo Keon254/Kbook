@@ -1,5 +1,5 @@
 // ========================================
-// KUDASAI FINAL ENGINE (MERGED + FIXED)
+// KUDASAI ENGINE
 // ========================================
 
 const { createClient } = supabase;
@@ -14,7 +14,8 @@ const state = {
   user: null,
   posts: [],
   profilesMap: {},
-  lastAction: {}
+  lastAction: {},
+  view: "home"
 };
 
 const $ = id => document.getElementById(id);
@@ -45,14 +46,12 @@ const login = safe(async()=>{
     password:$("password").value
   });
   if(error) throw error;
-
   state.user = data.user;
   start();
 });
 
 const signup = safe(async()=>{
   const email = $("email").value;
-
   const {data,error} = await db.auth.signUp({
     email,
     password:$("password").value
@@ -64,31 +63,36 @@ const signup = safe(async()=>{
     username:email.split("@")[0]
   }]);
 
-  alert("Signup success");
+  alert("Account created! You can now log in.");
 });
 
 // ================= START =================
 async function start(){
-  document.querySelector(".auth").style.display="none";
-  $("app").style.display="flex";
+  document.querySelector(".auth").style.display = "none";
+  $("app").style.display = "grid";
 
   await loadProfiles();
   await loadFeed();
   startRealtime();
+  updateNotifBadge();
 }
 
 // ================= LOAD PROFILES =================
 async function loadProfiles(){
   const {data} = await db.from("profiles").select("*");
-
   state.profilesMap = {};
   (data || []).forEach(p=>{
     state.profilesMap[p.user_id] = p;
   });
+
+  const me = state.profilesMap[state.user.id];
+  $("userTag").textContent = "@" + (me?.username || "user");
+  $("balanceText").textContent = "K" + (me?.balance || 0);
 }
 
 // ================= LOAD FEED =================
 async function loadFeed(){
+  state.view = "home";
   const {data} = await db.from("posts")
     .select("*")
     .order("created_at",{ascending:false});
@@ -100,30 +104,17 @@ async function loadFeed(){
 // ================= RENDER =================
 function render(){
   $("feed").innerHTML = state.posts.map(p=>{
-
     const user = state.profilesMap[p.user_id] || {};
-
     return `
       <div class="post" id="post-${p.id}">
-
-        <div class="username">
-          @${user.username || "user"}
-        </div>
-
+        <div class="username">@${user.username || "user"}</div>
         <div class="content">${p.content}</div>
-
         ${p.image ? `<img src="${p.image}">` : ""}
         ${p.video ? `<video controls src="${p.video}"></video>` : ""}
-
         <div class="actions">
-          <button onclick="like('${p.id}')">
-            ❤️ ${p.likes ?? 0}
-          </button>
-          <button onclick="toggleComments('${p.id}')">
-            💬 Comment
-          </button>
+          <button onclick="like('${p.id}')">❤️ ${p.likes ?? 0}</button>
+          <button onclick="toggleComments('${p.id}')">💬 Comment</button>
         </div>
-
         <div class="comments-section" id="comments-${p.id}" style="display:none">
           <div class="comments-list" id="comments-list-${p.id}"></div>
           <div class="comment-input-row">
@@ -136,7 +127,6 @@ function render(){
             <button class="comment-btn" onclick="submitComment('${p.id}')">Send</button>
           </div>
         </div>
-
       </div>
     `;
   }).join("");
@@ -165,14 +155,11 @@ async function loadComments(postId){
 function renderComments(postId){
   const list = $("comments-list-"+postId);
   if(!list) return;
-
   const comments = commentsCache[postId] || [];
-
   if(!comments.length){
     list.innerHTML = `<div class="no-comments">No comments yet. Be first!</div>`;
     return;
   }
-
   list.innerHTML = comments.map(c=>{
     const user = state.profilesMap[c.user_id] || {};
     return `
@@ -195,6 +182,17 @@ const submitComment = safe(async(postId)=>{
     content: text
   }]);
 
+  // Notify post owner (skip if it's your own post)
+  const post = state.posts.find(p=>p.id===postId);
+  if(post && post.user_id !== state.user.id){
+    await db.from("notifications").insert([{
+      user_id: post.user_id,
+      from_user_id: state.user.id,
+      type: "comment",
+      post_id: postId
+    }]);
+  }
+
   input.value = "";
   await loadComments(postId);
 });
@@ -208,39 +206,22 @@ const createPost = safe(async()=>{
 
   const imgInput = $("imageInput");
   const vidInput = $("videoInput");
-
   let image=null, video=null;
 
-  // IMAGE UPLOAD
-  if(imgInput && imgInput.files && imgInput.files[0]){
+  if(imgInput?.files?.[0]){
     const file = imgInput.files[0];
-
-    const {data, error} = await db.storage
-      .from("images")
-      .upload(Date.now()+file.name, file);
-
+    const {data,error} = await db.storage.from("images").upload(Date.now()+file.name, file);
     if(!error){
-      const {data:urlData} = db.storage
-        .from("images")
-        .getPublicUrl(data.path);
-
+      const {data:urlData} = db.storage.from("images").getPublicUrl(data.path);
       image = urlData.publicUrl;
     }
   }
 
-  // VIDEO UPLOAD
-  if(vidInput && vidInput.files && vidInput.files[0]){
+  if(vidInput?.files?.[0]){
     const file = vidInput.files[0];
-
-    const {data, error} = await db.storage
-      .from("videos")
-      .upload(Date.now()+file.name, file);
-
+    const {data,error} = await db.storage.from("videos").upload(Date.now()+file.name, file);
     if(!error){
-      const {data:urlData} = db.storage
-        .from("videos")
-        .getPublicUrl(data.path);
-
+      const {data:urlData} = db.storage.from("videos").getPublicUrl(data.path);
       video = urlData.publicUrl;
     }
   }
@@ -271,47 +252,118 @@ const like = safe(async(id)=>{
 
   if(existing?.length) return;
 
-  await db.from("likes").insert([{
-    post_id:id,
-    user_id:state.user.id
-  }]);
+  await db.from("likes").insert([{ post_id:id, user_id:state.user.id }]);
 
   const post = state.posts.find(p=>p.id===id);
   const newLikes = (post.likes||0)+1;
 
-  await db.from("posts")
-    .update({likes:newLikes})
-    .eq("id",id);
+  await db.from("posts").update({likes:newLikes}).eq("id",id);
+
+  // Notify post owner
+  if(post.user_id !== state.user.id){
+    await db.from("notifications").insert([{
+      user_id: post.user_id,
+      from_user_id: state.user.id,
+      type: "like",
+      post_id: id
+    }]);
+  }
 
   post.likes = newLikes;
   render();
 });
+
+// ================= NOTIFICATIONS =================
+async function goNotifications(){
+  state.view = "notifications";
+
+  const {data} = await db.from("notifications")
+    .select("*")
+    .eq("user_id", state.user.id)
+    .order("created_at", {ascending:false});
+
+  const notifs = data || [];
+
+  // Mark all as read
+  if(notifs.some(n=>!n.read)){
+    await db.from("notifications")
+      .update({read:true})
+      .eq("user_id", state.user.id)
+      .eq("read", false);
+    updateNotifBadge();
+  }
+
+  if(!notifs.length){
+    $("feed").innerHTML = `<div class="notif-empty">No notifications yet</div>`;
+    return;
+  }
+
+  $("feed").innerHTML = notifs.map(n=>{
+    const from = state.profilesMap[n.from_user_id] || {};
+    const icon = n.type === "like" ? "❤️" : "💬";
+    const action = n.type === "like" ? "liked your post" : "commented on your post";
+    const time = new Date(n.created_at).toLocaleString();
+    return `
+      <div class="notif-item ${n.read ? "" : "notif-unread"}">
+        <span class="notif-icon">${icon}</span>
+        <div class="notif-body">
+          <span class="comment-username">@${from.username || "user"}</span>
+          <span class="notif-action"> ${action}</span>
+          <div class="notif-time">${time}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function updateNotifBadge(){
+  if(!state.user) return;
+  const {count} = await db.from("notifications")
+    .select("*", {count:"exact", head:true})
+    .eq("user_id", state.user.id)
+    .eq("read", false);
+
+  const badge = $("notifBadge");
+  if(!badge) return;
+  if(count > 0){
+    badge.textContent = count > 9 ? "9+" : count;
+    badge.style.display = "flex";
+  } else {
+    badge.style.display = "none";
+  }
+}
 
 // ================= REALTIME =================
 function startRealtime(){
   db.channel("posts-live")
     .on("postgres_changes",
       { event:"*", schema:"public", table:"posts" },
-      ()=> loadFeed()
+      ()=> { if(state.view==="home") loadFeed(); }
+    )
+    .subscribe();
+
+  db.channel("notifs-live")
+    .on("postgres_changes",
+      { event:"INSERT", schema:"public", table:"notifications",
+        filter:`user_id=eq.${state.user.id}` },
+      ()=> updateNotifBadge()
     )
     .subscribe();
 }
 
 // ================= NAV =================
 function goHome(){ loadFeed(); }
-function goChat(){ alert("Chat coming next"); }
-function goNotifications(){ alert("Notifications coming"); }
+function goProfile(){ alert("Profile page coming soon"); }
+function goJobs(){ alert("Jobs coming soon"); }
+function goSurveys(){ alert("Surveys coming soon"); }
 
 // ================= INIT =================
 document.addEventListener("DOMContentLoaded", async()=>{
-
   $("loginBtn").onclick = login;
   $("signupBtn").onclick = signup;
   $("postBtn").onclick = createPost;
 
-  // 🔥 SESSION RESTORE (IMPORTANT FIX)
-  const { data } = await db.auth.getSession();
-
+  const {data} = await db.auth.getSession();
   if(data?.session?.user){
     state.user = data.session.user;
     start();
