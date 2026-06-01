@@ -4,38 +4,60 @@
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>KUDASAI</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
-
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 </head>
-
 <body>
+
 <canvas id="particleCanvas"></canvas>
+
+<!-- POST DETAIL MODAL -->
+<div id="postModal" class="modal-overlay" style="display:none" onclick="closePostModal(event)">
+  <div class="modal-box" id="postModalBox"></div>
+</div>
+
+<!-- PROFILE EDIT MODAL -->
+<div id="editModal" class="modal-overlay" style="display:none" onclick="closeEditModal(event)">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-header">
+      <span>Edit Profile</span>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <label class="field-label">Username</label>
+      <input class="comment-input" id="editUsername" placeholder="@username" style="width:100%;margin-bottom:12px">
+      <label class="field-label">Bio</label>
+      <textarea class="comment-input" id="editBio" placeholder="Tell the world about yourself…" rows="3" style="width:100%;resize:none;margin-bottom:12px"></textarea>
+      <label class="field-label">Avatar image</label>
+      <input type="file" id="editAvatarFile" accept="image/*" class="file-input-hidden">
+      <label for="editAvatarFile" class="file-label" style="display:block;margin-bottom:12px">📷 Choose avatar photo</label>
+      <label class="field-label">Banner image</label>
+      <input type="file" id="editBannerFile" accept="image/*" class="file-input-hidden">
+      <label for="editBannerFile" class="file-label" style="display:block;margin-bottom:12px">🖼 Choose banner image</label>
+      <div id="editProgress" class="progress-wrap" style="display:none">
+        <div class="progress-bar" id="editProgressBar"></div>
+      </div>
+      <button class="comment-btn" onclick="saveProfile()" style="width:100%;margin-top:8px;padding:14px">Save Changes</button>
+    </div>
+  </div>
+</div>
 
 <!-- AUTH -->
 <div class="auth" id="authScreen">
-
   <div class="auth-box">
-
     <div class="logo">K</div>
-
     <h1>KUDASAI</h1>
-
-    <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
-
+    <input id="email" placeholder="Email" autocomplete="email">
+    <input id="password" type="password" placeholder="Password" autocomplete="current-password">
     <button id="signupBtn">Create Account</button>
     <button id="loginBtn">Login</button>
-
   </div>
-
 </div>
 
 <!-- APP -->
@@ -43,12 +65,10 @@
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
-
     <div class="brand">
       <div class="logo small">K</div>
       <h2>KUDASAI</h2>
     </div>
-
     <div class="nav-item active-nav" id="nav-home" onclick="goHome()">🏠 Home</div>
     <div class="nav-item" id="nav-profile" onclick="goProfile()">👤 Profile</div>
     <div class="nav-item" id="nav-notifs" onclick="goNotifications()" style="position:relative">
@@ -62,83 +82,68 @@
     </div>
     <div class="nav-item" id="nav-jobs" onclick="goJobs()">💼 Jobs</div>
     <div class="nav-item" id="nav-surveys" onclick="goSurveys()">📋 Surveys</div>
-
   </aside>
 
   <!-- MAIN -->
-  <main class="main">
+  <main class="main" id="mainCol">
 
-    <!-- TOP -->
     <div class="topbar">
-
-      <input
-        class="search"
-        id="searchInput"
-        placeholder="Search posts or @users…"
-        oninput="handleSearch(this.value)"
-      >
-
-      <div id="userTag">@user</div>
-
+      <input class="search" id="searchInput" placeholder="Search posts or @users…" oninput="handleSearch(this.value)">
+      <div id="userTag" style="cursor:pointer;font-weight:700;color:var(--accent)" onclick="goProfile()">@user</div>
     </div>
 
     <!-- COMPOSER -->
     <div class="composer" id="composer">
+      <textarea id="postInput" placeholder="What's happening?" rows="3"></textarea>
 
-      <textarea
-        id="postInput"
-        placeholder="What's happening?"
-      ></textarea>
+      <!-- EMOJI PICKER -->
+      <div id="emojiPicker" class="emoji-picker" style="display:none"></div>
 
-      <div class="composer-actions">
-
-        <label class="file-label">📷 Photo <input type="file" id="imageInput" accept="image/*" style="display:none"></label>
-        <label class="file-label">🎥 Video <input type="file" id="videoInput" accept="video/*" style="display:none"></label>
-
-        <button id="postBtn">Post</button>
-
+      <!-- UPLOAD PROGRESS -->
+      <div class="progress-wrap" id="uploadProgress" style="display:none">
+        <div class="progress-bar" id="uploadProgressBar"></div>
       </div>
 
+      <div class="composer-actions">
+        <label class="file-label">📷 Photo <input type="file" id="imageInput" accept="image/*" style="display:none"></label>
+        <label class="file-label">🎥 Video <input type="file" id="videoInput" accept="video/*" style="display:none"></label>
+        <button class="file-label" id="emojiBtn" onclick="toggleEmoji()" type="button">😊</button>
+        <button id="postBtn">Post</button>
+      </div>
     </div>
 
     <!-- FEED TABS -->
     <div class="feed-tabs" id="feedTabs">
-      <button class="tab-btn tab-active" id="tabForYou"   onclick="switchTab('forYou')">For You</button>
-      <button class="tab-btn"            id="tabFollowing" onclick="switchTab('following')">Following</button>
+      <button class="tab-btn tab-active" id="tabForYou"    onclick="switchTab('forYou')">For You</button>
+      <button class="tab-btn"            id="tabFollowing"  onclick="switchTab('following')">Following</button>
     </div>
 
     <!-- FEED -->
     <div id="feed"></div>
 
+    <!-- INFINITE SCROLL SENTINEL -->
+    <div id="feedSentinel" style="height:1px"></div>
+
   </main>
 
   <!-- RIGHT -->
   <aside class="rightbar">
-
     <div class="panel">
       <h3>🔥 Trending</h3>
-      <div id="trendingList">
-        <p style="color:#555;font-size:13px">Loading…</p>
-      </div>
+      <div id="trendingList"><p style="color:#555;font-size:13px">Loading…</p></div>
     </div>
-
     <div class="panel">
       <h3>👥 Who to Follow</h3>
-      <div id="whoToFollow">
-        <p style="color:#555;font-size:13px">Loading…</p>
-      </div>
+      <div id="whoToFollow"><p style="color:#555;font-size:13px">Loading…</p></div>
     </div>
-
     <div class="panel">
       <h3>💰 Balance</h3>
-      <div id="balanceText">K0</div>
+      <div id="balanceText" style="font-size:20px;font-weight:800;color:var(--accent)">K0</div>
     </div>
-
   </aside>
 
 </div>
 
 <script src="script.js"></script>
-
 </body>
 </html>

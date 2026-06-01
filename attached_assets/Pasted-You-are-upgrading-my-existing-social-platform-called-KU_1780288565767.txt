@@ -1,0 +1,128 @@
+You are upgrading my existing social platform called KUDASAI.
+
+IMPORTANT:
+- DO NOT rewrite the project from scratch.
+- DO NOT remove existing Supabase logic.
+- DO NOT downgrade UI.
+- Preserve dark futuristic glassmorphism design.
+- Keep the current structure and improve it.
+
+MAIN TASKS:
+
+1. FIX SUPABASE SCHEMA CACHE ERRORS
+Current errors:
+- Could not find the 'follower_id' column of 'follows'
+- Could not find the 'read' column of 'messages'
+- Could not find the 'likes' column of 'posts'
+
+Fix them safely by:
+- checking actual table columns
+- using correct column names
+- refreshing schema usage
+- avoiding crashes if column missing
+- adding fallback handling
+
+2. FOLLOW SYSTEM
+Upgrade follow system:
+- Follow button on profile
+- Following count
+- Followers count
+- Prevent duplicate follows
+- Realtime follow updates
+- Toggle Follow / Following button
+- Notification when followed
+
+3. DIRECT MESSAGING SYSTEM
+Add full DM system:
+- Open chat from profile
+- Send messages instantly
+- Conversation list sidebar
+- Seen/read indicator
+- Last message preview
+- Realtime messaging with Supabase subscriptions
+- Mobile-friendly chat UI
+- Typing animation
+- Empty state screens
+
+4. SOCIAL MEDIA FEED UPGRADE
+Combine:
+- Twitter/X post cards
+- Instagram media layout
+- TikTok fullscreen media feeling
+- Discord-style chat spacing
+
+Add:
+- Smooth animations
+- Hover glow
+- Skeleton loading
+- Infinite scrolling
+- Like animation
+- Repost animation
+- Bookmark animation
+
+5. POST CREATOR
+Fix posting completely:
+- Enter key submits post
+- Image upload works
+- Video upload works
+- Prevent null file crashes
+- Add upload progress bars
+- Add emoji picker
+- Auto resize textarea
+
+6. PROFILE SYSTEM
+Upgrade profiles:
+- Banner image
+- Avatar upload
+- Bio
+- Stats row
+- Edit profile modal
+- Profile tabs:
+  Posts
+  Media
+  Likes
+  Replies
+
+7. NOTIFICATIONS
+Create notification center:
+- Likes
+- Comments
+- Follows
+- Messages
+- Mentions
+- Mark as read
+
+8. UI STYLE
+Make design:
+- Black futuristic aesthetic
+- Glassmorphism
+- Animated gradients
+- Neon glow
+- Premium startup feel
+- Similar quality to:
+  X/Twitter
+  Threads
+  Discord
+  TikTok
+  Instagram
+
+9. PERFORMANCE
+Prevent:
+- white screens
+- null errors
+- undefined crashes
+- duplicate realtime subscriptions
+- layout breaking
+- infinite loops
+
+10. OUTPUT FORMAT
+Return:
+- FULL updated HTML
+- FULL updated CSS
+- FULL updated JS
+- Any SQL fixes separately
+- Clearly label each section
+
+Do not shorten code.
+Do not omit sections.
+Complete every function fully.

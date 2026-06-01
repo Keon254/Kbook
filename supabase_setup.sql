@@ -98,6 +98,12 @@ create policy "Authenticated users can notify"       on public.notifications for
 create policy "Users can update their notifications" on public.notifications for update using (auth.uid()=user_id);
 
 
+-- ── 5b. PROFILES EXTRA COLUMNS ───────────────────────────────
+alter table public.profiles add column if not exists bio        text    default '';
+alter table public.profiles add column if not exists avatar_url text;
+alter table public.profiles add column if not exists banner_url text;
+
+
 -- ── 6. FOLLOWS ───────────────────────────────────────────────
 -- Drop and recreate to ensure correct column names
 drop table if exists public.follows cascade;

@@ -94,6 +94,7 @@ async function start(){
   document.querySelector(".auth").style.display = "none";
   $("app").style.display = "grid";
   initParticles();
+  initInfiniteScroll();
   await Promise.all([loadProfiles(), loadSocialData()]);
   await loadFeed();
   startRealtime();
@@ -148,23 +149,21 @@ async function loadFeed(){
   setActiveNav("nav-home");
   showComposer(true);
   showFeedTabs(true);
+
+  // Reset infinite scroll state
+  feedPage = 0;
+  feedLoading = false;
+  feedExhausted = false;
+  state.posts = [];
+
   showSkeletons(4);
 
-  let query = db.from("posts").select("*").order("created_at",{ascending:false});
-
-  if(state.tab === "following"){
-    const ids = [...state.followingSet];
-    if(!ids.length){
-      $("feed").innerHTML = `<div class="empty-state">You're not following anyone yet.<br>Follow people to see their posts here.</div>`;
-      return;
-    }
-    query = query.in("user_id", ids);
+  if(state.tab==="following" && !state.followingSet.size){
+    $("feed").innerHTML = `<div class="empty-state">You're not following anyone yet.<br>Follow people to see their posts here.</div>`;
+    return;
   }
 
-  const {data,error} = await query;
-  if(error){ $("feed").innerHTML = `<p style="color:#f55;padding:20px">${error.message}</p>`; return; }
-  state.posts = data||[];
-  render();
+  await loadFeedPage();
 }
 
 function render(posts){
@@ -198,8 +197,8 @@ function postCard(p){
           </button>` : `
           <button class="delete-btn" onclick="deletePost('${p.id}')" title="Delete post">🗑</button>`}
       </div>
-      <div class="content">${escHtml(p.content)}</div>
-      ${p.image ? `<img src="${p.image}" loading="lazy">` : ""}
+      <div class="content" style="cursor:pointer" onclick="openPost('${p.id}')">${escHtml(p.content)}</div>
+      ${p.image ? `<img src="${p.image}" loading="lazy" style="cursor:pointer" onclick="openPost('${p.id}')">` : ""}
       ${p.video ? `<video controls src="${p.video}"></video>` : ""}
       <div class="actions">
         <button class="${liked?"btn-liked":""}" onclick="likeBurst(event,'${p.id}')">
@@ -319,34 +318,42 @@ const createPost = safe(async()=>{
   postBtn.textContent = "Posting…";
 
   let image=null, video=null;
+  setUploadProgress(0);
 
   if(imgInput?.files?.[0]){
+    setUploadProgress(20);
     const file = imgInput.files[0];
     const {data,error} = await db.storage.from("images")
       .upload(`${state.user.id}/${Date.now()}_${file.name}`, file, {upsert:true});
     if(error) alert("Image upload failed: "+error.message);
     else { const {data:u}=db.storage.from("images").getPublicUrl(data.path); image=u.publicUrl; }
+    setUploadProgress(60);
   }
 
   if(vidInput?.files?.[0]){
+    setUploadProgress(40);
     const file = vidInput.files[0];
     const {data,error} = await db.storage.from("videos")
       .upload(`${state.user.id}/${Date.now()}_${file.name}`, file, {upsert:true});
     if(error) alert("Video upload failed: "+error.message);
     else { const {data:u}=db.storage.from("videos").getPublicUrl(data.path); video=u.publicUrl; }
+    setUploadProgress(80);
   }
 
   const {error} = await db.from("posts").insert([{
     content:text, user_id:state.user.id, image, video
   }]);
 
+  setUploadProgress(100);
   postBtn.disabled = false;
   postBtn.textContent = "Post";
   if(error) throw error;
 
   $("postInput").value="";
+  autoResizeTextarea($("postInput"));
   if(imgInput) imgInput.value="";
   if(vidInput) vidInput.value="";
+  setTimeout(()=>setUploadProgress(null), 600);
 
   await loadFeed();
 });
@@ -436,7 +443,20 @@ const toggleFollow = safe(async(userId)=>{
   else if(state.view==="search"){
     const q = $("searchInput")?.value.trim();
     if(q) runSearch(q);
-  } else if(state.view==="profile_other") renderOtherProfile();
+  } else if(state.view==="profile_other"){
+    // Update the follow button in-place without full re-render
+    const btn = $(`followBtn-${userId}`);
+    if(btn){
+      const nowFollowing = state.followingSet.has(userId);
+      btn.textContent = nowFollowing ? "✓ Following" : "+ Follow";
+      btn.className = `follow-btn${nowFollowing?" following":""}`;
+    }
+    const cntEl = $("follCount");
+    if(cntEl){
+      const {count} = await db.from("follows").select("*",{count:"exact",head:true}).eq("following_id",userId);
+      cntEl.textContent = count||0;
+    }
+  }
   loadSidebar();
 });
 
@@ -564,93 +584,185 @@ async function goBookmarks(){
 }
 
 // ================= PROFILE =================
+let profileTab = "posts";
+
 async function goProfile(userId){
   const targetId = userId || state.user?.id;
-  const isMe     = targetId === state.user?.id;
-  state.view     = isMe ? "profile" : "profile_other";
+  if(!targetId) return;
+  const isMe = targetId === state.user?.id;
+  state.view = isMe ? "profile" : "profile_other";
+  profileTab = "posts";
 
   setActiveNav(isMe ? "nav-profile" : null);
   showComposer(false);
   showFeedTabs(false);
 
   await ensureProfile(targetId);
-  const me      = state.profilesMap[targetId]||{};
+  const me = state.profilesMap[targetId]||{};
   const following = state.followingSet.has(targetId);
 
-  // Get follower/following counts
   const [follRes, followingRes] = await Promise.all([
     db.from("follows").select("*",{count:"exact",head:true}).eq("following_id",targetId),
     db.from("follows").select("*",{count:"exact",head:true}).eq("follower_id",targetId),
   ]);
 
+  const avatarLetter = (me.username||"U")[0].toUpperCase();
+  const avatarInner  = me.avatar_url
+    ? `<img src="${me.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    : avatarLetter;
+
   $("feed").innerHTML = `
-    <div class="profile-card">
-      <div class="profile-avatar">${(me.username||"U")[0].toUpperCase()}</div>
+    <div class="profile-banner" style="${me.banner_url?`background-image:url('${me.banner_url}')`:``}"></div>
+    <div class="profile-card" style="margin-top:-40px;position:relative">
+      <div class="profile-avatar" style="${me.avatar_url?'background:none;overflow:hidden;padding:0':''}">${avatarInner}</div>
       <div class="profile-info">
-        <div class="profile-username">@${me.username||"user"}</div>
+        <div class="profile-username">@${escHtml(me.username||"user")}</div>
+        ${me.bio ? `<div class="profile-bio">${escHtml(me.bio)}</div>` : ""}
         <div class="profile-balance">💰 K${me.balance||0}</div>
         <div class="profile-stats">
-          <span><strong>${follRes.count||0}</strong> Followers</span>
+          <span><strong id="follCount">${follRes.count||0}</strong> Followers</span>
           <span><strong>${followingRes.count||0}</strong> Following</span>
         </div>
       </div>
-      ${isMe ? `
-        <div class="profile-edit">
-          <input class="comment-input" id="usernameInput" value="${me.username||""}" placeholder="New username">
-          <button class="comment-btn" onclick="saveUsername()">Save</button>
-        </div>` : `
-        <button class="follow-btn ${following?"following":""}" onclick="toggleFollow('${targetId}')">
-          ${following?"✓ Following":"+ Follow"}
-        </button>`
-      }
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+        ${isMe ? `
+          <button class="comment-btn" onclick="openEditModal()">✏️ Edit Profile</button>` : `
+          <button class="follow-btn ${following?"following":""}" id="followBtn-${targetId}" onclick="toggleFollow('${targetId}')">
+            ${following?"✓ Following":"+ Follow"}
+          </button>
+          <button class="dm-btn" style="padding:8px 16px;border-radius:14px" onclick="startDM('${targetId}')">💬 Message</button>`}
+      </div>
     </div>
-    <h3 style="color:#fff;margin:20px 0 12px">${isMe?"Your Posts":"Posts"}</h3>
-    <div id="myPosts"></div>`;
+    <div class="profile-tabs">
+      <button class="tab-btn tab-active"  id="ptab-posts"  onclick="switchProfileTab('posts','${targetId}',${isMe})">Posts</button>
+      <button class="tab-btn"             id="ptab-media"  onclick="switchProfileTab('media','${targetId}',${isMe})">Media</button>
+      <button class="tab-btn"             id="ptab-likes"  onclick="switchProfileTab('likes','${targetId}',${isMe})">Likes</button>
+      <button class="tab-btn"             id="ptab-replies" onclick="switchProfileTab('replies','${targetId}',${isMe})">Replies</button>
+    </div>
+    <div id="profileContent"></div>`;
 
-  loadUserPosts(targetId, isMe);
+  loadProfileTab("posts", targetId, isMe);
 }
 
-async function loadUserPosts(userId, isMe){
-  const {data} = await db.from("posts").select("*")
-    .eq("user_id",userId).order("created_at",{ascending:false});
-  const container = $("myPosts");
+function switchProfileTab(tab, targetId, isMe){
+  profileTab = tab;
+  ["posts","media","likes","replies"].forEach(t=>{
+    $(`ptab-${t}`)?.classList.toggle("tab-active", t===tab);
+  });
+  loadProfileTab(tab, targetId, isMe);
+}
+
+async function loadProfileTab(tab, targetId, isMe){
+  const container = $("profileContent");
   if(!container) return;
-  if(!data?.length){
-    container.innerHTML=`<div class="empty-state">No posts yet.</div>`; return;
-  }
-  container.innerHTML = data.map(p=>`
-    <div class="post">
-      <div class="post-header-row">
-        <div class="post-meta">
-          <span class="post-time">${timeAgo(p.created_at)} ago</span>
+  container.innerHTML = `<div class="skeleton-card"><div class="skeleton-row"><div class="skeleton-line" style="height:80px;width:100%"></div></div></div>`;
+
+  if(tab==="posts"){
+    const {data} = await db.from("posts").select("*")
+      .eq("user_id",targetId).order("created_at",{ascending:false});
+    if(!data?.length){ container.innerHTML=`<div class="empty-state">No posts yet.</div>`; return; }
+    container.innerHTML = data.map(p=>postCard(p)).join("");
+
+  } else if(tab==="media"){
+    const {data} = await db.from("posts").select("*")
+      .eq("user_id",targetId).not("image","is",null).order("created_at",{ascending:false});
+    const withMedia = (data||[]).filter(p=>p.image||p.video);
+    if(!withMedia.length){ container.innerHTML=`<div class="empty-state">No media posts yet.</div>`; return; }
+    container.innerHTML = `<div class="media-grid">${withMedia.map(p=>`
+      <div class="media-thumb" onclick="openPost('${p.id}')">
+        ${p.image?`<img src="${p.image}" loading="lazy">`:`<video src="${p.video}"></video>`}
+      </div>`).join("")}</div>`;
+
+  } else if(tab==="likes"){
+    const {data:likeData} = await db.from("likes").select("post_id").eq("user_id",targetId);
+    const ids = (likeData||[]).map(l=>l.post_id);
+    if(!ids.length){ container.innerHTML=`<div class="empty-state">No liked posts yet.</div>`; return; }
+    const {data} = await db.from("posts").select("*").in("id",ids).order("created_at",{ascending:false});
+    await Promise.all([...new Set((data||[]).map(p=>p.user_id))].map(ensureProfile));
+    container.innerHTML = (data||[]).map(p=>postCard(p)).join("");
+
+  } else if(tab==="replies"){
+    const {data} = await db.from("comments").select("*")
+      .eq("user_id",targetId).order("created_at",{ascending:false}).limit(20);
+    if(!data?.length){ container.innerHTML=`<div class="empty-state">No replies yet.</div>`; return; }
+    container.innerHTML = data.map(c=>`
+      <div class="post" style="cursor:pointer" onclick="openPost('${c.post_id}')">
+        <div class="post-header-row">
+          <div class="post-avatar">${(state.profilesMap[targetId]?.username||"U")[0].toUpperCase()}</div>
+          <div class="post-meta">
+            <span class="username">@${state.profilesMap[targetId]?.username||"user"}</span>
+            <span class="post-time">${timeAgo(c.created_at)}</span>
+          </div>
         </div>
-        ${isMe?`<button onclick="deletePost('${p.id}')" class="delete-btn">🗑</button>`:""}
-      </div>
-      <div class="content">${escHtml(p.content)}</div>
-      ${p.image?`<img src="${p.image}" loading="lazy">`:""}
-      ${p.video?`<video controls src="${p.video}"></video>`:""}
-      <div class="actions">
-        <span style="color:#555;font-size:13px">❤️ ${p.likes||0}</span>
-      </div>
-    </div>`).join("");
+        <div class="content" style="color:#8899aa">↩ Reply: ${escHtml(c.content)}</div>
+      </div>`).join("");
+  }
 }
 
-const saveUsername = safe(async()=>{
-  const val = $("usernameInput")?.value.trim();
-  if(!val){ alert("Username cannot be empty."); return; }
-  const {error} = await db.from("profiles").update({username:val}).eq("user_id",state.user.id);
+// ================= PROFILE EDIT =================
+function openEditModal(){
+  const me = state.profilesMap[state.user?.id]||{};
+  const uInput = $("editUsername");
+  const bInput = $("editBio");
+  if(uInput) uInput.value = me.username||"";
+  if(bInput) bInput.value = me.bio||"";
+  $("editModal").style.display = "flex";
+}
+
+function closeEditModal(e){
+  if(e && e.target !== $("editModal")) return;
+  $("editModal").style.display = "none";
+}
+
+const saveProfile = safe(async()=>{
+  const username   = $("editUsername")?.value.trim();
+  const bio        = $("editBio")?.value.trim();
+  const avatarFile = $("editAvatarFile")?.files?.[0];
+  const bannerFile = $("editBannerFile")?.files?.[0];
+
+  if(!username){ alert("Username cannot be empty."); return; }
+
+  const updates = { username, bio: bio||"" };
+
+  const progressWrap = $("editProgress");
+  const progressBar  = $("editProgressBar");
+  if(progressWrap) progressWrap.style.display = "block";
+
+  let step = 0;
+  const setProgress = pct => { if(progressBar) progressBar.style.width = pct+"%"; };
+
+  if(avatarFile){
+    setProgress(20);
+    const {data,error} = await db.storage.from("images")
+      .upload(`avatars/${state.user.id}_${Date.now()}`, avatarFile, {upsert:true});
+    if(!error){ const {data:u}=db.storage.from("images").getPublicUrl(data.path); updates.avatar_url=u.publicUrl; }
+    setProgress(50);
+  }
+
+  if(bannerFile){
+    setProgress(60);
+    const {data,error} = await db.storage.from("images")
+      .upload(`banners/${state.user.id}_${Date.now()}`, bannerFile, {upsert:true});
+    if(!error){ const {data:u}=db.storage.from("images").getPublicUrl(data.path); updates.banner_url=u.publicUrl; }
+    setProgress(85);
+  }
+
+  const {error} = await db.from("profiles").update(updates).eq("user_id",state.user.id);
   if(error) throw error;
-  state.profilesMap[state.user.id] = {...(state.profilesMap[state.user.id]||{}), username:val};
+
+  setProgress(100);
+  state.profilesMap[state.user.id] = {...(state.profilesMap[state.user.id]||{}), ...updates};
   refreshUserHeader();
-  alert("Username updated to @"+val);
+
+  setTimeout(()=>{
+    if(progressWrap) progressWrap.style.display = "none";
+    $("editModal").style.display = "none";
+    goProfile();
+  }, 500);
 });
 
-const deletePost = safe(async(id)=>{
-  if(!confirm("Delete this post?")) return;
-  const {error} = await db.from("posts").delete().eq("id",id).eq("user_id",state.user.id);
-  if(error) throw error;
-  goProfile();
-});
+// saveUsername kept for legacy calls
+async function saveUsername(){ openEditModal(); }
 
 // ================= SIDEBAR =================
 async function loadSidebar(){
@@ -782,6 +894,9 @@ async function openDM(otherId){
       <span class="dm-header-name">@${other.username||"user"}</span>
     </div>
     <div class="dm-thread" id="dmThread"></div>
+    <div class="typing-indicator" id="typingIndicator" style="display:none">
+      <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+    </div>
     <div class="dm-input-row">
       <input class="comment-input" id="dmInput" placeholder="Message @${other.username||"user"}…"
         onkeydown="if(event.key==='Enter') sendMessage('${otherId}')">
@@ -789,6 +904,7 @@ async function openDM(otherId){
     </div>`;
 
   await loadThread(otherId);
+  initDMTyping(otherId);
 
   // Mark incoming messages as read
   await db.from("messages").update({read:true})
@@ -877,6 +993,91 @@ function startDM(userId){
   setActiveNav("nav-messages");
 }
 
+// ================= POST DETAIL MODAL =================
+async function openPost(postId){
+  const modal = $("postModal");
+  const box   = $("postModalBox");
+  if(!modal||!box) return;
+
+  box.innerHTML = `<div class="skeleton-card"><div class="skeleton-row"><div class="skeleton-avatar skeleton-line"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div class="skeleton-line" style="height:12px;width:40%"></div></div></div><div class="skeleton-line" style="height:14px;width:90%;margin-bottom:8px"></div><div class="skeleton-line" style="height:14px;width:60%"></div></div>`;
+  modal.style.display = "flex";
+  document.body.style.overflow = "hidden";
+
+  const {data:post} = await db.from("posts").select("*").eq("id",postId).maybeSingle();
+  if(!post){ box.innerHTML=`<div class="empty-state">Post not found.</div>`; return; }
+
+  await ensureProfile(post.user_id);
+  const user = state.profilesMap[post.user_id]||{};
+  const liked = state.likesSet.has(post.id);
+  const reposted = state.repostsSet.has(post.id);
+  const bookmarked = state.bookmarksSet.has(post.id);
+  const isMe = post.user_id === state.user?.id;
+
+  const {data:comments} = await db.from("comments").select("*")
+    .eq("post_id",postId).order("created_at",{ascending:true});
+
+  await Promise.all([...new Set((comments||[]).map(c=>c.user_id))].map(ensureProfile));
+
+  const commentsHtml = (comments||[]).length ? (comments||[]).map(c=>{
+    const cu = state.profilesMap[c.user_id]||{};
+    return `<div class="comment"><span class="comment-username">@${escHtml(cu.username||"user")}</span><span class="comment-content">${escHtml(c.content)}</span></div>`;
+  }).join("") : `<div class="no-comments">No comments yet. Be first!</div>`;
+
+  box.innerHTML = `
+    <div class="modal-header">
+      <span>Post</span>
+      <button class="modal-close" onclick="closePostModal()">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;max-height:75vh">
+      <div class="post-header-row" style="margin-bottom:14px">
+        <div class="post-avatar">${(user.username||"U")[0].toUpperCase()}</div>
+        <div class="post-meta">
+          <span class="username">@${escHtml(user.username||"user")}</span>
+          <span class="post-time">${timeAgo(post.created_at)}</span>
+        </div>
+        ${isMe?`<button class="delete-btn" onclick="deletePost('${post.id}');closePostModal()">🗑</button>`:""}
+      </div>
+      <div class="content" style="font-size:17px;margin-bottom:16px">${escHtml(post.content)}</div>
+      ${post.image?`<img src="${post.image}" style="width:100%;border-radius:18px;margin-bottom:14px">`:""}
+      ${post.video?`<video controls src="${post.video}" style="width:100%;border-radius:18px;margin-bottom:14px"></video>`:""}
+      <div class="actions" style="margin-bottom:18px">
+        <button class="${liked?"btn-liked":""}" onclick="likeBurst(event,'${post.id}')">
+          ${liked?"❤️":"🤍"} ${post.likes??0}
+        </button>
+        <button class="${reposted?"btn-reposted":""}" onclick="repost('${post.id}')">🔁 ${reposted?"Reposted":"Repost"}</button>
+        <button class="${bookmarked?"btn-bookmarked":""}" onclick="bookmark('${post.id}')">
+          ${bookmarked?"🔖":"🏷"} ${bookmarked?"Saved":"Save"}
+        </button>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:16px">
+        <div class="comments-list" style="margin-bottom:14px">${commentsHtml}</div>
+        <div class="comment-input-row">
+          <input class="comment-input" id="modalCommentInput" placeholder="Add a comment…"
+            onkeydown="if(event.key==='Enter') submitModalComment('${post.id}')">
+          <button class="comment-btn" onclick="submitModalComment('${post.id}')">Send</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function closePostModal(e){
+  if(e && e.target !== $("postModal")) return;
+  $("postModal").style.display = "none";
+  document.body.style.overflow = "";
+}
+
+const submitModalComment = safe(async(postId)=>{
+  const input = $("modalCommentInput");
+  const text  = input?.value.trim();
+  if(!text) return;
+  const {error} = await db.from("comments").insert([{
+    post_id:postId, user_id:state.user.id, content:text
+  }]);
+  if(error) throw error;
+  input.value = "";
+  openPost(postId);
+});
+
 // ================= DELETE POST =================
 const deletePost = safe(async(id)=>{
   if(!state.user) return;
@@ -895,7 +1096,8 @@ const deletePost = safe(async(id)=>{
   if(error) throw error;
 
   state.posts = state.posts.filter(p=>p.id!==id);
-  render();
+  if(state.view==="home") render();
+  else if(state.view==="profile"||state.view==="profile_other") goProfile();
 });
 
 // ================= LIKE BURST ANIMATION =================
@@ -1047,11 +1249,176 @@ function goSurveys(){
   $("feed").innerHTML=`<div class="empty-state">📋 Surveys coming soon</div>`;
 }
 
+// ================= COMPOSER ENHANCEMENTS =================
+const EMOJIS = ["😀","😂","🥹","😍","🤩","😎","🥳","🤔","😤","🔥","💯","❤️","💖","✨","🎉","👀","💀","🤣","😭","🫡","🙏","💪","🎯","🚀","🌙","⚡","💎","👑","🌊","🎶","🍕","🤝","💬","📸","🎥"];
+
+function toggleEmoji(){
+  const picker = $("emojiPicker");
+  if(!picker) return;
+  if(picker.style.display==="none" || !picker.innerHTML){
+    picker.innerHTML = EMOJIS.map(e=>
+      `<span class="emoji-item" onclick="insertEmoji('${e}')">${e}</span>`
+    ).join("");
+    picker.style.display = "flex";
+  } else {
+    picker.style.display = "none";
+  }
+}
+
+function insertEmoji(emoji){
+  const ta = $("postInput");
+  if(!ta) return;
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  const val   = ta.value;
+  ta.value = val.slice(0,start) + emoji + val.slice(end);
+  ta.selectionStart = ta.selectionEnd = start + emoji.length;
+  ta.focus();
+  autoResizeTextarea(ta);
+}
+
+function autoResizeTextarea(ta){
+  ta.style.height = "auto";
+  ta.style.height = Math.min(ta.scrollHeight, 300)+"px";
+}
+
+function setUploadProgress(pct){
+  const wrap = $("uploadProgress");
+  const bar  = $("uploadProgressBar");
+  if(!wrap||!bar) return;
+  if(pct===null){ wrap.style.display="none"; bar.style.width="0%"; return; }
+  wrap.style.display = "block";
+  bar.style.width = pct+"%";
+}
+
+// ================= INFINITE SCROLL =================
+let feedPage = 0;
+const PAGE_SIZE = 10;
+let feedLoading = false;
+let feedExhausted = false;
+
+async function loadFeedPage(){
+  if(feedLoading || feedExhausted) return;
+  feedLoading = true;
+
+  let query = db.from("posts").select("*")
+    .order("created_at",{ascending:false})
+    .range(feedPage*PAGE_SIZE, (feedPage+1)*PAGE_SIZE-1);
+
+  if(state.tab==="following"){
+    const ids = [...state.followingSet];
+    if(!ids.length){ feedLoading=false; return; }
+    query = db.from("posts").select("*").in("user_id",ids)
+      .order("created_at",{ascending:false})
+      .range(feedPage*PAGE_SIZE, (feedPage+1)*PAGE_SIZE-1);
+  }
+
+  const {data,error} = await query;
+  feedLoading = false;
+  if(error || !data?.length){ feedExhausted=true; return; }
+
+  await Promise.all([...new Set(data.map(p=>p.user_id))].map(ensureProfile));
+
+  if(feedPage===0){
+    state.posts = data;
+    render();
+  } else {
+    state.posts = [...state.posts, ...data];
+    const feed = $("feed");
+    if(feed){
+      const frag = document.createDocumentFragment();
+      data.forEach(p=>{
+        const div = document.createElement("div");
+        div.innerHTML = postCard(p);
+        frag.appendChild(div.firstElementChild);
+      });
+      feed.appendChild(frag);
+    }
+  }
+
+  if(data.length < PAGE_SIZE) feedExhausted = true;
+  feedPage++;
+}
+
+function initInfiniteScroll(){
+  const sentinel = $("feedSentinel");
+  if(!sentinel) return;
+  const obs = new IntersectionObserver(entries=>{
+    if(entries[0].isIntersecting && state.view==="home") loadFeedPage();
+  },{rootMargin:"200px"});
+  obs.observe(sentinel);
+}
+
+// ================= DM TYPING INDICATOR =================
+let typingTimer = null;
+let isTyping = false;
+const TYPING_CHANNEL_PREFIX = "typing-";
+
+function initDMTyping(otherId){
+  const input = $("dmInput");
+  if(!input) return;
+
+  const channelName = TYPING_CHANNEL_PREFIX+[state.user.id,otherId].sort().join("-");
+
+  input.addEventListener("input",()=>{
+    if(!isTyping){
+      isTyping = true;
+      db.channel(channelName).send({type:"broadcast",event:"typing",payload:{userId:state.user.id}})
+        .catch(()=>{});
+    }
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(()=>{ isTyping=false; },2000);
+  });
+
+  db.channel(channelName)
+    .on("broadcast",{event:"typing"},(payload)=>{
+      if(payload.payload?.userId===otherId){
+        const indicator = $("typingIndicator");
+        if(indicator){
+          indicator.style.display="flex";
+          clearTimeout(indicator._timer);
+          indicator._timer = setTimeout(()=>{ indicator.style.display="none"; },2500);
+        }
+      }
+    })
+    .subscribe();
+}
+
 // ================= INIT =================
 document.addEventListener("DOMContentLoaded", async()=>{
   $("loginBtn").onclick  = login;
   $("signupBtn").onclick = signup;
   $("postBtn").onclick   = createPost;
+
+  // Enter key to post (Ctrl+Enter or Cmd+Enter)
+  $("postInput")?.addEventListener("keydown", e=>{
+    if((e.ctrlKey||e.metaKey) && e.key==="Enter"){ e.preventDefault(); createPost(); }
+  });
+
+  // Auto-resize textarea
+  $("postInput")?.addEventListener("input", e=>{
+    autoResizeTextarea(e.target);
+    // Hide emoji picker when typing
+    const picker = $("emojiPicker");
+    if(picker) picker.style.display="none";
+  });
+
+  // Close emoji picker on outside click
+  document.addEventListener("click", e=>{
+    const picker = $("emojiPicker");
+    const btn = $("emojiBtn");
+    if(picker && btn && !picker.contains(e.target) && e.target!==btn){
+      picker.style.display="none";
+    }
+  });
+
+  // Escape closes modals
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape"){
+      closePostModal();
+      $("editModal").style.display="none";
+    }
+  });
 
   const {data} = await db.auth.getSession();
   if(data?.session?.user){
