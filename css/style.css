@@ -673,3 +673,147 @@ body{
   font-size:15px;
   font-weight:700;
 }
+
+/* ── DIRECT MESSAGES ────────────────────────── */
+.dm-convo{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:14px 16px;
+  margin-bottom:10px;
+  cursor:pointer;
+  transition:border-color .2s;
+}
+.dm-convo:hover{ border-color:var(--accent); }
+
+.dm-convo-body{ flex:1; min-width:0; }
+
+.dm-convo-name{
+  font-weight:700;
+  color:var(--accent);
+  font-size:14px;
+  margin-bottom:3px;
+}
+
+.dm-convo-preview{
+  color:#555;
+  font-size:13px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.dm-convo-time{
+  color:#444;
+  font-size:12px;
+  flex-shrink:0;
+}
+
+.dm-header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:14px 0 14px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:14px;
+  position:sticky;
+  top:0;
+  background:#000;
+  z-index:10;
+}
+
+.dm-back{
+  background:none;
+  border:1px solid var(--border);
+  color:#aaa;
+  border-radius:10px;
+  padding:7px 12px;
+  cursor:pointer;
+  font-size:13px;
+}
+.dm-back:hover{ border-color:var(--accent); color:var(--accent); }
+
+.dm-header-name{
+  font-weight:700;
+  font-size:16px;
+  color:#fff;
+}
+
+.dm-thread{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-height:200px;
+  max-height:calc(100vh - 320px);
+  overflow-y:auto;
+  padding:4px 0 16px;
+}
+
+.dm-msg{
+  display:flex;
+  flex-direction:column;
+  max-width:75%;
+}
+
+.dm-mine{
+  align-self:flex-end;
+  align-items:flex-end;
+}
+
+.dm-theirs{
+  align-self:flex-start;
+  align-items:flex-start;
+}
+
+.dm-bubble{
+  padding:10px 16px;
+  border-radius:18px;
+  font-size:14px;
+  line-height:1.5;
+  word-break:break-word;
+}
+
+.dm-mine .dm-bubble{
+  background:linear-gradient(135deg,#00d4ff,#005eff);
+  color:#fff;
+  border-bottom-right-radius:4px;
+}
+
+.dm-theirs .dm-bubble{
+  background:#1a1a1a;
+  color:#eee;
+  border-bottom-left-radius:4px;
+}
+
+.dm-time{
+  font-size:11px;
+  color:#444;
+  margin-top:3px;
+  padding:0 4px;
+}
+
+.dm-input-row{
+  display:flex;
+  gap:8px;
+  padding-top:14px;
+  border-top:1px solid var(--border);
+  position:sticky;
+  bottom:0;
+  background:#000;
+  z-index:10;
+}
+
+.dm-btn{
+  padding:7px 10px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:transparent;
+  color:#aaa;
+  cursor:pointer;
+  font-size:15px;
+  transition:border-color .2s;
+}
+.dm-btn:hover{ border-color:var(--accent); }

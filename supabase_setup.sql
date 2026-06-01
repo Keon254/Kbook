@@ -117,7 +117,28 @@ create policy if not exists "Authenticated users can bookmark"  on public.bookma
 create policy if not exists "Users can remove bookmarks"        on public.bookmarks for delete using (auth.uid()=user_id);
 
 
--- ── 9. REALTIME ──────────────────────────────────────────────
+-- ── 9. MESSAGES (Direct Messages) ───────────────────────────
+create table if not exists public.messages (
+  id          uuid primary key default gen_random_uuid(),
+  sender_id   uuid references auth.users(id) on delete cascade,
+  receiver_id uuid references auth.users(id) on delete cascade,
+  content     text not null,
+  read        boolean default false,
+  created_at  timestamptz default now()
+);
+alter table public.messages enable row level security;
+create policy if not exists "Users can read their messages"
+  on public.messages for select
+  using (auth.uid()=sender_id or auth.uid()=receiver_id);
+create policy if not exists "Authenticated users can send messages"
+  on public.messages for insert
+  with check (auth.uid()=sender_id);
+create policy if not exists "Recipients can mark messages read"
+  on public.messages for update
+  using (auth.uid()=receiver_id);
+
+
+-- ── 10. REALTIME ──────────────────────────────────────────────
 alter publication supabase_realtime add table public.posts;
 alter publication supabase_realtime add table public.notifications;
 

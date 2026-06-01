@@ -272,8 +272,12 @@ async function runSearch(q){
           <div class="user-card-info">
             <div class="username">@${u.username}</div>
           </div>
-          ${!isMe?`<button class="follow-btn ${following?"following":""}" onclick="toggleFollow('${u.user_id}')">
-            ${following?"✓ Following":"+ Follow"}</button>`:""}
+          ${!isMe?`
+            <button class="follow-btn ${following?"following":""}" onclick="toggleFollow('${u.user_id}')">
+              ${following?"✓ Following":"+ Follow"}
+            </button>
+            <button class="dm-btn" onclick="startDM('${u.user_id}')">✉️</button>
+          `:""}
         </div>`;
     }).join("");
   }
@@ -697,6 +701,178 @@ async function loadWhoToFollow(){
     </div>`).join("");
 }
 
+// ================= DIRECT MESSAGES =================
+let dmChannel = null;
+
+async function goMessages(){
+  state.view = "messages";
+  setActiveNav("nav-messages");
+  showComposer(false);
+  showFeedTabs(false);
+
+  $("feed").innerHTML = `<div class="empty-state" style="padding:30px 0">Loading conversations…</div>`;
+
+  // Fetch all messages involving the current user
+  const {data, error} = await db.from("messages")
+    .select("*")
+    .or(`sender_id.eq.${state.user.id},receiver_id.eq.${state.user.id}`)
+    .order("created_at", {ascending:false});
+
+  if(error){ $("feed").innerHTML=`<p style="color:#f55;padding:20px">${error.message}</p>`; return; }
+
+  // Build unique conversations (group by the other person)
+  const seen = new Set();
+  const convos = [];
+  for(const m of (data||[])){
+    const otherId = m.sender_id === state.user.id ? m.receiver_id : m.sender_id;
+    if(!seen.has(otherId)){
+      seen.add(otherId);
+      convos.push({ otherId, lastMsg: m });
+    }
+  }
+
+  // Ensure profiles loaded
+  await Promise.all(convos.map(c=>ensureProfile(c.otherId)));
+
+  // Mark unread as read (all in one go)
+  await db.from("messages").update({read:true})
+    .eq("receiver_id", state.user.id).eq("read", false);
+  updateDMBadge();
+
+  if(!convos.length){
+    $("feed").innerHTML = `
+      <div class="empty-state">
+        No messages yet.<br>
+        <span style="font-size:13px;color:#444">Search for a user and tap Message to start a chat.</span>
+      </div>`;
+    return;
+  }
+
+  $("feed").innerHTML = `
+    <div class="search-section-title">💬 Conversations</div>
+    ${convos.map(c=>{
+      const u = state.profilesMap[c.otherId]||{};
+      const preview = escHtml((c.lastMsg.content||"").slice(0,60));
+      const mine = c.lastMsg.sender_id === state.user.id;
+      return `
+        <div class="dm-convo" onclick="openDM('${c.otherId}')">
+          <div class="post-avatar">${(u.username||"?")[0].toUpperCase()}</div>
+          <div class="dm-convo-body">
+            <div class="dm-convo-name">@${u.username||"user"}</div>
+            <div class="dm-convo-preview">${mine?"You: ":""}${preview}</div>
+          </div>
+          <div class="dm-convo-time">${timeAgo(c.lastMsg.created_at)}</div>
+        </div>`;
+    }).join("")}`;
+}
+
+async function openDM(otherId){
+  state.view = "dm_thread";
+  await ensureProfile(otherId);
+  const other = state.profilesMap[otherId]||{};
+
+  $("feed").innerHTML = `
+    <div class="dm-header">
+      <button class="dm-back" onclick="goMessages()">← Back</button>
+      <div class="post-avatar" style="width:32px;height:32px;font-size:13px">${(other.username||"?")[0].toUpperCase()}</div>
+      <span class="dm-header-name">@${other.username||"user"}</span>
+    </div>
+    <div class="dm-thread" id="dmThread"></div>
+    <div class="dm-input-row">
+      <input class="comment-input" id="dmInput" placeholder="Message @${other.username||"user"}…"
+        onkeydown="if(event.key==='Enter') sendMessage('${otherId}')">
+      <button class="comment-btn" onclick="sendMessage('${otherId}')">Send</button>
+    </div>`;
+
+  await loadThread(otherId);
+
+  // Mark incoming messages as read
+  await db.from("messages").update({read:true})
+    .eq("sender_id", otherId).eq("receiver_id", state.user.id).eq("read",false);
+  updateDMBadge();
+
+  // Subscribe to this thread
+  if(dmChannel) db.removeChannel(dmChannel);
+  dmChannel = db.channel(`dm-${[state.user.id,otherId].sort().join("-")}`)
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},
+      async(payload)=>{
+        const m = payload.new;
+        if((m.sender_id===state.user.id && m.receiver_id===otherId) ||
+           (m.sender_id===otherId && m.receiver_id===state.user.id)){
+          await loadThread(otherId);
+        }
+      })
+    .subscribe();
+}
+
+async function loadThread(otherId){
+  const {data} = await db.from("messages").select("*")
+    .or(`and(sender_id.eq.${state.user.id},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${state.user.id})`)
+    .order("created_at",{ascending:true});
+
+  const thread = $("dmThread");
+  if(!thread) return;
+
+  if(!data?.length){
+    thread.innerHTML=`<div class="no-comments" style="padding:30px">No messages yet. Say hi!</div>`;
+    return;
+  }
+
+  thread.innerHTML = data.map(m=>{
+    const mine = m.sender_id === state.user.id;
+    return `
+      <div class="dm-msg ${mine?"dm-mine":"dm-theirs"}">
+        <div class="dm-bubble">${escHtml(m.content)}</div>
+        <div class="dm-time">${timeAgo(m.created_at)}</div>
+      </div>`;
+  }).join("");
+
+  thread.scrollTop = thread.scrollHeight;
+}
+
+const sendMessage = safe(async(otherId)=>{
+  const input = $("dmInput");
+  const text  = input?.value.trim();
+  if(!text) return;
+
+  const {error} = await db.from("messages").insert([{
+    sender_id:   state.user.id,
+    receiver_id: otherId,
+    content:     text,
+    read:        false
+  }]);
+  if(error) throw error;
+
+  input.value = "";
+  await loadThread(otherId);
+
+  // Notify recipient
+  db.from("notifications").insert([{
+    user_id:      otherId,
+    from_user_id: state.user.id,
+    type:         "message",
+    post_id:      null
+  }]).then(()=>{}).catch(()=>{});
+});
+
+async function updateDMBadge(){
+  if(!state.user) return;
+  const {count} = await db.from("messages")
+    .select("*",{count:"exact",head:true})
+    .eq("receiver_id",state.user.id)
+    .eq("read",false);
+  const badge = $("dmBadge");
+  if(!badge) return;
+  if(count>0){ badge.textContent=count>9?"9+":count; badge.style.display="flex"; }
+  else badge.style.display="none";
+}
+
+// Button on profile/search to start a DM
+function startDM(userId){
+  openDM(userId);
+  setActiveNav("nav-messages");
+}
+
 // ================= UI HELPERS =================
 function showComposer(show){
   const el=$("composer"); if(el) el.style.display=show?"block":"none";
@@ -717,6 +893,13 @@ function startRealtime(){
       {event:"INSERT",schema:"public",table:"notifications",
        filter:`user_id=eq.${state.user.id}`},
       ()=> updateNotifBadge())
+    .subscribe();
+
+  db.channel("dm-badge-live")
+    .on("postgres_changes",
+      {event:"INSERT",schema:"public",table:"messages",
+       filter:`receiver_id=eq.${state.user.id}`},
+      ()=> updateDMBadge())
     .subscribe();
 }
 
