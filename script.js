@@ -333,7 +333,7 @@ const createPost = safe(async()=>{
   }
 
   const {error} = await db.from("posts").insert([{
-    content:text, user_id:state.user.id, image, video, likes:0
+    content:text, user_id:state.user.id, image, video
   }]);
 
   postBtn.disabled = false;
