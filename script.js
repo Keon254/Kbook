@@ -93,10 +93,12 @@ const signup = safe(async()=>{
 async function start(){
   document.querySelector(".auth").style.display = "none";
   $("app").style.display = "grid";
+  initParticles();
   await Promise.all([loadProfiles(), loadSocialData()]);
   await loadFeed();
   startRealtime();
   updateNotifBadge();
+  updateDMBadge();
   loadSidebar();
 }
 
@@ -146,6 +148,7 @@ async function loadFeed(){
   setActiveNav("nav-home");
   showComposer(true);
   showFeedTabs(true);
+  showSkeletons(4);
 
   let query = db.from("posts").select("*").order("created_at",{ascending:false});
 
@@ -174,11 +177,11 @@ function render(posts){
 }
 
 function postCard(p){
-  const user     = state.profilesMap[p.user_id] || {};
-  const isMe     = p.user_id === state.user?.id;
-  const liked    = state.likesSet.has(p.id);
-  const bookmarked = state.bookmarksSet.has(p.id);
-  const reposted = state.repostsSet.has(p.id);
+  const user      = state.profilesMap[p.user_id] || {};
+  const isMe      = p.user_id === state.user?.id;
+  const liked     = state.likesSet.has(p.id);
+  const bookmarked= state.bookmarksSet.has(p.id);
+  const reposted  = state.repostsSet.has(p.id);
   const following = state.followingSet.has(p.user_id);
 
   return `
@@ -192,13 +195,14 @@ function postCard(p){
         ${!isMe ? `
           <button class="follow-btn ${following?"following":""}" onclick="toggleFollow('${p.user_id}')">
             ${following?"✓ Following":"+ Follow"}
-          </button>` : ""}
+          </button>` : `
+          <button class="delete-btn" onclick="deletePost('${p.id}')" title="Delete post">🗑</button>`}
       </div>
       <div class="content">${escHtml(p.content)}</div>
       ${p.image ? `<img src="${p.image}" loading="lazy">` : ""}
       ${p.video ? `<video controls src="${p.video}"></video>` : ""}
       <div class="actions">
-        <button class="${liked?"btn-liked":""}" onclick="like('${p.id}')">
+        <button class="${liked?"btn-liked":""}" onclick="likeBurst(event,'${p.id}')">
           ${liked?"❤️":"🤍"} ${p.likes??0}
         </button>
         <button onclick="toggleComments('${p.id}')">💬 Comment</button>
@@ -873,12 +877,133 @@ function startDM(userId){
   setActiveNav("nav-messages");
 }
 
+// ================= DELETE POST =================
+const deletePost = safe(async(id)=>{
+  if(!state.user) return;
+  if(!confirm("Delete this post?")) return;
+
+  const el = $("post-"+id);
+  if(el){
+    el.style.transition = "opacity 0.3s, transform 0.3s";
+    el.style.opacity = "0";
+    el.style.transform = "scale(0.95) translateY(-8px)";
+    await new Promise(r=>setTimeout(r,300));
+  }
+
+  const {error} = await db.from("posts").delete()
+    .eq("id",id).eq("user_id",state.user.id);
+  if(error) throw error;
+
+  state.posts = state.posts.filter(p=>p.id!==id);
+  render();
+});
+
+// ================= LIKE BURST ANIMATION =================
+function likeBurst(event, id){
+  const btn = event.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top  + rect.height/2;
+
+  const alreadyLiked = state.likesSet.has(id);
+
+  if(!alreadyLiked){
+    const emojis = ["❤️","💖","💗","✨","💫","⭐"];
+    const count  = 8;
+    for(let i=0;i<count;i++){
+      const el = document.createElement("div");
+      el.className = "like-particle";
+      el.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+      const angle  = (i/count)*2*Math.PI + (Math.random()-0.5)*0.5;
+      const dist   = 60 + Math.random()*60;
+      el.style.left = cx+"px";
+      el.style.top  = cy+"px";
+      el.style.setProperty("--tx", Math.cos(angle)*dist+"px");
+      el.style.setProperty("--ty", Math.sin(angle)*dist+"px");
+      el.style.fontSize = (14+Math.random()*10)+"px";
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(), 800);
+    }
+
+    btn.style.transform = "scale(1.35)";
+    setTimeout(()=>{ btn.style.transform = ""; }, 300);
+  }
+
+  like(id);
+}
+
 // ================= UI HELPERS =================
 function showComposer(show){
   const el=$("composer"); if(el) el.style.display=show?"block":"none";
 }
 function showFeedTabs(show){
   const el=$("feedTabs"); if(el) el.style.display=show?"flex":"none";
+}
+
+// ================= SKELETON LOADING =================
+function showSkeletons(n=3){
+  const skels = Array.from({length:n},()=>`
+    <div class="skeleton-card">
+      <div class="skeleton-row">
+        <div class="skeleton-line skeleton-avatar"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div class="skeleton-line" style="height:12px;width:40%"></div>
+          <div class="skeleton-line" style="height:10px;width:25%"></div>
+        </div>
+      </div>
+      <div class="skeleton-line" style="height:14px;width:90%;margin-bottom:8px"></div>
+      <div class="skeleton-line" style="height:14px;width:70%;margin-bottom:8px"></div>
+      <div class="skeleton-line" style="height:14px;width:55%"></div>
+    </div>`).join("");
+  $("feed").innerHTML = skels;
+}
+
+// ================= PARTICLES =================
+function initParticles(){
+  const canvas = document.getElementById("particleCanvas");
+  if(!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  function resize(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; }
+  resize();
+  window.addEventListener("resize", resize, {passive:true});
+
+  const PARTICLE_COUNT = 55;
+  const particles = Array.from({length:PARTICLE_COUNT},()=>({
+    x: Math.random()*window.innerWidth,
+    y: Math.random()*window.innerHeight,
+    r: Math.random()*1.5+0.4,
+    vx:(Math.random()-0.5)*0.18,
+    vy:(Math.random()-0.5)*0.18,
+    a: Math.random(),
+    va:0.003+Math.random()*0.004,
+  }));
+
+  let frame;
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    for(const p of particles){
+      p.x += p.vx; p.y += p.vy;
+      p.a += p.va;
+      if(p.a>1||p.a<0) p.va*=-1;
+      if(p.x<0) p.x=canvas.width;
+      if(p.x>canvas.width) p.x=0;
+      if(p.y<0) p.y=canvas.height;
+      if(p.y>canvas.height) p.y=0;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(0,212,255,${p.a*0.35})`;
+      ctx.fill();
+    }
+    frame = requestAnimationFrame(draw);
+  }
+  draw();
+
+  // Pause when tab hidden to avoid memory/CPU waste
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden) cancelAnimationFrame(frame);
+    else draw();
+  });
 }
 
 // ================= REALTIME =================
