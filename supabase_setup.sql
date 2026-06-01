@@ -1,8 +1,8 @@
 -- ============================================================
 --  KUDASAI — Supabase Schema Setup (Full)
 --  Run this in: Supabase Dashboard → SQL Editor → New Query
---  Safe to re-run: tables use IF NOT EXISTS, policies are
---  dropped and recreated so there are no duplicate errors.
+--  Safe to re-run. New tables (follows/reposts/bookmarks/
+--  messages) are dropped & recreated to fix any stale schema.
 -- ============================================================
 
 
@@ -99,7 +99,9 @@ create policy "Users can update their notifications" on public.notifications for
 
 
 -- ── 6. FOLLOWS ───────────────────────────────────────────────
-create table if not exists public.follows (
+-- Drop and recreate to ensure correct column names
+drop table if exists public.follows cascade;
+create table public.follows (
   id           uuid primary key default gen_random_uuid(),
   follower_id  uuid references auth.users(id) on delete cascade,
   following_id uuid references auth.users(id) on delete cascade,
@@ -107,17 +109,15 @@ create table if not exists public.follows (
   unique (follower_id, following_id)
 );
 alter table public.follows enable row level security;
-
-drop policy if exists "Anyone can read follows"        on public.follows;
-drop policy if exists "Authenticated users can follow" on public.follows;
-drop policy if exists "Users can unfollow"             on public.follows;
 create policy "Anyone can read follows"        on public.follows for select using (true);
 create policy "Authenticated users can follow" on public.follows for insert with check (auth.uid()=follower_id);
 create policy "Users can unfollow"             on public.follows for delete using (auth.uid()=follower_id);
 
 
 -- ── 7. REPOSTS ───────────────────────────────────────────────
-create table if not exists public.reposts (
+-- Drop and recreate to ensure correct column names
+drop table if exists public.reposts cascade;
+create table public.reposts (
   id         uuid primary key default gen_random_uuid(),
   post_id    uuid references public.posts(id) on delete cascade,
   user_id    uuid references auth.users(id) on delete cascade,
@@ -125,17 +125,15 @@ create table if not exists public.reposts (
   unique (post_id, user_id)
 );
 alter table public.reposts enable row level security;
-
-drop policy if exists "Anyone can read reposts"        on public.reposts;
-drop policy if exists "Authenticated users can repost" on public.reposts;
-drop policy if exists "Users can un-repost"            on public.reposts;
 create policy "Anyone can read reposts"        on public.reposts for select using (true);
 create policy "Authenticated users can repost" on public.reposts for insert with check (auth.uid()=user_id);
 create policy "Users can un-repost"            on public.reposts for delete using (auth.uid()=user_id);
 
 
 -- ── 8. BOOKMARKS ─────────────────────────────────────────────
-create table if not exists public.bookmarks (
+-- Drop and recreate to ensure correct column names
+drop table if exists public.bookmarks cascade;
+create table public.bookmarks (
   id         uuid primary key default gen_random_uuid(),
   post_id    uuid references public.posts(id) on delete cascade,
   user_id    uuid references auth.users(id) on delete cascade,
@@ -143,17 +141,15 @@ create table if not exists public.bookmarks (
   unique (post_id, user_id)
 );
 alter table public.bookmarks enable row level security;
-
-drop policy if exists "Users can read their bookmarks"   on public.bookmarks;
-drop policy if exists "Authenticated users can bookmark" on public.bookmarks;
-drop policy if exists "Users can remove bookmarks"       on public.bookmarks;
 create policy "Users can read their bookmarks"   on public.bookmarks for select using (auth.uid()=user_id);
 create policy "Authenticated users can bookmark" on public.bookmarks for insert with check (auth.uid()=user_id);
 create policy "Users can remove bookmarks"       on public.bookmarks for delete using (auth.uid()=user_id);
 
 
 -- ── 9. MESSAGES (Direct Messages) ────────────────────────────
-create table if not exists public.messages (
+-- Drop and recreate fresh
+drop table if exists public.messages cascade;
+create table public.messages (
   id          uuid primary key default gen_random_uuid(),
   sender_id   uuid references auth.users(id) on delete cascade,
   receiver_id uuid references auth.users(id) on delete cascade,
@@ -162,10 +158,6 @@ create table if not exists public.messages (
   created_at  timestamptz default now()
 );
 alter table public.messages enable row level security;
-
-drop policy if exists "Users can read their messages"         on public.messages;
-drop policy if exists "Authenticated users can send messages" on public.messages;
-drop policy if exists "Recipients can mark messages read"     on public.messages;
 create policy "Users can read their messages"
   on public.messages for select
   using (auth.uid()=sender_id or auth.uid()=receiver_id);
