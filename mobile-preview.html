@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUDASAI — Mobile Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #030305;
+  --card:      rgba(10,10,18,0.92);
+  --border:    rgba(0,212,255,0.09);
+  --accent:    #00d4ff;
+  --accent2:   #005eff;
+  --silver:    #9ba8b4;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:Inter,-apple-system,sans-serif;background:#000;color:#e8eaf0;-webkit-font-smoothing:antialiased}
+
+/* PAGE LAYOUT */
+body {
+  background: radial-gradient(ellipse 120% 80% at 30% 10%,rgba(0,212,255,0.06) 0%,transparent 60%),
+              radial-gradient(ellipse 80% 80% at 80% 90%,rgba(0,94,255,0.07) 0%,transparent 60%),
+              #050508;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px 60px;
+  overflow-y: auto;
+}
+
+h1 {
+  font-size: 22px; font-weight: 900; letter-spacing: 3px;
+  background: linear-gradient(90deg,#00d4ff,#005eff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 6px;
+}
+.subtitle { font-size: 13px; color: var(--silver); margin-bottom: 36px; }
+
+/* SCREEN SELECTOR */
+.screen-tabs {
+  display: flex; gap: 10px; margin-bottom: 32px; flex-wrap: wrap; justify-content: center;
+}
+.screen-tab {
+  padding: 9px 20px; border-radius: 99px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--silver); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all .2s; font-family: Inter,sans-serif;
+}
+.screen-tab.active {
+  background: var(--accent); border-color: var(--accent);
+  color: #000; font-weight: 700;
+}
+
+/* PHONES ROW */
+.phones-row {
+  display: flex; gap: 32px; flex-wrap: wrap; justify-content: center; align-items: flex-start;
+}
+
+/* PHONE FRAME */
+.phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.phone-label { font-size: 12px; color: var(--silver); font-weight: 500; letter-spacing: 1px; text-transform: uppercase; }
+
+.phone {
+  width: 375px;
+  height: 812px;
+  background: #030305;
+  border-radius: 52px;
+  border: 2px solid rgba(0,212,255,0.18);
+  box-shadow:
+    0 0 0 6px #0a0a10,
+    0 0 0 7px rgba(0,212,255,0.08),
+    0 40px 80px rgba(0,0,0,0.9),
+    0 0 60px rgba(0,212,255,0.06);
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* NOTCH */
+.phone::before {
+  content: "";
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  width: 120px; height: 30px;
+  background: #000;
+  border-radius: 99px;
+  z-index: 100;
+}
+
+.phone-screen {
+  width: 100%; height: 100%;
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: none;
+  display: none;
+  flex-direction: column;
+  padding-top: 52px;
+}
+.phone-screen::-webkit-scrollbar { display: none; }
+.phone-screen.active { display: flex; }
+
+/* STATUS BAR */
+.status-bar {
+  position: absolute; top: 14px; left: 0; right: 0;
+  z-index: 99;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0 28px;
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6);
+}
+
+/* TOP BAR */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(3,3,5,0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 50;
+  flex-shrink: 0;
+}
+.topbar-logo {
+  font-size: 16px; font-weight: 900; letter-spacing: 2px;
+  background: linear-gradient(90deg,#00d4ff,#005eff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.search-pill {
+  flex: 1; margin: 0 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 99px; padding: 7px 14px;
+  font-size: 12px; color: var(--silver);
+}
+.topbar-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg,#00d4ff,#005eff);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #000;
+}
+
+/* STORIES BAR */
+.stories-bar {
+  display: flex; gap: 14px; padding: 14px 16px 10px;
+  overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.stories-bar::-webkit-scrollbar { display: none; }
+.story-item {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  flex-shrink: 0; cursor: pointer;
+}
+.story-ring {
+  width: 56px; height: 56px; border-radius: 50%; padding: 2.5px;
+}
+.story-ring.unseen {
+  background: conic-gradient(#00d4ff,#005eff,#9b59b6,#00d4ff);
+  animation: ring-glow 3s ease-in-out infinite;
+}
+.story-ring.add-ring {
+  background: transparent;
+  border: 2px dashed rgba(0,212,255,0.3);
+}
+.story-ring.seen { background: rgba(255,255,255,0.1); }
+@keyframes ring-glow {
+  0%,100%{filter:drop-shadow(0 0 4px rgba(0,212,255,0.5))}
+  50%{filter:drop-shadow(0 0 10px rgba(0,212,255,0.9))}
+}
+.story-inner {
+  width: 100%; height: 100%; border-radius: 50%;
+  background: linear-gradient(135deg,rgba(0,212,255,0.1),rgba(0,94,255,0.1));
+  border: 2px solid #030305;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: var(--accent);
+  overflow: hidden;
+}
+.story-inner img { width:100%;height:100%;object-fit:cover;border-radius:50%; }
+.story-label { font-size: 10px; color: var(--silver); max-width: 58px; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* FEED TABS */
+.feed-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.feed-tab {
+  flex: 1; padding: 13px 0; text-align: center;
+  font-size: 13px; font-weight: 600; color: var(--silver);
+  cursor: pointer; position: relative; transition: color .2s;
+}
+.feed-tab.active { color: var(--accent); }
+.feed-tab.active::after {
+  content: ""; position: absolute; bottom: 0; left: 20%; right: 20%;
+  height: 2px; background: var(--accent); border-radius: 99px;
+}
+
+/* POST CARD */
+.post {
+  background: rgba(10,10,18,0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 16px;
+  margin: 10px 12px 0;
+  position: relative;
+  transition: border-color .3s;
+}
+.post:hover { border-color: rgba(0,212,255,0.2); }
+.post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; flex-shrink: 0;
+  overflow: hidden;
+}
+.avatar img { width:100%;height:100%;object-fit:cover; }
+.post-meta { flex: 1; }
+.post-username { font-size: 13px; font-weight: 700; color: #e8eaf0; }
+.post-handle { font-size: 11px; color: var(--silver); }
+.post-time { font-size: 11px; color: var(--silver); }
+.follow-btn-sm {
+  padding: 5px 12px; border-radius: 99px;
+  border: 1px solid var(--accent); color: var(--accent);
+  background: transparent; font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.follow-btn-sm.following {
+  background: rgba(0,212,255,0.1); color: var(--accent);
+}
+.more-btn {
+  background: none; border: none; color: var(--silver);
+  font-size: 18px; cursor: pointer; padding: 0 4px; opacity: 0.6;
+}
+.post-content {
+  font-size: 14px; line-height: 1.55; color: #d8dce8; margin-bottom: 12px;
+}
+.post-content .hashtag { color: var(--accent); }
+.post-content .mention { color: #a78bfa; }
+.post-img { width: 100%; border-radius: 14px; margin-bottom: 12px; max-height: 200px; object-fit: cover; }
+.post-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.action-btn {
+  padding: 7px 12px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.03);
+  color: var(--silver); font-size: 12px; cursor: pointer;
+  transition: all .2s; display: flex; align-items: center; gap: 5px;
+  font-family: Inter,sans-serif;
+}
+.action-btn.liked { color: #ff6b9d; background: rgba(255,80,120,0.08); border-color: rgba(255,80,120,0.2); }
+.action-btn.bookmarked { color: #ffd700; background: rgba(255,200,0,0.08); border-color: rgba(255,200,0,0.2); }
+
+/* COMPOSER */
+.composer {
+  background: rgba(10,10,18,0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 14px;
+  margin: 10px 12px 0;
+  flex-shrink: 0;
+}
+.composer-inner { display: flex; gap: 10px; align-items: flex-start; }
+.composer-input {
+  flex: 1; background: none; border: none; outline: none;
+  color: #e8eaf0; font-size: 14px; font-family: Inter,sans-serif;
+  resize: none; min-height: 60px;
+}
+.composer-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.composer-tools { display: flex; gap: 8px; }
+.tool-btn {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: rgba(0,212,255,0.06); border: 1px solid rgba(0,212,255,0.12);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; cursor: pointer; color: var(--accent);
+}
+.post-btn {
+  padding: 8px 20px; border-radius: 99px;
+  background: linear-gradient(135deg,var(--accent),var(--accent2));
+  border: none; color: #000; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: Inter,sans-serif;
+}
+
+/* ── NOTIFICATIONS SCREEN ── */
+.section-header {
+  padding: 16px 16px 10px;
+  font-size: 18px; font-weight: 800; color: #e8eaf0;
+  flex-shrink: 0;
+}
+.notif-filters {
+  display: flex; gap: 8px; padding: 0 12px 10px;
+  overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.notif-filters::-webkit-scrollbar { display: none; }
+.nf-btn {
+  padding: 6px 14px; border-radius: 99px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--silver); font-size: 12px; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  font-family: Inter,sans-serif;
+}
+.nf-btn.active {
+  background: var(--accent); border-color: var(--accent);
+  color: #000; font-weight: 700;
+}
+.notif-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .2s;
+}
+.notif-item:hover { background: rgba(255,255,255,0.03); }
+.notif-item.unread { background: rgba(0,212,255,0.025); }
+.notif-icon { font-size: 20px; width: 36px; height: 36px; display:flex;align-items:center;justify-content:center; flex-shrink:0; }
+.notif-body { flex:1; }
+.notif-user { font-size: 13px; font-weight: 700; color: var(--accent); }
+.notif-text { font-size: 13px; color: #d8dce8; }
+.notif-time { font-size: 11px; color: var(--silver); margin-top: 2px; }
+.notif-thumb {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: rgba(0,212,255,0.08); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+
+/* TOAST DEMO */
+.toast-demo {
+  position: absolute;
+  bottom: 80px; right: 12px; left: 12px;
+  background: rgba(8,10,22,0.97);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(0,212,255,0.28);
+  border-radius: 18px;
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(0,212,255,0.1);
+  animation: toast-in .4s cubic-bezier(.16,1,.3,1) forwards;
+  z-index: 80;
+}
+@keyframes toast-in {
+  from{opacity:0;transform:translateY(16px) scale(.92)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+.toast-icon { font-size: 20px; }
+.toast-body .toast-title { font-size: 13px; font-weight: 700; color:#e8eaf0; }
+.toast-body .toast-sub   { font-size: 11px; color: var(--silver); }
+
+/* ── DM SCREEN ── */
+.dm-list-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .2s;
+}
+.dm-list-item:hover { background: rgba(255,255,255,0.03); }
+.dm-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700;
+  position: relative; flex-shrink: 0; overflow: hidden;
+}
+.online-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #4ade80;
+  border: 2px solid #030305;
+  position: absolute; bottom: 1px; right: 1px;
+  animation: pulse-dot 2.5s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.5)}
+  50%{box-shadow:0 0 0 4px rgba(74,222,128,.08)}
+}
+.dm-info { flex:1; min-width:0; }
+.dm-name { font-size: 14px; font-weight: 700; color: #e8eaf0; }
+.dm-preview { font-size: 12px; color: var(--silver); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.dm-meta { text-align: right; flex-shrink: 0; }
+.dm-time { font-size: 11px; color: var(--silver); }
+.dm-unread { background: var(--accent); color: #000; font-size: 10px; font-weight: 700; border-radius: 99px; padding: 2px 6px; margin-top: 4px; display: inline-block; }
+
+/* DM THREAD */
+.dm-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(3,3,5,0.95);
+  backdrop-filter: blur(20px);
+  position: sticky; top: 0; z-index: 40; flex-shrink: 0;
+}
+.dm-header-back { font-size: 20px; color: var(--accent); cursor: pointer; }
+.dm-header-name { font-size: 15px; font-weight: 700; flex:1; }
+.dm-header-status { font-size: 11px; color: #4ade80; }
+.dm-thread { flex:1; padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.dm-bubble-wrap { display: flex; flex-direction: column; }
+.dm-bubble-wrap.mine { align-items: flex-end; }
+.dm-bubble {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 13px; line-height: 1.5;
+}
+.dm-bubble.their {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 18px 18px 18px 4px;
+  color: #d8dce8;
+}
+.dm-bubble.mine-b {
+  background: linear-gradient(135deg,rgba(0,212,255,0.18),rgba(0,94,255,0.18));
+  border: 1px solid rgba(0,212,255,0.2);
+  border-radius: 18px 18px 4px 18px;
+  color: #e8eaf0;
+}
+.dm-bubble img { max-width: 180px; border-radius: 12px; display: block; }
+.dm-t { font-size: 10px; color: var(--silver); margin-top: 4px; }
+.dm-input-row {
+  display: flex; gap: 8px; padding: 12px 12px;
+  border-top: 1px solid var(--border);
+  background: rgba(3,3,5,0.95);
+  backdrop-filter: blur(20px);
+  flex-shrink: 0; align-items: center;
+}
+.dm-img-btn {
+  background: rgba(0,212,255,0.07); border: 1px solid rgba(0,212,255,0.14);
+  color: var(--accent); border-radius: 12px; padding: 9px 12px;
+  font-size: 16px; cursor: pointer; flex-shrink: 0;
+}
+.dm-input {
+  flex:1; background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 10px 14px; color: #e8eaf0; font-size: 13px;
+  font-family: Inter,sans-serif; outline: none;
+}
+.dm-send {
+  background: linear-gradient(135deg,var(--accent),var(--accent2));
+  border: none; color: #000; border-radius: 12px;
+  padding: 9px 16px; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: Inter,sans-serif; flex-shrink: 0;
+}
+
+/* ── PROFILE SCREEN ── */
+.profile-banner {
+  height: 110px; width: 100%; object-fit: cover;
+  background: linear-gradient(135deg,rgba(0,212,255,0.12),rgba(0,94,255,0.18),rgba(155,89,182,0.12));
+  flex-shrink: 0;
+}
+.profile-card {
+  background: rgba(10,10,18,0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px;
+  margin: -28px 12px 0;
+  text-align: center;
+}
+.profile-ava {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: linear-gradient(135deg,#00d4ff,#005eff);
+  margin: -52px auto 12px;
+  border: 3px solid #030305;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 800; color: #000;
+  box-shadow: 0 0 24px rgba(0,212,255,0.4);
+  overflow: hidden;
+}
+.profile-name { font-size: 18px; font-weight: 800; color: #e8eaf0; }
+.profile-handle { font-size: 13px; color: var(--silver); margin-top: 2px; }
+.profile-bio { font-size: 13px; color: #b0b8c8; margin: 8px 0; line-height: 1.4; }
+.profile-status {
+  font-size: 12px; color: var(--accent);
+  background: rgba(0,212,255,0.07); border: 1px solid rgba(0,212,255,0.15);
+  border-radius: 99px; padding: 3px 12px;
+  display: inline-block; margin: 4px 0;
+}
+.profile-stats {
+  display: flex; justify-content: center; gap: 28px; margin: 12px 0;
+}
+.profile-stat { text-align: center; cursor: pointer; }
+.profile-stat strong { font-size: 17px; font-weight: 800; color: #e8eaf0; display: block; }
+.profile-stat span { font-size: 11px; color: var(--silver); }
+.profile-stat:hover strong { color: var(--accent); }
+.profile-actions { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+.btn-outline {
+  padding: 8px 20px; border-radius: 99px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+  color: #e8eaf0; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: Inter,sans-serif;
+}
+.btn-follow {
+  padding: 8px 24px; border-radius: 99px;
+  background: linear-gradient(135deg,var(--accent),var(--accent2));
+  border: none; color: #000; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: Inter,sans-serif;
+}
+.profile-post-label {
+  padding: 14px 16px 8px;
+  font-size: 13px; font-weight: 700; color: var(--silver);
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+
+/* CONTEXT MENU DEMO */
+.ctx-menu {
+  position: absolute; right: 16px; top: 120px;
+  background: rgba(10,12,24,0.97); backdrop-filter: blur(24px);
+  border: 1px solid var(--border); border-radius: 16px;
+  padding: 6px; min-width: 160px; z-index: 80;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  animation: ctx-in .15s cubic-bezier(.16,1,.3,1);
+}
+@keyframes ctx-in { from{opacity:0;transform:scale(.9) translateY(-6px)} to{opacity:1;transform:scale(1) translateY(0)} }
+.ctx-item {
+  padding: 10px 14px; border-radius: 10px;
+  font-size: 13px; color: #e8eaf0;
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+}
+.ctx-item:hover { background: rgba(255,255,255,0.07); }
+.ctx-item.danger { color: #ff6b6b; }
+
+/* BOTTOM NAV */
+.bottom-nav {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 64px;
+  background: rgba(5,5,10,0.97);
+  backdrop-filter: blur(30px);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-around;
+  z-index: 60;
+}
+.nav-item {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  cursor: pointer; padding: 4px 10px; border-radius: 14px;
+  transition: all .2s; position: relative;
+}
+.nav-item.active .nav-icon { color: var(--accent); }
+.nav-item.active::before {
+  content: ""; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 4px; height: 4px; border-radius: 50%; background: var(--accent);
+}
+.nav-icon { font-size: 22px; color: rgba(255,255,255,0.4); transition: color .2s; }
+.nav-label { font-size: 9px; color: var(--silver); font-weight: 500; }
+.nav-badge {
+  position: absolute; top: 0; right: 4px;
+  background: var(--accent); color: #000;
+  font-size: 9px; font-weight: 800;
+  border-radius: 99px; padding: 1px 5px;
+  border: 2px solid #030305;
+}
+
+/* FOLLOW MODAL */
+.follow-modal {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(10px);
+  z-index: 200;
+  display: flex; align-items: flex-end;
+}
+.follow-modal-box {
+  width: 100%; max-height: 70%;
+  background: #0a0a12;
+  border-radius: 24px 24px 0 0;
+  border: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+}
+.modal-handle { width: 40px; height: 4px; background: rgba(255,255,255,0.15); border-radius: 99px; margin: 0 auto 16px; }
+.modal-title { font-size: 16px; font-weight: 800; margin-bottom: 14px; text-align: center; }
+.modal-search {
+  width: 100%; background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px 14px; color: #e8eaf0; font-size: 13px;
+  font-family: Inter,sans-serif; outline: none; margin-bottom: 14px;
+}
+.follow-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.follow-row:last-child { border-bottom: none; }
+.follow-ava {
+  width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700;
+  overflow: hidden;
+}
+.follow-info { flex:1; }
+.follow-name { font-size: 13px; font-weight: 700; }
+.follow-bio  { font-size: 11px; color: var(--silver); }
+.follow-btn-xs {
+  padding: 5px 14px; border-radius: 99px;
+  border: 1px solid var(--accent); color: var(--accent);
+  background: transparent; font-size: 11px; font-weight: 600;
+  font-family: Inter,sans-serif; cursor: pointer;
+}
+
+/* STORY VIEWER */
+.story-viewer {
+  position: absolute; inset: 0;
+  background: #000; z-index: 300;
+  display: flex; flex-direction: column;
+}
+.story-progress-row { display: flex; gap: 4px; padding: 50px 12px 0; }
+.sp-seg { flex:1; height: 3px; background: rgba(255,255,255,0.25); border-radius: 99px; overflow: hidden; }
+.sp-fill { height: 100%; background: #fff; border-radius: 99px; }
+.sp-fill.done { width: 100%; }
+.sp-fill.active { width: 60%; animation: sp-anim 5s linear forwards; }
+@keyframes sp-anim { from{width:0%} to{width:100%} }
+.story-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; position: relative; z-index: 10;
+}
+.story-ava { width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(0,212,255,.6); display:flex;align-items:center;justify-content:center; font-size:14px;font-weight:700;color:#fff; }
+.story-uname { font-size: 13px; font-weight: 700; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+.story-time { font-size: 11px; color: rgba(255,255,255,.55); }
+.story-close { margin-left: auto; font-size: 20px; color: rgba(255,255,255,.7); cursor: pointer; background:none;border:none; }
+.story-img {
+  position: absolute; inset: 0;
+  object-fit: cover; width: 100%; height: 100%;
+  background: linear-gradient(135deg,#0a0a20,#050518);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 80px;
+}
+.story-caption {
+  position: absolute; bottom: 80px; left: 16px; right: 16px;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(8px);
+  border-radius: 14px; padding: 10px 14px;
+  font-size: 14px; color: #fff; text-align: center; z-index: 10;
+}
+
+/* SCROLL HELPERS */
+.scrollable { overflow-y: auto; flex: 1; }
+.pb { padding-bottom: 70px; }
+
+/* PLACEHOLDER */
+.empty { color: var(--silver); font-size: 13px; text-align: center; padding: 40px; }
+
+/* LABEL BADGES */
+.screen-label {
+  position: absolute; top: 56px; right: 14px;
+  background: rgba(0,212,255,0.12); border: 1px solid rgba(0,212,255,0.25);
+  border-radius: 8px; padding: 3px 10px;
+  font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 1px;
+  z-index: 55; text-transform: uppercase;
+}
+</style>
+</head>
+<body>
+
+<h1>KUDASAI</h1>
+<p class="subtitle">Mobile UI Preview — tap a screen below to explore</p>
+
+<div class="screen-tabs">
+  <button class="screen-tab active" onclick="showScreen('home')">🏠 Home Feed</button>
+  <button class="screen-tab" onclick="showScreen('notifs')">🔔 Notifications</button>
+  <button class="screen-tab" onclick="showScreen('dms')">💬 Messages</button>
+  <button class="screen-tab" onclick="showScreen('profile')">👤 Profile</button>
+  <button class="screen-tab" onclick="showScreen('story')">⭕ Story Viewer</button>
+</div>
+
+<div class="phones-row">
+
+<!-- ═══════════════════════════════
+     PHONE 1 — HOME FEED
+════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone-label">Home Feed</div>
+  <div class="phone" id="phone-home">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>●●●  WiFi  🔋</span>
+    </div>
+
+    <!-- HOME SCREEN -->
+    <div class="phone-screen active" id="screen-home">
+      <div class="screen-label">HOME</div>
+
+      <!-- TOPBAR -->
+      <div class="topbar">
+        <div class="topbar-logo">KUDASAI</div>
+        <div class="search-pill">🔍 Search or #tag…</div>
+        <div class="topbar-avatar">A</div>
+      </div>
+
+      <!-- STORIES BAR -->
+      <div class="stories-bar">
+        <div class="story-item">
+          <div class="story-ring add-ring"><div class="story-inner">+</div></div>
+          <div class="story-label">Your Story</div>
+        </div>
+        <div class="story-item">
+          <div class="story-ring unseen"><div class="story-inner" style="background:linear-gradient(135deg,#00d4ff22,#005eff22);font-size:15px;font-weight:800;color:#00d4ff">Z</div></div>
+          <div class="story-label">@zero</div>
+        </div>
+        <div class="story-item">
+          <div class="story-ring unseen"><div class="story-inner" style="background:linear-gradient(135deg,#ff6b9d22,#ff6b6b22);font-size:15px;font-weight:800;color:#ff6b9d">N</div></div>
+          <div class="story-label">@nyx</div>
+        </div>
+        <div class="story-item">
+          <div class="story-ring seen"><div class="story-inner" style="font-size:15px;font-weight:800;color:#a78bfa">K</div></div>
+          <div class="story-label">@kai</div>
+        </div>
+        <div class="story-item">
+          <div class="story-ring unseen"><div class="story-inner" style="background:linear-gradient(135deg,#ffd70022,#ff800022);font-size:15px;font-weight:800;color:#ffd700">V</div></div>
+          <div class="story-label">@vex</div>
+        </div>
+      </div>
+
+      <!-- COMPOSER -->
+      <div class="composer">
+        <div class="composer-inner">
+          <div class="topbar-avatar" style="width:36px;height:36px;font-size:14px;flex-shrink:0">A</div>
+          <textarea class="composer-input" placeholder="What's happening in the grid?"></textarea>
+        </div>
+        <div class="composer-footer">
+          <div class="composer-tools">
+            <div class="tool-btn">🖼</div>
+            <div class="tool-btn">🎥</div>
+            <div class="tool-btn">😊</div>
+            <div class="tool-btn">📊</div>
+          </div>
+          <button class="post-btn">Post</button>
+        </div>
+      </div>
+
+      <!-- FEED TABS -->
+      <div class="feed-tabs">
+        <div class="feed-tab active">For You</div>
+        <div class="feed-tab">Following</div>
+        <div class="feed-tab">Trending</div>
+      </div>
+
+      <!-- POSTS -->
+      <div class="scrollable pb">
+
+        <!-- POST 1 -->
+        <div class="post">
+          <div class="post-header">
+            <div class="avatar" style="background:linear-gradient(135deg,#00d4ff22,#005eff22);color:#00d4ff;font-size:15px;font-weight:800">Z</div>
+            <div class="post-meta">
+              <div class="post-username">ZERO_PROTOCOL ✓</div>
+              <div class="post-handle">@zero · 2m</div>
+            </div>
+            <button class="follow-btn-sm following">✓ Following</button>
+            <button class="more-btn">⋯</button>
+          </div>
+          <div class="post-content">
+            The grid is never offline. <span class="hashtag">#Kudasai</span> <span class="hashtag">#cyberpunk</span> just dropped the ultra update and it's 🔥 — stories, DMs with images, real-time toasts. The future is <span class="mention">@nyx</span> approved.
+          </div>
+          <div class="post-actions">
+            <button class="action-btn liked">❤️ 847</button>
+            <button class="action-btn">💬 124</button>
+            <button class="action-btn">🔁 56</button>
+            <button class="action-btn bookmarked">🔖</button>
+          </div>
+        </div>
+
+        <!-- CONTEXT MENU DEMO -->
+        <div class="ctx-menu">
+          <div class="ctx-item">👤 View Profile</div>
+          <div class="ctx-item">💬 Send Message</div>
+          <div class="ctx-item">🔇 Mute User</div>
+          <div class="ctx-item danger">🚫 Block User</div>
+        </div>
+
+        <!-- POST 2 -->
+        <div class="post" style="margin-top:6px">
+          <div class="post-header">
+            <div class="avatar" style="background:linear-gradient(135deg,#ff6b9d22,#ff6b6b22);color:#ff6b9d;font-size:15px;font-weight:800">N</div>
+            <div class="post-meta">
+              <div class="post-username">NYX_DARK</div>
+              <div class="post-handle">@nyx · 14m</div>
+            </div>
+            <button class="follow-btn-sm">+ Follow</button>
+            <button class="more-btn">⋯</button>
+          </div>
+          <div class="post-content">
+            just posted my first story on <span class="hashtag">#KUDASAI</span> — neon sunsets in the metaverse hit different 🌆✨ tap my avatar to see it before it expires
+          </div>
+          <img class="post-img" src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&q=80" alt="cyberpunk">
+          <div class="post-actions">
+            <button class="action-btn">❤️ 312</button>
+            <button class="action-btn">💬 48</button>
+            <button class="action-btn">🔁 19</button>
+            <button class="action-btn">🔖</button>
+          </div>
+        </div>
+
+        <!-- POST 3 -->
+        <div class="post" style="margin-top:6px;margin-bottom:4px">
+          <div class="post-header">
+            <div class="avatar" style="background:linear-gradient(135deg,#a78bfa22,#7c3aed22);color:#a78bfa;font-size:15px;font-weight:800">K</div>
+            <div class="post-meta">
+              <div class="post-username">KAI_NEXUS</div>
+              <div class="post-handle">@kai · 1h</div>
+            </div>
+            <button class="follow-btn-sm">+ Follow</button>
+            <button class="more-btn">⋯</button>
+          </div>
+          <div class="post-content">
+            New decentralised <span class="hashtag">#AI</span> nodes going live tonight. The grid expands. If you're not early you're late <span class="mention">@zero</span> <span class="mention">@nyx</span> — let's gooooo
+          </div>
+          <div class="post-actions">
+            <button class="action-btn">❤️ 94</button>
+            <button class="action-btn">💬 22</button>
+            <button class="action-btn">🔁 11</button>
+            <button class="action-btn">🔖</button>
+          </div>
+        </div>
+
+      </div><!-- end scrollable -->
+
+      <!-- TOAST DEMO -->
+      <div class="toast-demo">
+        <div class="toast-icon">❤️</div>
+        <div class="toast-body">
+          <div class="toast-title">@zero liked your post</div>
+          <div class="toast-sub">2 seconds ago</div>
+        </div>
+      </div>
+
+    </div><!-- end home screen -->
+
+    <!-- BOTTOM NAV -->
+    <div class="bottom-nav">
+      <div class="nav-item active"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item"><div class="nav-icon">🔍</div><div class="nav-label">Explore</div></div>
+      <div class="nav-item" style="position:relative"><div class="nav-icon">🔔</div><div class="nav-badge">3</div><div class="nav-label">Notifs</div></div>
+      <div class="nav-item" style="position:relative"><div class="nav-icon">💬</div><div class="nav-badge">2</div><div class="nav-label">DMs</div></div>
+      <div class="nav-item"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+
+  </div><!-- end phone -->
+</div>
+
+<!-- ═══════════════════════════════
+     PHONE 2 — NOTIFICATIONS
+════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone-label">Notifications</div>
+  <div class="phone" id="phone-notifs">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>●●●  WiFi  🔋</span>
+    </div>
+
+    <div class="phone-screen active" id="screen-notifs">
+      <div class="screen-label">NOTIFICATIONS</div>
+
+      <div class="topbar">
+        <div class="topbar-logo">KUDASAI</div>
+        <div style="flex:1"></div>
+        <div class="topbar-avatar">A</div>
+      </div>
+
+      <div class="section-header">Notifications</div>
+
+      <!-- FILTER TABS -->
+      <div class="notif-filters">
+        <button class="nf-btn active">All</button>
+        <button class="nf-btn">❤️ Likes</button>
+        <button class="nf-btn">💬 Comments</button>
+        <button class="nf-btn">👤 Follows</button>
+        <button class="nf-btn">✉️ Messages</button>
+      </div>
+
+      <div class="scrollable pb">
+
+        <div class="notif-item unread">
+          <div class="notif-icon">❤️</div>
+          <div class="notif-body">
+            <div><span class="notif-user">@zero</span> <span class="notif-text">liked your post</span></div>
+            <div class="notif-time">2 min ago</div>
+          </div>
+          <div class="notif-thumb">📡</div>
+        </div>
+
+        <div class="notif-item unread">
+          <div class="notif-icon">💬</div>
+          <div class="notif-body">
+            <div><span class="notif-user">@nyx</span> <span class="notif-text">commented on your post</span></div>
+            <div class="notif-time">8 min ago</div>
+          </div>
+          <div class="notif-thumb">🌆</div>
+        </div>
+
+        <div class="notif-item unread">
+          <div class="notif-icon">👤</div>
+          <div class="notif-body">
+            <div><span class="notif-user">@vex_404</span> <span class="notif-text">followed you</span></div>
+            <div class="notif-time">22 min ago</div>
+          </div>
+          <div class="notif-thumb" style="background:linear-gradient(135deg,#ffd70022,#ff800022);border-color:rgba(255,200,0,.15)">V</div>
+        </div>
+
+        <div class="notif-item">
+          <div class="notif-icon">🔁</div>
+          <div class="notif-body">
+            <div><span class="notif-user">@kai</span> <span class="notif-text">reposted your post</span></div>
+            <div class="notif-time">1 hr ago</div>
+          </div>
+          <div class="notif-thumb">⚡</div>
+        </div>
+
+        <div class="notif-item">
+          <div class="notif-icon">❤️</div>
+          <div class="notif-body">
+            <div><span class="notif-user">@ghost_7</span> <span class="notif-text">liked your post</span></div>
+            <div class="notif-time">3 hr ago</div>
+          </div>
+          <div class="notif-thumb">👻</div>
+        </div>
+
+        <div class="notif-item">
+          <div class="notif-icon">✉️</div>
+          <div class="notif-body">
+            <div><span class="notif-user">@zero</span> <span class="notif-text">sent you a message</span></div>
+            <div class="notif-time">5 hr ago</div>
+          </div>
+          <div class="notif-thumb">💌</div>
+        </div>
+
+        <div class="notif-item">
+          <div class="notif-icon">💬</div>
+          <div class="notif-body">
+            <div><span class="notif-user">@nyx</span> <span class="notif-text">commented: "this is fire 🔥"</span></div>
+            <div class="notif-time">Yesterday</div>
+          </div>
+          <div class="notif-thumb">🔥</div>
+        </div>
+
+      </div>
+
+      <!-- TOAST DEMO -->
+      <div class="toast-demo" style="animation-delay:.5s">
+        <div class="toast-icon">👤</div>
+        <div class="toast-body">
+          <div class="toast-title">@ghost_7 followed you</div>
+          <div class="toast-sub">Just now</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item"><div class="nav-icon">🔍</div><div class="nav-label">Explore</div></div>
+      <div class="nav-item active" style="position:relative"><div class="nav-icon">🔔</div><div class="nav-badge">3</div><div class="nav-label">Notifs</div></div>
+      <div class="nav-item" style="position:relative"><div class="nav-icon">💬</div><div class="nav-badge">2</div><div class="nav-label">DMs</div></div>
+      <div class="nav-item"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     PHONE 3 — DMs
+════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone-label">DM Thread</div>
+  <div class="phone" id="phone-dms">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>●●●  WiFi  🔋</span>
+    </div>
+
+    <div class="phone-screen active" id="screen-dms">
+      <div class="screen-label">MESSAGES</div>
+
+      <!-- DM HEADER -->
+      <div class="dm-header">
+        <span class="dm-header-back">‹</span>
+        <div class="dm-avatar" style="width:38px;height:38px;background:linear-gradient(135deg,#00d4ff22,#005eff22);color:#00d4ff;font-weight:800;font-size:15px;border-radius:50%;position:relative">
+          Z
+          <div class="online-dot"></div>
+        </div>
+        <div style="flex:1">
+          <div class="dm-header-name">ZERO_PROTOCOL</div>
+          <div class="dm-header-status">● Online now</div>
+        </div>
+        <div style="color:var(--silver);font-size:20px;cursor:pointer">⋮</div>
+      </div>
+
+      <!-- THREAD -->
+      <div class="dm-thread" style="flex:1;overflow-y:auto;padding-bottom:8px">
+
+        <div class="dm-bubble-wrap">
+          <div class="dm-bubble their">Yo! Did you see the new Kudasai update? 🔥</div>
+          <div class="dm-t">9:31 AM</div>
+        </div>
+
+        <div class="dm-bubble-wrap mine">
+          <div class="dm-bubble mine-b">Yeah the stories bar is insane 😭 the neon rings 🤩</div>
+          <div class="dm-t" style="text-align:right">9:32 AM</div>
+        </div>
+
+        <div class="dm-bubble-wrap">
+          <div class="dm-bubble their">And real-time notifications with toast popups! Check this screenshot:</div>
+          <div class="dm-t">9:33 AM</div>
+        </div>
+
+        <div class="dm-bubble-wrap">
+          <div class="dm-bubble their" style="padding:6px">
+            <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=300&q=80" style="max-width:180px;border-radius:12px;display:block">
+          </div>
+          <div class="dm-t">9:33 AM · 📷 Image</div>
+        </div>
+
+        <div class="dm-bubble-wrap mine">
+          <div class="dm-bubble mine-b">You can also delete your messages now 🗑️ and mute/block people straight from posts 🤭</div>
+          <div class="dm-t" style="text-align:right">9:35 AM ✓✓</div>
+        </div>
+
+        <div class="dm-bubble-wrap">
+          <div class="dm-bubble their">The <span style="color:#00d4ff">#hashtags</span> and <span style="color:#a78bfa">@mentions</span> are clickable too now!</div>
+          <div class="dm-t">9:36 AM</div>
+        </div>
+
+        <div class="dm-bubble-wrap mine">
+          <div class="dm-bubble mine-b">fr fr this platform is the future 🚀🌐</div>
+          <div class="dm-t" style="text-align:right">9:41 AM ✓</div>
+        </div>
+
+      </div>
+
+      <!-- INPUT ROW -->
+      <div class="dm-input-row">
+        <div class="dm-img-btn">📷</div>
+        <input class="dm-input" placeholder="Message @zero…">
+        <button class="dm-send">Send</button>
+      </div>
+
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item"><div class="nav-icon">🔍</div><div class="nav-label">Explore</div></div>
+      <div class="nav-item" style="position:relative"><div class="nav-icon">🔔</div><div class="nav-label">Notifs</div></div>
+      <div class="nav-item active" style="position:relative"><div class="nav-icon">💬</div><div class="nav-label">DMs</div></div>
+      <div class="nav-item"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     PHONE 4 — PROFILE
+════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone-label">Profile</div>
+  <div class="phone" id="phone-profile">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>●●●  WiFi  🔋</span>
+    </div>
+
+    <div class="phone-screen active" id="screen-profile">
+      <div class="screen-label">PROFILE</div>
+
+      <div class="topbar">
+        <span style="color:var(--accent);font-size:20px">‹</span>
+        <div class="topbar-logo" style="font-size:14px">@zero</div>
+        <div style="flex:1"></div>
+        <div style="color:var(--silver);font-size:20px">⋮</div>
+      </div>
+
+      <div class="scrollable pb">
+
+        <!-- BANNER -->
+        <div class="profile-banner"></div>
+
+        <!-- CARD -->
+        <div class="profile-card">
+          <div class="profile-ava">Z</div>
+          <div class="profile-name">ZERO_PROTOCOL ✓</div>
+          <div class="profile-handle">@zero · <span style="color:#4ade80;font-size:11px">● Online</span></div>
+          <div class="profile-bio">Grid runner. Neural hacker. Building in public on <span style="color:#00d4ff">#KUDASAI</span> 🔮</div>
+          <div class="profile-status">💭 In the zone right now 🎧</div>
+          <div class="profile-stats">
+            <div class="profile-stat"><strong>847</strong><span>Posts</span></div>
+            <div class="profile-stat"><strong>12.4K</strong><span>Followers</span></div>
+            <div class="profile-stat"><strong>891</strong><span>Following</span></div>
+          </div>
+          <div class="profile-actions">
+            <button class="btn-follow">+ Follow</button>
+            <button class="btn-outline">💬 Message</button>
+          </div>
+        </div>
+
+        <!-- FOLLOW MODAL OVERLAY (shown as example) -->
+        <div class="follow-modal" style="position:absolute;top:240px;bottom:64px;border-radius:24px 24px 0 0;overflow:hidden">
+          <div class="follow-modal-box" style="max-height:100%">
+            <div class="modal-handle"></div>
+            <div class="modal-title">Followers</div>
+            <input class="modal-search" placeholder="🔍 Search followers…">
+            <div class="follow-row">
+              <div class="follow-ava" style="background:linear-gradient(135deg,#ff6b9d22,#ff6b6b22);color:#ff6b9d">N</div>
+              <div class="follow-info">
+                <div class="follow-name">@nyx_dark</div>
+                <div class="follow-bio">Night owl & pixel poet</div>
+              </div>
+              <button class="follow-btn-xs">+ Follow</button>
+            </div>
+            <div class="follow-row">
+              <div class="follow-ava" style="background:linear-gradient(135deg,#a78bfa22,#7c3aed22);color:#a78bfa">K</div>
+              <div class="follow-info">
+                <div class="follow-name">@kai_nexus</div>
+                <div class="follow-bio">AI researcher · Web3</div>
+              </div>
+              <button class="follow-btn-xs" style="background:rgba(0,212,255,.1);color:var(--accent)">✓</button>
+            </div>
+            <div class="follow-row">
+              <div class="follow-ava" style="background:linear-gradient(135deg,#ffd70022,#ff800022);color:#ffd700">V</div>
+              <div class="follow-info">
+                <div class="follow-name">@vex_404</div>
+                <div class="follow-bio">Ghost in the machine</div>
+              </div>
+              <button class="follow-btn-xs">+ Follow</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item"><div class="nav-icon">🔍</div><div class="nav-label">Explore</div></div>
+      <div class="nav-item" style="position:relative"><div class="nav-icon">🔔</div><div class="nav-label">Notifs</div></div>
+      <div class="nav-item" style="position:relative"><div class="nav-icon">💬</div><div class="nav-label">DMs</div></div>
+      <div class="nav-item active"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     PHONE 5 — STORY VIEWER
+════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone-label">Story Viewer</div>
+  <div class="phone" id="phone-story">
+    <div class="status-bar" style="color:#fff">
+      <span>9:41</span>
+      <span>●●●  WiFi  🔋</span>
+    </div>
+
+    <div class="phone-screen active" id="screen-story" style="padding-top:0">
+
+      <div class="story-viewer">
+        <!-- PROGRESS -->
+        <div class="story-progress-row" style="padding-top:52px">
+          <div class="sp-seg"><div class="sp-fill done"></div></div>
+          <div class="sp-seg"><div class="sp-fill active"></div></div>
+          <div class="sp-seg"><div class="sp-fill"></div></div>
+        </div>
+
+        <!-- STORY HEADER -->
+        <div class="story-header">
+          <div class="story-ava">N</div>
+          <div>
+            <div class="story-uname">@nyx_dark</div>
+            <div class="story-time">18 min ago</div>
+          </div>
+          <button class="story-close">✕</button>
+        </div>
+
+        <!-- BG IMAGE -->
+        <div class="story-img">
+          <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=420&q=85" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+          <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.3) 0%,transparent 40%,transparent 60%,rgba(0,0,0,.5) 100%)"></div>
+        </div>
+
+        <!-- CAPTION -->
+        <div class="story-caption">
+          Neon sunsets in the metaverse ✨ <span style="color:#00d4ff">#cyberpunk</span> <span style="color:#00d4ff">#KUDASAI</span>
+        </div>
+
+        <!-- NAV ARROWS -->
+        <div style="position:absolute;top:50%;left:12px;transform:translateY(-50%);z-index:10">
+          <div style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;cursor:pointer">‹</div>
+        </div>
+        <div style="position:absolute;top:50%;right:12px;transform:translateY(-50%);z-index:10">
+          <div style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;cursor:pointer">›</div>
+        </div>
+
+      </div><!-- end story-viewer -->
+    </div>
+
+  </div>
+</div>
+
+</div><!-- end phones-row -->
+
+<script>
+function showScreen(id){
+  // update tabs
+  document.querySelectorAll('.screen-tab').forEach(t=>{
+    t.classList.toggle('active', t.textContent.toLowerCase().includes(id) || (id==='home'&&t.textContent.includes('Home')));
+  });
+
+  // show/hide phone wraps — just scroll to relevant phone
+  const map = {
+    home: 'phone-home', notifs: 'phone-notifs',
+    dms: 'phone-dms', profile: 'phone-profile', story: 'phone-story'
+  };
+  const target = document.getElementById(map[id]);
+  if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
+}
+</script>
+
+</body>
+</html>
