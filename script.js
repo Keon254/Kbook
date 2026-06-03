@@ -21,6 +21,7 @@ const state = {
   bookmarksSet: new Set(),
   repostsSet:   new Set(),
   likesSet:     new Set(),
+  onlineSet:    new Set(),
 };
 
 const $ = id => document.getElementById(id);
@@ -98,6 +99,7 @@ async function start(){
   await Promise.all([loadProfiles(), loadSocialData()]);
   await loadFeed();
   startRealtime();
+  initPresence();
   updateNotifBadge();
   updateDMBadge();
   loadSidebar();
@@ -624,13 +626,16 @@ async function goProfile(userId){
           <span><strong>${followingRes.count||0}</strong> Following</span>
         </div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center">
         ${isMe ? `
           <button class="comment-btn" onclick="openEditModal()">✏️ Edit Profile</button>` : `
           <button class="follow-btn ${following?"following":""}" id="followBtn-${targetId}" onclick="toggleFollow('${targetId}')">
             ${following?"✓ Following":"+ Follow"}
           </button>
-          <button class="dm-btn" style="padding:8px 16px;border-radius:14px" onclick="startDM('${targetId}')">💬 Message</button>`}
+          <button class="dm-btn" style="padding:8px 16px;border-radius:14px" onclick="startDM('${targetId}')">💬 Message</button>
+          <span class="presence-chip ${state.onlineSet.has(targetId)?"online":"offline"}" id="presChip-${targetId}" data-presence="${targetId}">
+            ${state.onlineSet.has(targetId)?"🟢 Online":"⚫ Offline"}
+          </span>`}
       </div>
     </div>
     <div class="profile-tabs">
@@ -811,10 +816,77 @@ async function loadWhoToFollow(){
 
   el.innerHTML = suggestions.map(u=>`
     <div class="who-item">
-      <div class="who-avatar">${(u.username||"U")[0].toUpperCase()}</div>
+      <div class="avatar-wrap">
+        <div class="who-avatar">${(u.username||"U")[0].toUpperCase()}</div>
+        ${presenceDot(u.user_id)}
+      </div>
       <div class="who-name" onclick="goProfile('${u.user_id}')">@${u.username}</div>
       <button class="follow-btn" onclick="toggleFollow('${u.user_id}')">+ Follow</button>
     </div>`).join("");
+}
+
+// ================= PRESENCE =================
+let presenceChannel = null;
+
+function initPresence(){
+  if(presenceChannel) { db.removeChannel(presenceChannel); presenceChannel = null; }
+
+  presenceChannel = db.channel("kudasai-presence", {
+    config: { presence: { key: state.user.id } }
+  });
+
+  presenceChannel
+    .on("presence", { event: "sync" }, ()=>{
+      const raw = presenceChannel.presenceState();
+      state.onlineSet = new Set(Object.keys(raw));
+      updateAllPresenceDots();
+    })
+    .on("presence", { event: "join" }, ({ key })=>{
+      state.onlineSet.add(key);
+      updatePresenceDot(key, true);
+    })
+    .on("presence", { event: "leave" }, ({ key })=>{
+      state.onlineSet.delete(key);
+      updatePresenceDot(key, false);
+    })
+    .subscribe(async (status)=>{
+      if(status === "SUBSCRIBED"){
+        await presenceChannel.track({
+          user_id:   state.user.id,
+          online_at: new Date().toISOString()
+        });
+      }
+    });
+}
+
+function presenceDot(userId){
+  const online = state.onlineSet.has(userId);
+  return `<span class="presence-dot ${online?"online":"offline"}" data-presence="${userId}" title="${online?"Online":"Offline"}"></span>`;
+}
+
+function updateAllPresenceDots(){
+  document.querySelectorAll("[data-presence]").forEach(el=>{
+    const uid = el.dataset.presence;
+    const online = state.onlineSet.has(uid);
+    el.className = `presence-dot ${online?"online":"offline"}`;
+    el.title = online ? "Online" : "Offline";
+  });
+}
+
+function updatePresenceDot(userId, online){
+  // Update all small dots
+  document.querySelectorAll(`.presence-dot[data-presence="${userId}"]`).forEach(el=>{
+    el.className = `presence-dot ${online?"online":"offline"}`;
+    el.title = online ? "Online" : "Offline";
+  });
+  // Update presence chip on profile page
+  document.querySelectorAll(`.presence-chip[data-presence="${userId}"]`).forEach(el=>{
+    el.className = `presence-chip ${online?"online":"offline"}`;
+    el.textContent = online ? "🟢 Online" : "⚫ Offline";
+  });
+  // Update status line in DM header
+  const dmStatus = $(`dm-status-${userId}`);
+  if(dmStatus) dmStatus.textContent = online ? "🟢 Online" : "⚫ Offline";
 }
 
 // ================= DIRECT MESSAGES =================
@@ -872,7 +944,10 @@ async function goMessages(){
       const mine = c.lastMsg.sender_id === state.user.id;
       return `
         <div class="dm-convo" onclick="openDM('${c.otherId}')">
-          <div class="post-avatar">${(u.username||"?")[0].toUpperCase()}</div>
+          <div class="avatar-wrap">
+            <div class="post-avatar">${(u.username||"?")[0].toUpperCase()}</div>
+            ${presenceDot(c.otherId)}
+          </div>
           <div class="dm-convo-body">
             <div class="dm-convo-name">@${u.username||"user"}</div>
             <div class="dm-convo-preview">${mine?"You: ":""}${preview}</div>
@@ -890,8 +965,14 @@ async function openDM(otherId){
   $("feed").innerHTML = `
     <div class="dm-header">
       <button class="dm-back" onclick="goMessages()">← Back</button>
-      <div class="post-avatar" style="width:32px;height:32px;font-size:13px">${(other.username||"?")[0].toUpperCase()}</div>
-      <span class="dm-header-name">@${other.username||"user"}</span>
+      <div class="avatar-wrap">
+        <div class="post-avatar" style="width:32px;height:32px;font-size:13px">${(other.username||"?")[0].toUpperCase()}</div>
+        ${presenceDot(otherId)}
+      </div>
+      <div>
+        <span class="dm-header-name">@${other.username||"user"}</span>
+        <div id="dm-status-${otherId}" class="dm-status-text">${state.onlineSet.has(otherId)?"🟢 Online":"⚫ Offline"}</div>
+      </div>
     </div>
     <div class="dm-thread" id="dmThread"></div>
     <div class="typing-indicator" id="typingIndicator" style="display:none">
