@@ -181,6 +181,27 @@ create policy "Recipients can mark messages read"
   using (auth.uid()=receiver_id);
 
 
+-- ── 9b. MESSAGES EXTRA COLUMNS (reply system + reactions) ─────
+-- reply_to_id: references another message in the same thread
+alter table public.messages add column if not exists reply_to_id uuid references public.messages(id) on delete set null;
+-- reactions: jsonb map of { "❤️": ["user_id1", "user_id2"], ... }
+alter table public.messages add column if not exists reactions jsonb default '{}';
+
+-- Allow message senders to also update reactions (for emoji reactions)
+drop policy if exists "Senders can update their messages" on public.messages;
+create policy "Senders can update their messages"
+  on public.messages for update
+  using (auth.uid()=sender_id or auth.uid()=receiver_id);
+
+-- Indexes for performance
+create index if not exists messages_sender_idx   on public.messages(sender_id);
+create index if not exists messages_receiver_idx on public.messages(receiver_id);
+create index if not exists messages_reply_idx    on public.messages(reply_to_id);
+create index if not exists posts_user_idx        on public.posts(user_id);
+create index if not exists posts_likes_idx       on public.posts(likes desc);
+create index if not exists notifications_user_idx on public.notifications(user_id, read);
+
+
 -- ── 10. REALTIME ──────────────────────────────────────────────
 alter publication supabase_realtime add table public.posts;
 alter publication supabase_realtime add table public.notifications;

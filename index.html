@@ -164,6 +164,31 @@
     </div>
   </aside>
 
+  <!-- MOBILE BOTTOM NAV -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav">
+    <div class="mob-nav-item active-mob-nav" id="mnav-home" onclick="goHome()">
+      <span class="mob-nav-icon">🏠</span>
+      <span class="mob-nav-label">Home</span>
+    </div>
+    <div class="mob-nav-item" id="mnav-explore" onclick="goExplore()">
+      <span class="mob-nav-icon">🔭</span>
+      <span class="mob-nav-label">Explore</span>
+    </div>
+    <div class="mob-nav-item mob-nav-fab" id="mnav-post" onclick="mobileNewPost()">
+      <span class="mob-nav-icon">✦</span>
+    </div>
+    <div class="mob-nav-item" id="mnav-notifs" onclick="goNotifications()" style="position:relative">
+      <span class="mob-nav-icon">🔔</span>
+      <span class="mob-nav-label">Notifs</span>
+      <span id="mnotifBadge" class="mob-notif-dot" style="display:none"></span>
+    </div>
+    <div class="mob-nav-item" id="mnav-messages" onclick="goMessages()" style="position:relative">
+      <span class="mob-nav-icon">💬</span>
+      <span class="mob-nav-label">DMs</span>
+      <span id="mdmBadge" class="mob-notif-dot" style="display:none"></span>
+    </div>
+  </nav>
+
 </div>
 
 <script src="script.js"></script>

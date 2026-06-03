@@ -66,6 +66,16 @@ function setActiveNav(id){
   document.querySelectorAll(".nav-item").forEach(el=>el.classList.remove("active-nav"));
   const el = $(id);
   if(el) el.classList.add("active-nav");
+  // Sync mobile bottom nav
+  const mobileMap = {
+    "nav-home":"mnav-home","nav-explore":"mnav-explore",
+    "nav-notifs":"mnav-notifs","nav-messages":"mnav-messages"
+  };
+  document.querySelectorAll(".mob-nav-item").forEach(el=>el.classList.remove("active-mob-nav"));
+  if(id && mobileMap[id]){
+    const mel = $(mobileMap[id]);
+    if(mel) mel.classList.add("active-mob-nav");
+  }
 }
 
 // ================= AUTH =================
@@ -607,10 +617,15 @@ async function updateNotifBadge(){
   if(!state.user) return;
   const {count} = await db.from("notifications").select("*",{count:"exact",head:true})
     .eq("user_id",state.user.id).eq("read",false);
-  const badge = $("notifBadge");
-  if(!badge) return;
-  if(count>0){ badge.textContent=count>9?"9+":count; badge.style.display="flex"; }
-  else badge.style.display="none";
+  const badge  = $("notifBadge");
+  const mbadge = $("mnotifBadge");
+  if(count>0){
+    if(badge){ badge.textContent=count>9?"9+":count; badge.style.display="flex"; }
+    if(mbadge) mbadge.style.display="block";
+  } else {
+    if(badge) badge.style.display="none";
+    if(mbadge) mbadge.style.display="none";
+  }
 }
 
 // ================= BOOKMARKS =================
@@ -1072,15 +1087,64 @@ async function loadThread(otherId){
   if(!thread) return;
 
   if(!data?.length){
-    thread.innerHTML=`<div class="no-comments" style="padding:30px">No messages yet. Say hi!</div>`;
+    thread.innerHTML=`<div class="no-comments" style="padding:30px">No messages yet. Say hi! 👋</div>`;
     return;
   }
 
-  thread.innerHTML = data.map(m=>{
-    const mine = m.sender_id === state.user.id;
+  // Build a lookup map for reply_to support
+  const msgMap = {};
+  (data||[]).forEach(m=>{ msgMap[m.id] = m; });
+
+  const otherProfile = state.profilesMap[otherId]||{};
+  const meProfile    = state.profilesMap[state.user.id]||{};
+
+  const QUICK_REACTIONS = ["❤️","😂","🔥","👍","😮","😢"];
+
+  thread.innerHTML = (data||[]).map(m=>{
+    const mine        = m.sender_id === state.user.id;
+    const wrapClass   = mine ? "dm-mine-wrap" : "dm-theirs-wrap";
+    const senderName  = mine ? (meProfile.username||"You") : (otherProfile.username||"user");
+
+    // Reply quote
+    let replyHtml = "";
+    if(m.reply_to_id && msgMap[m.reply_to_id]){
+      const orig = msgMap[m.reply_to_id];
+      const origMine = orig.sender_id === state.user.id;
+      const origName = origMine ? (meProfile.username||"You") : (otherProfile.username||"user");
+      replyHtml = `
+        <div class="dm-quoted" onclick="scrollToMessage('${orig.id}')">
+          <div class="dm-quoted-name">↩ @${escHtml(origName)}</div>
+          <div class="dm-quoted-text">${escHtml((orig.content||"").slice(0,80))}</div>
+        </div>`;
+    }
+
+    // Reactions
+    const reactions = m.reactions ? (typeof m.reactions === "string" ? JSON.parse(m.reactions) : m.reactions) : {};
+    const reactionHtml = Object.keys(reactions).length ? `
+      <div class="dm-reactions">
+        ${Object.entries(reactions).map(([emoji,users])=>`
+          <div class="dm-reaction ${users.includes(state.user.id)?"reacted":""}"
+               onclick="addDMReaction('${m.id}','${emoji}','${otherId}')">
+            ${emoji}<span class="dm-reaction-count">${users.length}</span>
+          </div>`).join("")}
+      </div>` : "";
+
+    // Read receipt (show only on last sent message)
+    const isLastMine = mine && (!data[data.indexOf(m)+1] || data[data.indexOf(m)+1].sender_id!==state.user.id || true);
+    const readHtml = (mine && m.read) ? `<div class="dm-read-receipt">✓✓ Seen</div>` : (mine ? `<div class="dm-read-receipt" style="opacity:.35">✓ Sent</div>` : "");
+
     return `
-      <div class="dm-msg ${mine?"dm-mine":"dm-theirs"}">
-        <div class="dm-bubble">${escHtml(m.content)}</div>
+      <div class="dm-msg-wrap ${wrapClass}" id="dmsg-${m.id}">
+        <div class="dm-quick-reactions">
+          ${QUICK_REACTIONS.map(e=>`<span class="dm-quick-react-emoji" onclick="addDMReaction('${m.id}','${e}','${otherId}')">${e}</span>`).join("")}
+        </div>
+        <button class="dm-reply-btn" onclick="setDMReply('${m.id}','${escHtml((m.content||"").slice(0,60))}','${escHtml(senderName)}')">↩ Reply</button>
+        <div class="dm-bubble">
+          ${replyHtml}
+          ${escHtml(m.content)}
+        </div>
+        ${reactionHtml}
+        ${readHtml}
         <div class="dm-time">${timeAgo(m.created_at)}</div>
       </div>`;
   }).join("");
@@ -1093,12 +1157,20 @@ const sendMessage = safe(async(otherId)=>{
   const text  = input?.value.trim();
   if(!text) return;
 
-  const {error} = await db.from("messages").insert([{
+  const msgObj = {
     sender_id:   state.user.id,
     receiver_id: otherId,
     content:     text,
     read:        false
-  }]);
+  };
+
+  // Attach reply_to_id if replying
+  if(dmReplyState){
+    msgObj.reply_to_id = dmReplyState.msgId;
+    clearDMReply();
+  }
+
+  const {error} = await db.from("messages").insert([msgObj]);
   if(error) throw error;
 
   input.value = "";
@@ -1119,10 +1191,15 @@ async function updateDMBadge(){
     .select("*",{count:"exact",head:true})
     .eq("receiver_id",state.user.id)
     .eq("read",false);
-  const badge = $("dmBadge");
-  if(!badge) return;
-  if(count>0){ badge.textContent=count>9?"9+":count; badge.style.display="flex"; }
-  else badge.style.display="none";
+  const badge  = $("dmBadge");
+  const mbadge = $("mdmBadge");
+  if(count>0){
+    if(badge){ badge.textContent=count>9?"9+":count; badge.style.display="flex"; }
+    if(mbadge) mbadge.style.display="block";
+  } else {
+    if(badge) badge.style.display="none";
+    if(mbadge) mbadge.style.display="none";
+  }
 }
 
 // Button on profile/search to start a DM
@@ -1744,6 +1821,149 @@ function initDMTyping(otherId){
     })
     .subscribe();
 }
+
+// ================= DM REPLY SYSTEM =================
+let dmReplyState = null;
+
+function setDMReply(msgId, content, senderName){
+  dmReplyState = { msgId, content, senderName };
+
+  // Show reply preview bar above input
+  let bar = $("dmReplyBar");
+  if(!bar){
+    bar = document.createElement("div");
+    bar.id = "dmReplyBar";
+    bar.className = "dm-reply-preview";
+    const inputRow = document.querySelector(".dm-input-row");
+    if(inputRow) inputRow.parentNode.insertBefore(bar, inputRow);
+  }
+  bar.innerHTML = `
+    <div style="flex:1;min-width:0">
+      <div class="dm-reply-preview-name">↩ Replying to @${escHtml(senderName)}</div>
+      <div class="dm-reply-preview-text">${escHtml(content)}</div>
+    </div>
+    <button class="dm-reply-cancel" onclick="clearDMReply()">✕</button>`;
+  bar.style.display = "flex";
+  $("dmInput")?.focus();
+}
+
+function clearDMReply(){
+  dmReplyState = null;
+  const bar = $("dmReplyBar");
+  if(bar) bar.style.display = "none";
+}
+
+function scrollToMessage(msgId){
+  const el = $("dmsg-"+msgId);
+  if(!el) return;
+  el.scrollIntoView({ behavior:"smooth", block:"center" });
+  el.classList.add("reply-highlight");
+  setTimeout(()=>el.classList.remove("reply-highlight"), 1400);
+}
+
+// ================= DM REACTIONS =================
+const addDMReaction = safe(async(msgId, emoji, otherId)=>{
+  if(!state.user) return;
+
+  // Fetch current message reactions
+  const {data:msg} = await db.from("messages").select("reactions").eq("id",msgId).maybeSingle();
+  if(!msg) return;
+
+  let reactions = msg.reactions || {};
+  if(typeof reactions === "string") reactions = JSON.parse(reactions);
+
+  const users = reactions[emoji] || [];
+  const myId  = state.user.id;
+
+  if(users.includes(myId)){
+    // Un-react
+    reactions[emoji] = users.filter(u=>u!==myId);
+    if(!reactions[emoji].length) delete reactions[emoji];
+  } else {
+    reactions[emoji] = [...users, myId];
+  }
+
+  await db.from("messages").update({ reactions }).eq("id",msgId);
+  await loadThread(otherId);
+});
+
+// ================= MOBILE COMPOSE SHEET =================
+let _mobileComposeOtherId = null;
+
+function mobileNewPost(){
+  // On mobile, scroll to composer or show a sheet
+  const composer = $("composer");
+  if(composer && window.innerWidth <= 768){
+    showMobileComposeSheet();
+  } else {
+    goHome();
+    setTimeout(()=>{ $("postInput")?.focus(); }, 200);
+  }
+}
+
+function showMobileComposeSheet(){
+  // Remove old sheet if exists
+  let old = $("mobileComposeSheet");
+  if(old) old.remove();
+
+  const sheet = document.createElement("div");
+  sheet.id = "mobileComposeSheet";
+  sheet.className = "mobile-compose-sheet";
+  sheet.innerHTML = `
+    <div class="mobile-compose-inner">
+      <div class="mobile-compose-handle"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <span style="font-size:15px;font-weight:800;color:#fff">New Post</span>
+        <button onclick="closeMobileCompose()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:10px;padding:6px 12px;cursor:pointer;font-family:Inter,sans-serif;font-size:13px">✕</button>
+      </div>
+      <textarea id="mobilePostInput" placeholder="What's happening?" rows="4"
+        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:16px;color:#e8eaf0;padding:14px;font-size:16px;font-family:Inter,sans-serif;resize:none;outline:none;line-height:1.6"></textarea>
+      <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
+        <label style="padding:10px 14px;border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.4);font-family:Inter,sans-serif">
+          📷 Photo <input type="file" id="mobileImgInput" accept="image/*" style="display:none">
+        </label>
+        <button onclick="submitMobilePost()" style="flex:1;padding:13px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:14px;color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:Inter,sans-serif;box-shadow:0 0 20px rgba(0,212,255,0.3)">Post ✦</button>
+      </div>
+    </div>`;
+
+  sheet.addEventListener("click", e=>{ if(e.target===sheet) closeMobileCompose(); });
+  document.body.appendChild(sheet);
+  setTimeout(()=>$("mobilePostInput")?.focus(), 150);
+}
+
+function closeMobileCompose(){
+  const sheet = $("mobileComposeSheet");
+  if(sheet) sheet.remove();
+}
+
+const submitMobilePost = safe(async()=>{
+  if(!state.user){ alert("Please log in first."); return; }
+  if(!cooldown("post",2000)){ alert("Please wait before posting again."); return; }
+
+  const text     = $("mobilePostInput")?.value.trim();
+  const imgInput = $("mobileImgInput");
+
+  if(!text && !imgInput?.files?.[0]){
+    alert("Write something or attach a photo.");
+    return;
+  }
+
+  let image = null;
+  if(imgInput?.files?.[0]){
+    const file = imgInput.files[0];
+    const {data,error} = await db.storage.from("images")
+      .upload(`${state.user.id}/${Date.now()}_${file.name}`, file, {upsert:true});
+    if(!error){ const {data:u}=db.storage.from("images").getPublicUrl(data.path); image=u.publicUrl; }
+  }
+
+  const {error} = await db.from("posts").insert([{
+    content: text, user_id: state.user.id, image, video: null
+  }]);
+  if(error) throw error;
+
+  closeMobileCompose();
+  goHome();
+});
 
 // ================= INIT =================
 document.addEventListener("DOMContentLoaded", async()=>{

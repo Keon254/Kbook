@@ -1,0 +1,191 @@
+KUDASAI RESPONSIVE EVOLUTION UPDATE
+
+You are upgrading my project “Kudasai” into a next-generation social media platform with separate optimized experiences for MOBILE and PC/DESKTOP users.
+
+DO NOT break existing systems.
+DO NOT rewrite the entire project blindly.
+ONLY improve and expand carefully.
+
+==================================================
+MAIN GOALS
+==========
+
+1. CREATE A REAL MOBILE VERSION
+2. CREATE A REAL PC/DESKTOP VERSION
+3. ADD ADVANCED MESSAGE TAGGING SYSTEM
+4. ADD MORE FUTURISTIC SOCIAL FEATURES
+5. IMPROVE UI/UX + PERFORMANCE
+
+==================================================
+
+1. MOBILE VERSION
+   ==================================================
+
+Build a true mobile experience instead of simply shrinking desktop layout.
+
+Requirements:
+
+* bottom navigation bar
+* swipe-friendly UI
+* fullscreen mobile feed
+* mobile-first spacing
+* responsive typography
+* optimized touch controls
+* smooth scrolling
+* TikTok-like immersive experience
+* animated transitions
+* floating action buttons
+* mobile gesture support where possible
+* optimized loading for weak devices
+
+Mobile layout should include:
+
+* bottom nav
+* collapsible menus
+* compact cards
+* fullscreen media viewer
+* mobile DM interface
+* mobile profile layout
+
+==================================================
+2. PC / DESKTOP VERSION
+=======================
+
+Create a premium desktop experience.
+
+Requirements:
+
+* multi-column layout
+* left sidebar
+* main feed
+* right trending/activity panel
+* expandable chat panel
+* keyboard shortcuts
+* hover animations
+* advanced desktop spacing
+* cinematic futuristic UI
+
+Desktop should feel:
+
+* professional
+* futuristic
+* immersive
+* fast
+* premium
+
+==================================================
+3. MESSAGE TAGGING SYSTEM
+=========================
+
+I want users to be able to TAG messages and REPLY to specific messages.
+
+Features:
+
+* reply to a message
+* show quoted/replied message above response
+* clickable tagged messages
+* highlight original message
+* threaded conversations
+* Discord/WhatsApp style reply system
+* smooth animations
+* support text/image replies
+
+Database requirements:
+
+* ensure reply_to column works correctly
+* fix all foreign key issues
+* add proper indexes
+* ensure real-time updates
+
+Expected behavior:
+
+* clicking a tagged message scrolls to original
+* replies appear visually connected
+* no duplicated messages
+* no unread bugs
+
+==================================================
+4. ADD MORE FEATURES
+====================
+
+SOCIAL FEATURES:
+
+* bookmarks
+* reposts
+* quote reposts
+* profile banners
+* story/status system
+* trending hashtags
+* explore page
+* notifications center
+* post analytics
+* verification badges
+
+CHAT FEATURES:
+
+* reactions
+* typing indicators
+* online status
+* seen/read receipts
+* voice notes
+* media sharing
+* emoji picker
+* pinned messages
+
+UI FEATURES:
+
+* dynamic themes
+* smooth page transitions
+* futuristic glassmorphism
+* anime-inspired visuals
+* ambient glow effects
+* animated cards
+* loading skeletons
+* floating UI elements
+
+==================================================
+5. PERFORMANCE + CLEAN CODE
+===========================
+
+Requirements:
+
+* optimize all Supabase queries
+* modular JavaScript architecture
+* responsive CSS system
+* prevent memory leaks
+* improve realtime subscriptions
+* reduce lag
+* optimize images/media
+* proper async handling
+* advanced error handling
+
+==================================================
+IMPORTANT RULES
+===============
+
+* Analyze existing files before editing
+* Preserve current working systems
+* Return FULL updated code
+* Clearly separate:
+
+  * HTML
+  * CSS
+  * JS
+  * SQL
+* Add comments to important logic
+* Keep everything compatible with Supabase
+* Keep Replit-friendly performance
+
+==================================================
+FINAL RESULT
+============
+
+Kudasai should feel like a futuristic anime-inspired social platform with:
+
+* a premium desktop experience
+* a beautiful immersive mobile experience
+* advanced messaging
+* cinematic UI
+* modern interactions
+* smooth performance
+* next-generation social features
