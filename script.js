@@ -69,12 +69,17 @@ function setActiveNav(id){
 }
 
 // ================= AUTH =================
+function isGmail(email){
+  return /^[a-zA-Z0-9._%+\-]+@gmail\.com$/i.test(email.trim());
+}
+
 const login = safe(async()=>{
   const email = $("email").value.trim();
   const pass  = $("password").value;
-  if(!email || !pass){ alert("Please enter email and password."); return; }
+  if(!email || !pass){ alert("Please enter your Gmail and password."); return; }
+  if(!isGmail(email)){ showAuthError("Only Gmail accounts (@gmail.com) are allowed."); return; }
   const {data,error} = await db.auth.signInWithPassword({ email, password:pass });
-  if(error) throw error;
+  if(error){ showAuthError(error.message); return; }
   state.user = data.user;
   start();
 });
@@ -82,13 +87,39 @@ const login = safe(async()=>{
 const signup = safe(async()=>{
   const email = $("email").value.trim();
   const pass  = $("password").value;
-  if(!email || !pass){ alert("Please enter email and password."); return; }
-  if(pass.length < 6){ alert("Password must be at least 6 characters."); return; }
+  if(!email || !pass){ alert("Please enter your Gmail and password."); return; }
+  if(!isGmail(email)){ showAuthError("Only Gmail accounts (@gmail.com) are allowed."); return; }
+  if(pass.length < 6){ showAuthError("Password must be at least 6 characters."); return; }
   const {data,error} = await db.auth.signUp({ email, password:pass });
-  if(error) throw error;
-  await db.from("profiles").insert([{ user_id:data.user.id, username:email.split("@")[0], balance:0 }]);
-  alert("Account created! You can now log in.");
+  if(error){ showAuthError(error.message); return; }
+  if(data.user){
+    await db.from("profiles").insert([{ user_id:data.user.id, username:email.split("@")[0], balance:0 }]);
+  }
+  showAuthError("Account created! Check your email to confirm, then log in.", "success");
 });
+
+const loginWithGoogle = safe(async()=>{
+  const {error} = await db.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.href }
+  });
+  if(error){ showAuthError(error.message); return; }
+});
+
+function showAuthError(msg, type="error"){
+  let el = $("authError");
+  if(!el){
+    el = document.createElement("p");
+    el.id = "authError";
+    el.className = "auth-error";
+    $("authScreen")?.querySelector(".auth-box")?.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.color = type==="success" ? "#4ade80" : "#ff6b6b";
+  el.style.display = "block";
+  if(type==="success") return;
+  setTimeout(()=>{ el.style.display="none"; }, 4000);
+}
 
 // ================= START =================
 async function start(){
@@ -184,13 +215,24 @@ function postCard(p){
   const bookmarked= state.bookmarksSet.has(p.id);
   const reposted  = state.repostsSet.has(p.id);
   const following = state.followingSet.has(p.user_id);
+  const verified  = user.verified;
+
+  const quotedHtml = (p.quoted_content && p.quoted_username) ? `
+    <div class="quote-card" onclick="event.stopPropagation();${p.quoted_post_id?`openPost('${p.quoted_post_id}')`:''}">
+      <div class="quote-username">@${escHtml(p.quoted_username)}</div>
+      <div class="quote-content">${escHtml(p.quoted_content)}</div>
+    </div>` : "";
 
   return `
     <div class="post" id="post-${p.id}">
+      <div class="post-shimmer"></div>
       <div class="post-header-row">
-        <div class="post-avatar">${(user.username||"U")[0].toUpperCase()}</div>
+        <div class="post-avatar" onclick="goProfile('${p.user_id}')" style="cursor:pointer">${(user.username||"U")[0].toUpperCase()}</div>
         <div class="post-meta">
-          <span class="username">@${user.username||"user"}</span>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span class="username" onclick="goProfile('${p.user_id}')" style="cursor:pointer">@${user.username||"user"}</span>
+            ${verified ? `<span class="verify-badge" title="Verified">✓</span>` : ""}
+          </div>
           <span class="post-time">${timeAgo(p.created_at)}</span>
         </div>
         ${!isMe ? `
@@ -200,8 +242,9 @@ function postCard(p){
           <button class="delete-btn" onclick="deletePost('${p.id}')" title="Delete post">🗑</button>`}
       </div>
       <div class="content" style="cursor:pointer" onclick="openPost('${p.id}')">${escHtml(p.content)}</div>
-      ${p.image ? `<img src="${p.image}" loading="lazy" style="cursor:pointer" onclick="openPost('${p.id}')">` : ""}
-      ${p.video ? `<video controls src="${p.video}"></video>` : ""}
+      ${quotedHtml}
+      ${p.image ? `<img src="${p.image}" loading="lazy" style="cursor:pointer" onclick="openLightbox('${p.image}','img')">` : ""}
+      ${p.video ? `<video controls src="${p.video}" onclick="event.stopPropagation()"></video>` : ""}
       <div class="actions">
         <button class="${liked?"btn-liked":""}" onclick="likeBurst(event,'${p.id}')">
           ${liked?"❤️":"🤍"} ${p.likes??0}
@@ -210,6 +253,7 @@ function postCard(p){
         <button class="${reposted?"btn-reposted":""}" onclick="repost('${p.id}')">
           🔁${reposted?" Reposted":"Repost"}
         </button>
+        <button onclick="quoteRepost('${p.id}','${escHtml(user.username||"user")}','${escHtml((p.content||"").slice(0,80))}')">🗣 Quote</button>
         <button class="${bookmarked?"btn-bookmarked":""}" onclick="bookmark('${p.id}')">
           ${bookmarked?"🔖":"🏷"} ${bookmarked?"Saved":"Save"}
         </button>
@@ -342,9 +386,13 @@ const createPost = safe(async()=>{
     setUploadProgress(80);
   }
 
-  const {error} = await db.from("posts").insert([{
-    content:text, user_id:state.user.id, image, video
-  }]);
+  const insertObj = { content:text, user_id:state.user.id, image, video };
+  if(quoteState){
+    insertObj.quoted_post_id  = quoteState.postId;
+    insertObj.quoted_content  = quoteState.content;
+    insertObj.quoted_username = quoteState.username;
+  }
+  const {error} = await db.from("posts").insert([insertObj]);
 
   setUploadProgress(100);
   postBtn.disabled = false;
@@ -355,6 +403,7 @@ const createPost = safe(async()=>{
   autoResizeTextarea($("postInput"));
   if(imgInput) imgInput.value="";
   if(vidInput) vidInput.value="";
+  clearQuote();
   setTimeout(()=>setUploadProgress(null), 600);
 
   await loadFeed();
@@ -520,6 +569,7 @@ async function goNotifications(){
   setActiveNav("nav-notifs");
   showComposer(false);
   showFeedTabs(false);
+  transitionFeed();
 
   const {data,error} = await db.from("notifications").select("*")
     .eq("user_id",state.user.id).order("created_at",{ascending:false});
@@ -569,6 +619,7 @@ async function goBookmarks(){
   setActiveNav("nav-bookmarks");
   showComposer(false);
   showFeedTabs(false);
+  transitionFeed();
 
   if(!state.bookmarksSet.size){
     $("feed").innerHTML=`<div class="empty-state">No bookmarks yet. Tap 🏷 on a post to save it.</div>`;
@@ -897,6 +948,7 @@ async function goMessages(){
   setActiveNav("nav-messages");
   showComposer(false);
   showFeedTabs(false);
+  transitionFeed();
 
   $("feed").innerHTML = `<div class="empty-state" style="padding:30px 0">Loading conversations…</div>`;
 
@@ -984,15 +1036,15 @@ async function openDM(otherId){
       <button class="comment-btn" onclick="sendMessage('${otherId}')">Send</button>
     </div>`;
 
+  // FIX: mark as read FIRST so badge clears immediately
+  await db.from("messages").update({read:true})
+    .eq("sender_id", otherId).eq("receiver_id", state.user.id).eq("read", false);
+  updateDMBadge();
+
   await loadThread(otherId);
   initDMTyping(otherId);
 
-  // Mark incoming messages as read
-  await db.from("messages").update({read:true})
-    .eq("sender_id", otherId).eq("receiver_id", state.user.id).eq("read",false);
-  updateDMBadge();
-
-  // Subscribe to this thread
+  // Subscribe to this thread — also auto-mark new incoming as read
   if(dmChannel) db.removeChannel(dmChannel);
   dmChannel = db.channel(`dm-${[state.user.id,otherId].sort().join("-")}`)
     .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},
@@ -1000,6 +1052,11 @@ async function openDM(otherId){
         const m = payload.new;
         if((m.sender_id===state.user.id && m.receiver_id===otherId) ||
            (m.sender_id===otherId && m.receiver_id===state.user.id)){
+          // If sender is other person, mark it read immediately (we're watching)
+          if(m.sender_id===otherId){
+            await db.from("messages").update({read:true}).eq("id",m.id);
+            updateDMBadge();
+          }
           await loadThread(otherId);
         }
       })
@@ -1317,6 +1374,7 @@ function goHome(){
   state.tab="forYou";
   $("tabForYou")?.classList.add("tab-active");
   $("tabFollowing")?.classList.remove("tab-active");
+  transitionFeed();
   loadFeed();
 }
 function goJobs(){
@@ -1328,6 +1386,228 @@ function goSurveys(){
   state.view="surveys"; setActiveNav("nav-surveys");
   showComposer(false); showFeedTabs(false);
   $("feed").innerHTML=`<div class="empty-state">📋 Surveys coming soon</div>`;
+}
+
+// ================= EXPLORE PAGE =================
+async function goExplore(){
+  state.view = "explore";
+  setActiveNav("nav-explore");
+  showComposer(false);
+  showFeedTabs(false);
+  transitionFeed();
+
+  $("feed").innerHTML = `
+    <div class="explore-header">
+      <h2 class="explore-title">✦ Explore</h2>
+      <p class="explore-sub">Discover trending posts and people</p>
+    </div>
+    <div class="skeleton-card"><div class="skeleton-row"><div class="skeleton-avatar skeleton-line"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div class="skeleton-line" style="height:12px;width:40%"></div></div></div><div class="skeleton-line" style="height:14px;width:90%;margin:8px 0 4px"></div></div>
+    <div class="skeleton-card"><div class="skeleton-line" style="height:14px;width:80%;margin-bottom:8px"></div><div class="skeleton-line" style="height:14px;width:60%"></div></div>`;
+
+  const now7d = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+
+  const [trendRes, discoverRes, usersRes] = await Promise.all([
+    // Trending: top liked posts from last 7 days
+    db.from("posts").select("*").gte("created_at", now7d)
+      .order("likes", {ascending:false}).limit(8),
+    // Discover: recent posts from users NOT followed
+    db.from("posts").select("*").not("user_id","in",
+      `(${[state.user.id,...state.followingSet].join(",") || state.user.id})`)
+      .order("created_at",{ascending:false}).limit(8),
+    // Suggested users
+    db.from("profiles").select("*")
+      .neq("user_id", state.user.id).limit(20)
+  ]);
+
+  const trending  = trendRes.data||[];
+  const discover  = discoverRes.data||[];
+  const allUsers  = usersRes.data||[];
+  const suggested = allUsers.filter(u=>!state.followingSet.has(u.user_id)).slice(0,4);
+
+  // Ensure profiles for posts
+  const allPostUserIds = [...new Set([...trending,...discover].map(p=>p.user_id))];
+  await Promise.all(allPostUserIds.map(ensureProfile));
+
+  // Trending hashtags from trending posts
+  const tagMap = new Map();
+  [...trending,...discover].forEach(p=>{
+    (p.content||"").match(/#\w+/g)?.forEach(t=>tagMap.set(t,(tagMap.get(t)||0)+1));
+  });
+  const topTags = [...tagMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+  let html = `<div class="explore-header"><h2 class="explore-title">✦ Explore</h2><p class="explore-sub">Discover what's happening</p></div>`;
+
+  if(topTags.length){
+    html += `<div class="explore-section-title">🔥 Trending Topics</div>
+    <div class="hashtag-chips">${topTags.map(([tag,n])=>`
+      <div class="hashtag-chip" onclick="handleSearch('${tag}')">
+        ${tag} <span class="chip-count">${n}</span>
+      </div>`).join("")}</div>`;
+  }
+
+  if(suggested.length){
+    html += `<div class="explore-section-title">⭐ People to Follow</div>
+    <div class="explore-users">${suggested.map(u=>`
+      <div class="explore-user-card">
+        <div class="avatar-wrap">
+          <div class="post-avatar" onclick="goProfile('${u.user_id}')" style="cursor:pointer">${(u.username||"U")[0].toUpperCase()}</div>
+          ${presenceDot(u.user_id)}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="explore-uname" onclick="goProfile('${u.user_id}')">@${escHtml(u.username||"user")}</div>
+          ${u.bio?`<div class="explore-ubio">${escHtml(u.bio.slice(0,60))}</div>`:''}
+        </div>
+        <button class="follow-btn ${state.followingSet.has(u.user_id)?"following":""}" onclick="toggleFollow('${u.user_id}')">
+          ${state.followingSet.has(u.user_id)?"✓ Following":"+ Follow"}
+        </button>
+      </div>`).join("")}</div>`;
+  }
+
+  if(trending.length){
+    html += `<div class="explore-section-title">🚀 Trending Posts</div>`;
+    html += trending.map(p=>postCard(p)).join("");
+  }
+
+  if(discover.length){
+    html += `<div class="explore-section-title">🌐 Discover</div>`;
+    html += discover.map(p=>postCard(p)).join("");
+  }
+
+  if(!trending.length && !discover.length){
+    html += `<div class="empty-state">Nothing to explore yet. Be the first to post!</div>`;
+  }
+
+  $("feed").innerHTML = html;
+}
+
+// ================= QUOTE REPOST =================
+let quoteState = null;
+
+function quoteRepost(postId, username, content){
+  quoteState = { postId, username, content };
+  goHome();
+  setTimeout(()=>{
+    showComposer(true);
+    const ta = $("postInput");
+    if(!ta) return;
+    // Show quote preview
+    let qprev = $("quotePreview");
+    if(!qprev){
+      qprev = document.createElement("div");
+      qprev.id = "quotePreview";
+      qprev.className = "quote-preview-bar";
+      ta.parentNode.insertBefore(qprev, ta.nextSibling);
+    }
+    qprev.innerHTML = `<div class="quote-preview-label">Quoting @${escHtml(username)}</div>
+      <div class="quote-preview-text">${escHtml(content)}</div>
+      <button class="quote-cancel" onclick="clearQuote()">✕</button>`;
+    ta.focus();
+    ta.placeholder = "Add your comment…";
+  }, 200);
+}
+
+function clearQuote(){
+  quoteState = null;
+  const qprev = $("quotePreview");
+  if(qprev) qprev.remove();
+  const ta = $("postInput");
+  if(ta) ta.placeholder = "What's happening?";
+}
+
+// ================= FULLSCREEN LIGHTBOX =================
+function openLightbox(src, type="img"){
+  const lb  = $("lightbox");
+  const img = $("lightboxImg");
+  const vid = $("lightboxVid");
+  if(!lb) return;
+  if(type==="img"){
+    img.src = src; img.style.display="block";
+    vid.style.display="none";
+  } else {
+    vid.src = src; vid.style.display="block";
+    img.style.display="none";
+  }
+  lb.style.display="flex";
+  document.body.style.overflow="hidden";
+}
+
+function closeLightbox(){
+  const lb = $("lightbox");
+  if(lb) lb.style.display="none";
+  document.body.style.overflow="";
+  const vid = $("lightboxVid");
+  if(vid){ vid.pause(); vid.src=""; }
+}
+
+// ================= COMMAND PALETTE =================
+const PALETTE_COMMANDS = [
+  { icon:"🏠", label:"Go Home",         action:()=>goHome() },
+  { icon:"🔭", label:"Explore",          action:()=>goExplore() },
+  { icon:"👤", label:"My Profile",       action:()=>goProfile() },
+  { icon:"🔔", label:"Notifications",    action:()=>goNotifications() },
+  { icon:"🔖", label:"Bookmarks",        action:()=>goBookmarks() },
+  { icon:"💬", label:"Messages",         action:()=>goMessages() },
+  { icon:"💼", label:"Jobs",             action:()=>goJobs() },
+  { icon:"✏️", label:"Edit Profile",     action:()=>openEditModal() },
+  { icon:"🚪", label:"Log Out",          action:()=>{ db.auth.signOut(); location.reload(); }},
+];
+
+function openPalette(){
+  $("cmdPalette").style.display="flex";
+  $("cmdInput").value="";
+  renderPaletteResults("");
+  setTimeout(()=>$("cmdInput")?.focus(), 50);
+}
+
+function closePalette(e){
+  if(e && e.target !== $("cmdPalette")) return;
+  $("cmdPalette").style.display="none";
+}
+
+function closePaletteForce(){
+  $("cmdPalette").style.display="none";
+}
+
+function filterPalette(q){
+  renderPaletteResults(q.toLowerCase());
+}
+
+function renderPaletteResults(q){
+  const res = $("cmdResults");
+  if(!res) return;
+  const filtered = q
+    ? PALETTE_COMMANDS.filter(c=>c.label.toLowerCase().includes(q))
+    : PALETTE_COMMANDS;
+
+  res.innerHTML = filtered.map((c,i)=>`
+    <div class="cmd-item" tabindex="0" id="cmd-item-${i}" onclick="runPaletteCmd(${PALETTE_COMMANDS.indexOf(c)})">
+      <span class="cmd-item-icon">${c.icon}</span>
+      <span class="cmd-item-label">${c.label}</span>
+      <span class="cmd-item-hint">↵</span>
+    </div>`).join("") || `<div class="cmd-empty">No results for "${q}"</div>`;
+}
+
+function runPaletteCmd(idx){
+  closePaletteForce();
+  PALETTE_COMMANDS[idx]?.action();
+}
+
+let paletteSelected = 0;
+function handlePaletteKey(e){
+  const items = $("cmdResults")?.querySelectorAll(".cmd-item");
+  if(!items?.length) return;
+  if(e.key==="ArrowDown"){ e.preventDefault(); paletteSelected=Math.min(paletteSelected+1,items.length-1); items[paletteSelected]?.focus(); }
+  else if(e.key==="ArrowUp"){ e.preventDefault(); paletteSelected=Math.max(paletteSelected-1,0); items[paletteSelected]?.focus(); }
+  else if(e.key==="Escape"){ closePaletteForce(); }
+  else if(e.key==="Enter"){ items[paletteSelected]?.click(); }
+}
+
+// ================= PAGE TRANSITIONS =================
+function transitionFeed(){
+  const feed = $("feed");
+  if(!feed) return;
+  feed.classList.add("view-fade-out");
+  setTimeout(()=>feed.classList.remove("view-fade-out"), 300);
 }
 
 // ================= COMPOSER ENHANCEMENTS =================
@@ -1493,11 +1773,17 @@ document.addEventListener("DOMContentLoaded", async()=>{
     }
   });
 
-  // Escape closes modals
+  // Escape closes modals, Ctrl+K opens palette
   document.addEventListener("keydown",e=>{
     if(e.key==="Escape"){
       closePostModal();
+      closeLightbox();
+      closePaletteForce();
       $("editModal").style.display="none";
+    }
+    if((e.ctrlKey||e.metaKey) && e.key==="k"){
+      e.preventDefault();
+      openPalette();
     }
   });
 
@@ -1506,4 +1792,23 @@ document.addEventListener("DOMContentLoaded", async()=>{
     state.user = data.session.user;
     start();
   }
+
+  // Handle Google OAuth redirect
+  db.auth.onAuthStateChange(async(event, session)=>{
+    if(event==="SIGNED_IN" && session?.user && !state.user){
+      state.user = session.user;
+      // Ensure profile exists for OAuth user
+      const {data:existing} = await db.from("profiles").select("user_id")
+        .eq("user_id", session.user.id).maybeSingle();
+      if(!existing){
+        const email = session.user.email||"";
+        await db.from("profiles").insert([{
+          user_id:  session.user.id,
+          username: email.split("@")[0],
+          balance:  0
+        }]).then(()=>{}).catch(()=>{});
+      }
+      start();
+    }
+  });
 });

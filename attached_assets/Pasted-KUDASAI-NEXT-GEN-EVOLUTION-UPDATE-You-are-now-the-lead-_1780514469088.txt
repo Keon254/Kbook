@@ -1,0 +1,179 @@
+KUDASAI NEXT-GEN EVOLUTION UPDATE
+
+You are now the lead senior engineer and futuristic UI/UX architect for my project “Kudasai”.
+
+Your task is to evolve the app into a social platform that feels 50 years ahead of current technology while keeping it smooth, fast, clean, and usable.
+
+DO NOT rewrite the whole project blindly.
+DO NOT remove existing working systems.
+ONLY upgrade and improve carefully.
+
+==================================================
+CORE VISION
+===========
+
+Kudasai should feel like:
+
+* A futuristic anime-inspired social universe
+* A mix of Twitter/X, TikTok, Discord, and next-generation AI systems
+* Cinematic and immersive
+* Advanced but still lightweight
+* Premium and modern
+* Minimal but alive
+
+The anime style should be elegant and subtle:
+
+* soft neon glows
+* glassmorphism
+* futuristic panels
+* smooth transitions
+* holographic UI feel
+* animated gradients
+* depth and motion
+* NOT cringe or overdone
+
+==================================================
+FULL APP UPGRADE REQUIREMENTS
+=============================
+
+1. FUTURE GRAPHICS OVERHAUL
+
+* Upgrade the entire UI to ultra-modern futuristic graphics
+* Add:
+
+  * smooth animations
+  * hover physics
+  * glassmorphism
+  * animated backgrounds
+  * dynamic lighting
+  * blurred transparency
+  * floating UI effects
+  * premium mobile responsiveness
+* Add layered depth like modern AAA interfaces
+* Improve typography and spacing
+* Make feed cards feel alive
+* Add futuristic loading skeletons
+* Add animated buttons and transitions
+* Optimize performance for Replit hosting
+
+2. FIX MESSAGES STAYING UNREAD
+   Current issue:
+   Messages remain unread even after opening chats.
+
+You must:
+
+* fully debug the messaging system
+* fix Supabase schema problems
+* make read receipts work correctly
+* auto-update message read state when chat opens
+* ensure real-time syncing
+* prevent schema cache errors
+* include ALL SQL needed
+
+Expected behavior:
+
+* unread count decreases instantly
+* messages become “read” when viewed
+* no duplicate messages
+* no refresh required
+
+3. REAL GMAIL AUTHENTICATION ONLY
+   I ONLY want real Gmail accounts allowed.
+
+Requirements:
+
+* users can ONLY sign up/login using valid Gmail accounts
+* block fake email formats
+* enforce Google authentication
+* use Supabase Google OAuth
+* prevent temporary/disposable emails
+* prevent duplicate accounts
+* secure authentication flow
+* keep login smooth
+
+4. ADD NEXT-GEN FEATURES
+   Create futuristic social features including:
+
+SOCIAL:
+
+* AI-powered explore page
+* smart recommendations
+* trending system
+* repost system
+* quote reposts
+* profile verification system
+* advanced profile customization
+* follower/following animations
+
+CHAT:
+
+* typing indicators
+* online presence
+* reactions
+* reply to messages
+* media sharing
+* voice notes
+* futuristic chat bubbles
+
+CONTENT:
+
+* short video support
+* image carousel posts
+* immersive post viewer
+* fullscreen media mode
+* auto-playing preview cards
+
+UI:
+
+* floating navigation
+* expandable sidebars
+* command palette
+* futuristic notifications center
+* smooth page transitions
+* dynamic themes
+* ambient motion effects
+
+AI FEATURES:
+
+* AI assistant integration
+* smart captions
+* content recommendations
+* intelligent search
+
+5. PERFORMANCE + SECURITY
+
+* Optimize all Supabase queries
+* Fix async issues
+* Prevent crashes
+* Improve mobile performance
+* Add loading states everywhere
+* Add error handling everywhere
+* Secure all database interactions
+* Improve scalability
+
+==================================================
+IMPORTANT DEVELOPMENT RULES
+===========================
+
+* Analyze existing code BEFORE editing
+* Never delete working systems
+* Keep compatibility with current database
+* Return COMPLETE updated code
+* Separate files clearly:
+
+  * index.html
+  * style.css
+  * app.js
+  * SQL migrations
+* Explain all major changes
+* Keep code modular and production-ready
+* Use clean architecture
+* Use modern JavaScript practices
+* Preserve current project identity
+
+==================================================
+FINAL GOAL
+==========
+
+Kudasai should feel like a futuristic social platform from the year 2075:
+clean, cinematic, intelligent, anime-inspired, immersive, responsive, and addictive to use.

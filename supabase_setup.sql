@@ -102,6 +102,12 @@ create policy "Users can update their notifications" on public.notifications for
 alter table public.profiles add column if not exists bio        text    default '';
 alter table public.profiles add column if not exists avatar_url text;
 alter table public.profiles add column if not exists banner_url text;
+alter table public.profiles add column if not exists verified   boolean default false;
+
+-- ── 5c. POSTS EXTRA COLUMNS ──────────────────────────────────
+alter table public.posts add column if not exists quoted_post_id  uuid;
+alter table public.posts add column if not exists quoted_content  text;
+alter table public.posts add column if not exists quoted_username text;
 
 
 -- ── 6. FOLLOWS ───────────────────────────────────────────────
