@@ -114,6 +114,17 @@
       <div id="userTag" style="cursor:pointer;font-weight:700;color:var(--accent)" onclick="goProfile()">@user</div>
     </div>
 
+    <!-- STORIES BAR -->
+    <div class="stories-bar" id="storiesBar" style="display:none">
+      <div class="story-item story-add" onclick="addStory()">
+        <div class="story-ring story-add-ring">
+          <div class="story-avatar-inner" id="myStoryAvatar">+</div>
+        </div>
+        <div class="story-label">Your Story</div>
+      </div>
+      <div id="storiesList" style="display:contents"></div>
+    </div>
+
     <!-- COMPOSER -->
     <div class="composer" id="composer">
       <textarea id="postInput" placeholder="What's happening?" rows="3"></textarea>
@@ -189,6 +200,52 @@
     </div>
   </nav>
 
+</div>
+
+<!-- FOLLOWERS / FOLLOWING MODAL -->
+<div id="followModal" class="modal-overlay" style="display:none" onclick="closeFollowModal(event)">
+  <div class="modal-box" style="max-width:460px">
+    <div class="modal-header">
+      <span id="followModalTitle">Followers</span>
+      <button class="modal-close" onclick="closeFollowModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input class="comment-input" id="followSearch" placeholder="🔍 Search…" oninput="filterFollowList(this.value)" style="width:100%;margin-bottom:14px">
+      <div id="followModalList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STORY VIEWER -->
+<div id="storyViewer" class="story-viewer-overlay" style="display:none">
+  <div class="story-viewer-box">
+    <div class="story-progress-wrap" id="storyProgressWrap"></div>
+    <div class="story-viewer-header">
+      <div class="story-viewer-user">
+        <div class="story-viewer-avatar" id="storyViewerAvatar">?</div>
+        <div>
+          <div id="storyViewerName" class="story-viewer-uname"></div>
+          <div id="storyViewerTime" class="story-viewer-time"></div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeStoryViewer()">✕</button>
+    </div>
+    <img id="storyViewerImg" src="" alt="" class="story-viewer-img">
+    <div class="story-viewer-caption" id="storyViewerCaption"></div>
+    <button class="story-nav story-prev" onclick="prevStory()">‹</button>
+    <button class="story-nav story-next" onclick="nextStory()">›</button>
+  </div>
+</div>
+
+<!-- NOTIFICATION TOAST CONTAINER -->
+<div id="notifToastContainer" class="notif-toast-container"></div>
+
+<!-- STORY UPLOAD INPUT -->
+<input type="file" id="storyImgInput" accept="image/*" style="display:none" onchange="uploadStory(this)">
+
+<!-- USER CONTEXT MENU -->
+<div id="userContextMenu" class="user-ctx-menu" style="display:none">
+  <div id="ctxMenuItems"></div>
 </div>
 
 <script src="script.js"></script>

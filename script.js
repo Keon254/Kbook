@@ -22,6 +22,8 @@ const state = {
   repostsSet:   new Set(),
   likesSet:     new Set(),
   onlineSet:    new Set(),
+  mutesSet:     new Set(),
+  blocksSet:    new Set(),
 };
 
 const $ = id => document.getElementById(id);
@@ -144,6 +146,7 @@ async function start(){
   updateNotifBadge();
   updateDMBadge();
   loadSidebar();
+  loadStories();
 }
 
 // ================= PROFILES =================
@@ -184,6 +187,16 @@ async function loadSocialData(){
   state.bookmarksSet = new Set((bookmarkRes.data||[]).map(r=>r.post_id));
   state.repostsSet   = new Set((repostRes.data||[]).map(r=>r.post_id));
   state.likesSet     = new Set((likeRes.data||[]).map(r=>r.post_id));
+
+  // Load mutes/blocks gracefully (tables may not exist yet)
+  try {
+    const [mutesRes, blocksRes] = await Promise.all([
+      db.from("mutes").select("muted_id").eq("user_id",state.user.id),
+      db.from("blocks").select("blocked_id").eq("user_id",state.user.id),
+    ]);
+    state.mutesSet  = new Set((mutesRes.data||[]).map(r=>r.muted_id));
+    state.blocksSet = new Set((blocksRes.data||[]).map(r=>r.blocked_id));
+  } catch(e){ console.warn("mutes/blocks:", e?.message); }
 }
 
 // ================= FEED =================
@@ -219,6 +232,7 @@ function render(posts){
 }
 
 function postCard(p){
+  if(p.user_id && p.user_id !== state.user?.id && (state.mutesSet?.has(p.user_id) || state.blocksSet?.has(p.user_id))) return "";
   const user      = state.profilesMap[p.user_id] || {};
   const isMe      = p.user_id === state.user?.id;
   const liked     = state.likesSet.has(p.id);
@@ -248,10 +262,11 @@ function postCard(p){
         ${!isMe ? `
           <button class="follow-btn ${following?"following":""}" onclick="toggleFollow('${p.user_id}')">
             ${following?"✓ Following":"+ Follow"}
-          </button>` : `
+          </button>
+          <button class="post-more-btn" onclick="openUserMenu(event,'${p.user_id}')">⋯</button>` : `
           <button class="delete-btn" onclick="deletePost('${p.id}')" title="Delete post">🗑</button>`}
       </div>
-      <div class="content" style="cursor:pointer" onclick="openPost('${p.id}')">${escHtml(p.content)}</div>
+      <div class="content" style="cursor:pointer" onclick="openPost('${p.id}')">${parseContent(p.content)}</div>
       ${quotedHtml}
       ${p.image ? `<img src="${p.image}" loading="lazy" style="cursor:pointer" onclick="openLightbox('${p.image}','img')">` : ""}
       ${p.video ? `<video controls src="${p.video}" onclick="event.stopPropagation()"></video>` : ""}
@@ -597,20 +612,19 @@ async function goNotifications(){
 
   if(!notifs.length){ $("feed").innerHTML=`<div class="empty-state">No notifications yet</div>`; return; }
 
-  const icons   = {like:"❤️",comment:"💬",follow:"👤"};
-  const actions = {like:"liked your post",comment:"commented on your post",follow:"followed you"};
+  _allNotifs = notifs;
 
-  $("feed").innerHTML = notifs.map(n=>{
-    const from = state.profilesMap[n.from_user_id]||{};
-    return `<div class="notif-item ${n.read?"":"notif-unread"}">
-      <span class="notif-icon">${icons[n.type]||"🔔"}</span>
-      <div class="notif-body">
-        <span class="comment-username">@${from.username||"user"}</span>
-        <span class="notif-action"> ${actions[n.type]||n.type}</span>
-        <div class="notif-time">${timeAgo(n.created_at)} ago</div>
-      </div>
-    </div>`;
-  }).join("");
+  $("feed").innerHTML = `
+    <div class="notif-filters">
+      <button class="notif-filter-btn active" onclick="filterNotifications('all')">All</button>
+      <button class="notif-filter-btn" onclick="filterNotifications('like')">❤️ Likes</button>
+      <button class="notif-filter-btn" onclick="filterNotifications('comment')">💬 Comments</button>
+      <button class="notif-filter-btn" onclick="filterNotifications('follow')">👤 Follows</button>
+      <button class="notif-filter-btn" onclick="filterNotifications('message')">✉️ Messages</button>
+    </div>
+    <div id="notifList"></div>`;
+
+  filterNotifications("all");
 }
 
 async function updateNotifBadge(){
@@ -686,10 +700,11 @@ async function goProfile(userId){
       <div class="profile-info">
         <div class="profile-username">@${escHtml(me.username||"user")}</div>
         ${me.bio ? `<div class="profile-bio">${escHtml(me.bio)}</div>` : ""}
+        ${me.status_message ? `<div class="profile-status">💭 ${escHtml(me.status_message)}</div>` : ""}
         <div class="profile-balance">💰 K${me.balance||0}</div>
         <div class="profile-stats">
-          <span><strong id="follCount">${follRes.count||0}</strong> Followers</span>
-          <span><strong>${followingRes.count||0}</strong> Following</span>
+          <span onclick="openFollowersList('${targetId}')" style="cursor:pointer"><strong id="follCount">${follRes.count||0}</strong> Followers</span>
+          <span onclick="openFollowingList('${targetId}')" style="cursor:pointer"><strong>${followingRes.count||0}</strong> Following</span>
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center">
@@ -1046,6 +1061,7 @@ async function openDM(otherId){
       <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
     </div>
     <div class="dm-input-row">
+      <label class="dm-img-btn" title="Send image">📷<input type="file" id="dmImgInput" accept="image/*" style="display:none" onchange="sendDMImage('${otherId}',this)"></label>
       <input class="comment-input" id="dmInput" placeholder="Message @${other.username||"user"}…"
         onkeydown="if(event.key==='Enter') sendMessage('${otherId}')">
       <button class="comment-btn" onclick="sendMessage('${otherId}')">Send</button>
@@ -1139,9 +1155,10 @@ async function loadThread(otherId){
           ${QUICK_REACTIONS.map(e=>`<span class="dm-quick-react-emoji" onclick="addDMReaction('${m.id}','${e}','${otherId}')">${e}</span>`).join("")}
         </div>
         <button class="dm-reply-btn" onclick="setDMReply('${m.id}','${escHtml((m.content||"").slice(0,60))}','${escHtml(senderName)}')">↩ Reply</button>
+        ${mine?`<button class="dm-delete-btn" onclick="deleteDMMessage('${m.id}','${otherId}')" title="Delete">🗑</button>`:""}
         <div class="dm-bubble">
           ${replyHtml}
-          ${escHtml(m.content)}
+          ${renderDMContent(m.content)}
         </div>
         ${reactionHtml}
         ${readHtml}
@@ -1352,6 +1369,7 @@ function likeBurst(event, id){
 // ================= UI HELPERS =================
 function showComposer(show){
   const el=$("composer"); if(el) el.style.display=show?"block":"none";
+  const sb=$("storiesBar"); if(sb) sb.style.display=show?"flex":"none";
 }
 function showFeedTabs(show){
   const el=$("feedTabs"); if(el) el.style.display=show?"flex":"none";
@@ -1434,7 +1452,14 @@ function startRealtime(){
     .on("postgres_changes",
       {event:"INSERT",schema:"public",table:"notifications",
        filter:`user_id=eq.${state.user.id}`},
-      ()=> updateNotifBadge())
+      async(payload)=>{
+        updateNotifBadge();
+        if(payload?.new){
+          const n = payload.new;
+          if(n.from_user_id) await ensureProfile(n.from_user_id);
+          showNotifToast(n);
+        }
+      })
     .subscribe();
 
   db.channel("dm-badge-live")
@@ -2031,4 +2056,399 @@ document.addEventListener("DOMContentLoaded", async()=>{
       start();
     }
   });
+});
+
+// ================= CONTENT PARSER (hashtags + mentions) =================
+function parseContent(text){
+  let t = escHtml(text||"");
+  t = t.replace(/#(\w+)/g,(_,tag)=>`<span class="hashtag" onclick="event.stopPropagation();handleSearch('#${tag}')">#${tag}</span>`);
+  t = t.replace(/@(\w+)/g,(_,user)=>`<span class="mention" onclick="event.stopPropagation();handleSearch('@${user}')">@${user}</span>`);
+  return t;
+}
+
+// ================= DM CONTENT RENDERER =================
+function renderDMContent(content){
+  if((content||"").startsWith("[img]")){
+    const url = escHtml(content.slice(5));
+    return `<img src="${url}" class="dm-img-preview" onclick="openLightbox('${url}','img')" alt="Image">`;
+  }
+  return parseContent(content);
+}
+
+// ================= NOTIFICATION FILTER =================
+let _allNotifs = [];
+
+function filterNotifications(type){
+  document.querySelectorAll(".notif-filter-btn").forEach(btn=>{
+    const t = btn.textContent.trim();
+    const isAll = type==="all" && t==="All";
+    const isMatch = t.includes({like:"❤️",comment:"💬",follow:"👤",message:"✉️"}[type]||"__NONE__");
+    btn.classList.toggle("active", isAll || isMatch);
+  });
+
+  const icons   = {like:"❤️",comment:"💬",follow:"👤",message:"✉️"};
+  const actions = {like:"liked your post",comment:"commented on your post",follow:"followed you",message:"sent you a message"};
+
+  const list = $("notifList");
+  if(!list) return;
+
+  const filtered = type==="all" ? _allNotifs : _allNotifs.filter(n=>n.type===type);
+
+  if(!filtered.length){
+    list.innerHTML=`<div class="empty-state" style="padding:30px">No ${type==="all"?"":type+" "}notifications</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(n=>{
+    const from = state.profilesMap[n.from_user_id]||{};
+    const onClick = n.post_id ? `openPost('${n.post_id}')` : n.from_user_id ? `goProfile('${n.from_user_id}')` : "";
+    return `<div class="notif-item ${n.read?"":"notif-unread"}" onclick="${onClick}">
+      <span class="notif-icon">${icons[n.type]||"🔔"}</span>
+      <div class="notif-body">
+        <span class="comment-username">@${escHtml(from.username||"user")}</span>
+        <span class="notif-action"> ${actions[n.type]||n.type}</span>
+        <div class="notif-time">${timeAgo(n.created_at)} ago</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ================= NOTIFICATION TOAST =================
+function showNotifToast(n){
+  const container = $("notifToastContainer");
+  if(!container || document.hidden) return;
+  const icons   = {like:"❤️",comment:"💬",follow:"👤",message:"✉️"};
+  const actions = {like:"liked your post",comment:"commented",follow:"followed you",message:"sent you a message"};
+  const from = state.profilesMap[n.from_user_id]||{};
+
+  const toast = document.createElement("div");
+  toast.className = "notif-toast";
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[n.type]||"🔔"}</div>
+    <div class="toast-body">
+      <div class="toast-title">@${escHtml(from.username||"user")}</div>
+      <div class="toast-sub">${actions[n.type]||n.type}</div>
+    </div>`;
+  toast.onclick = ()=>{
+    if(n.post_id) openPost(n.post_id);
+    else if(n.from_user_id) goProfile(n.from_user_id);
+    toast.remove();
+  };
+  container.appendChild(toast);
+  setTimeout(()=>{
+    toast.classList.add("toast-out");
+    setTimeout(()=>toast.remove(), 300);
+  }, 4000);
+}
+
+// ================= STORIES =================
+let viewerStories = [];
+let viewerIdx     = 0;
+let viewerTimer   = null;
+
+async function loadStories(){
+  const bar = $("storiesBar");
+  if(!bar || state.view !== "home") return;
+
+  try {
+    const cutoff = new Date(Date.now() - 24*60*60*1000).toISOString();
+    const {data,error} = await db.from("stories").select("*")
+      .gte("created_at",cutoff).order("created_at",{ascending:false});
+    if(error){ console.warn("stories:", error.message); return; }
+
+    const stories = data||[];
+    await Promise.all([...new Set(stories.map(s=>s.user_id))].map(ensureProfile));
+
+    // Build per-user groups
+    const groups = new Map();
+    for(const s of stories){
+      if(!groups.has(s.user_id)) groups.set(s.user_id,[]);
+      groups.get(s.user_id).push(s);
+    }
+
+    // Flat list for viewer navigation
+    viewerStories = [];
+    groups.forEach((list,uid)=> list.forEach(s=>viewerStories.push({story:s,userId:uid})));
+
+    // Update my avatar in stories bar
+    const me = state.profilesMap[state.user?.id];
+    const myEl = $("myStoryAvatar");
+    if(myEl && me?.avatar_url){
+      myEl.innerHTML=`<img src="${me.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    } else if(myEl && me?.username){
+      myEl.textContent = me.username[0].toUpperCase();
+    }
+
+    const list = $("storiesList");
+    if(!list) return;
+
+    if(!groups.size){ list.innerHTML=""; return; }
+
+    list.innerHTML = [...groups.entries()].map(([uid,storyList])=>{
+      const u = state.profilesMap[uid]||{};
+      const idx = viewerStories.findIndex(v=>v.userId===uid);
+      const av = u.avatar_url
+        ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        : (u.username||"?")[0].toUpperCase();
+      return `<div class="story-item" onclick="viewStory(${idx})">
+        <div class="story-ring story-unseen"><div class="story-avatar-inner">${av}</div></div>
+        <div class="story-label">@${escHtml(u.username||"user")}</div>
+      </div>`;
+    }).join("");
+  } catch(e){ console.warn("loadStories:", e?.message); }
+}
+
+function addStory(){
+  $("storyImgInput")?.click();
+}
+
+const uploadStory = safe(async(input)=>{
+  if(!state.user) return;
+  const file = input.files?.[0];
+  if(!file) return;
+
+  const {data,error} = await db.storage.from("images")
+    .upload(`stories/${state.user.id}/${Date.now()}_${file.name}`, file, {upsert:true});
+  if(error){ alert("Upload failed: "+error.message); return; }
+
+  const {data:urlData} = db.storage.from("images").getPublicUrl(data.path);
+  const caption = prompt("Add a caption (optional):") || null;
+
+  const {error:e2} = await db.from("stories").insert([{
+    user_id: state.user.id, image_url: urlData.publicUrl, caption
+  }]);
+  if(e2){ alert("Failed to post story: "+e2.message); return; }
+
+  input.value="";
+  await loadStories();
+});
+
+function viewStory(idx){
+  if(!viewerStories.length) return;
+  viewerIdx = Math.max(0, Math.min(idx, viewerStories.length-1));
+  const sv = $("storyViewer");
+  if(sv) sv.style.display = "flex";
+  document.body.style.overflow = "hidden";
+  renderStoryFrame();
+}
+
+function renderStoryFrame(){
+  const entry = viewerStories[viewerIdx];
+  if(!entry) return;
+  const { story, userId } = entry;
+  const u = state.profilesMap[userId]||{};
+
+  const avEl  = $("storyViewerAvatar");
+  const nmEl  = $("storyViewerName");
+  const tmEl  = $("storyViewerTime");
+  const imgEl = $("storyViewerImg");
+  const capEl = $("storyViewerCaption");
+  const pw    = $("storyProgressWrap");
+
+  if(avEl){
+    if(u.avatar_url) avEl.innerHTML=`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    else avEl.textContent=(u.username||"?")[0].toUpperCase();
+  }
+  if(nmEl) nmEl.textContent = "@"+(u.username||"user");
+  if(tmEl) tmEl.textContent = timeAgo(story.created_at)+" ago";
+  if(imgEl) imgEl.src = story.image_url||"";
+  if(capEl) capEl.textContent = story.caption||"";
+
+  if(pw){
+    pw.innerHTML = viewerStories.map((_,i)=>`
+      <div class="story-progress-seg">
+        <div class="story-progress-fill ${i<viewerIdx?"done":i===viewerIdx?"active":""}"></div>
+      </div>`).join("");
+  }
+
+  clearTimeout(viewerTimer);
+  viewerTimer = setTimeout(()=>nextStory(), 5000);
+}
+
+function nextStory(){
+  if(viewerIdx < viewerStories.length-1){ viewerIdx++; renderStoryFrame(); }
+  else closeStoryViewer();
+}
+
+function prevStory(){
+  if(viewerIdx > 0){ viewerIdx--; renderStoryFrame(); }
+}
+
+function closeStoryViewer(){
+  clearTimeout(viewerTimer);
+  const sv = $("storyViewer");
+  if(sv) sv.style.display = "none";
+  document.body.style.overflow = "";
+}
+
+// ================= FOLLOWERS / FOLLOWING MODAL =================
+let _followModalUsers  = [];
+let _followModalTarget = "";
+
+async function openFollowersList(targetId){
+  _followModalTarget = targetId;
+  const title = $("followModalTitle");
+  if(title) title.textContent = "Followers";
+  if($("followSearch")) $("followSearch").value = "";
+
+  const {data} = await db.from("follows").select("follower_id").eq("following_id",targetId);
+  const ids = (data||[]).map(r=>r.follower_id);
+  await Promise.all(ids.map(ensureProfile));
+  _followModalUsers = ids.map(id=>state.profilesMap[id]).filter(Boolean);
+  renderFollowModal(_followModalUsers);
+  $("followModal").style.display = "flex";
+}
+
+async function openFollowingList(targetId){
+  _followModalTarget = targetId;
+  const title = $("followModalTitle");
+  if(title) title.textContent = "Following";
+  if($("followSearch")) $("followSearch").value = "";
+
+  const {data} = await db.from("follows").select("following_id").eq("follower_id",targetId);
+  const ids = (data||[]).map(r=>r.following_id);
+  await Promise.all(ids.map(ensureProfile));
+  _followModalUsers = ids.map(id=>state.profilesMap[id]).filter(Boolean);
+  renderFollowModal(_followModalUsers);
+  $("followModal").style.display = "flex";
+}
+
+function renderFollowModal(users){
+  const list = $("followModalList");
+  if(!list) return;
+  if(!users.length){
+    list.innerHTML=`<div class="empty-state" style="padding:24px">Nobody here yet</div>`; return;
+  }
+  list.innerHTML = users.map(u=>{
+    const following = state.followingSet.has(u.user_id);
+    const isMe = u.user_id === state.user?.id;
+    const av = u.avatar_url
+      ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover">`
+      : (u.username||"?")[0].toUpperCase();
+    return `<div class="follow-list-item">
+      <div class="follow-list-avatar" onclick="closeFollowModal();goProfile('${u.user_id}')">${av}</div>
+      <div class="follow-list-info">
+        <div class="follow-list-name" onclick="closeFollowModal();goProfile('${u.user_id}')">@${escHtml(u.username||"user")}</div>
+        ${u.bio?`<div class="follow-list-bio">${escHtml(u.bio.slice(0,50))}</div>`:""}
+      </div>
+      ${!isMe?`<button class="follow-btn ${following?"following":""}" onclick="toggleFollow('${u.user_id}')">
+        ${following?"✓":"+ Follow"}
+      </button>`:""}
+    </div>`;
+  }).join("");
+}
+
+function closeFollowModal(e){
+  if(e && e.target !== $("followModal")) return;
+  $("followModal").style.display = "none";
+}
+
+function filterFollowList(query){
+  if(!query.trim()){ renderFollowModal(_followModalUsers); return; }
+  const q = query.toLowerCase();
+  renderFollowModal(_followModalUsers.filter(u=>
+    (u.username||"").toLowerCase().includes(q)||(u.bio||"").toLowerCase().includes(q)
+  ));
+}
+
+// ================= DM IMAGE SEND =================
+const sendDMImage = safe(async(otherId, input)=>{
+  if(!state.user) return;
+  const file = input.files?.[0];
+  if(!file) return;
+
+  const {data,error} = await db.storage.from("images")
+    .upload(`dm/${state.user.id}/${Date.now()}_${file.name}`, file, {upsert:true});
+  if(error){ alert("Upload failed: "+error.message); return; }
+
+  const {data:urlData} = db.storage.from("images").getPublicUrl(data.path);
+  const msgObj = {
+    sender_id:   state.user.id,
+    receiver_id: otherId,
+    content:     `[img]${urlData.publicUrl}`,
+    read:        false
+  };
+  if(dmReplyState){ msgObj.reply_to_id=dmReplyState.msgId; clearDMReply(); }
+  const {error:e2} = await db.from("messages").insert([msgObj]);
+  if(e2) throw e2;
+  input.value="";
+  await loadThread(otherId);
+});
+
+// ================= DM DELETE MESSAGE =================
+const deleteDMMessage = safe(async(msgId, otherId)=>{
+  if(!state.user) return;
+  if(!confirm("Delete this message?")) return;
+  const {error} = await db.from("messages").delete()
+    .eq("id",msgId).eq("sender_id",state.user.id);
+  if(error) throw error;
+  await loadThread(otherId);
+});
+
+// ================= USER CONTEXT MENU =================
+function openUserMenu(event, userId){
+  event.stopPropagation();
+  const menu = $("userContextMenu");
+  if(!menu) return;
+
+  const isMuted   = state.mutesSet?.has(userId);
+  const isBlocked = state.blocksSet?.has(userId);
+
+  $("ctxMenuItems").innerHTML = `
+    <div class="ctx-item" onclick="goProfile('${userId}');closeUserMenu()">👤 View Profile</div>
+    <div class="ctx-item" onclick="startDM('${userId}');closeUserMenu()">💬 Send Message</div>
+    <div class="ctx-item" onclick="${isMuted?`unmuteUser('${userId}')`:`muteUser('${userId}')`};closeUserMenu()">
+      ${isMuted?"🔊 Unmute User":"🔇 Mute User"}
+    </div>
+    <div class="ctx-item danger" onclick="${isBlocked?`unblockUser('${userId}')`:`blockUser('${userId}')`};closeUserMenu()">
+      🚫 ${isBlocked?"Unblock User":"Block User"}
+    </div>`;
+
+  menu.style.display = "block";
+  const x = Math.min(event.clientX + 4, window.innerWidth - 185);
+  const y = Math.min(event.clientY + 4, window.innerHeight - 180);
+  menu.style.left = x+"px";
+  menu.style.top  = y+"px";
+
+  setTimeout(()=>document.addEventListener("click", closeUserMenu, {once:true}), 10);
+}
+
+function closeUserMenu(){
+  const menu = $("userContextMenu");
+  if(menu) menu.style.display = "none";
+}
+
+const muteUser = safe(async(userId)=>{
+  if(!state.user) return;
+  const {error} = await db.from("mutes").insert([{user_id:state.user.id, muted_id:userId}]);
+  if(error && error.message.includes("duplicate")) return;
+  if(error) throw error;
+  state.mutesSet?.add(userId);
+  if(state.view==="home") render();
+});
+
+const unmuteUser = safe(async(userId)=>{
+  if(!state.user) return;
+  await db.from("mutes").delete().eq("user_id",state.user.id).eq("muted_id",userId);
+  state.mutesSet?.delete(userId);
+  if(state.view==="home") render();
+});
+
+const blockUser = safe(async(userId)=>{
+  if(!state.user) return;
+  if(!confirm("Block this user? Their posts will be hidden.")) return;
+  await Promise.all([
+    db.from("follows").delete().eq("follower_id",state.user.id).eq("following_id",userId),
+    db.from("follows").delete().eq("follower_id",userId).eq("following_id",state.user.id),
+    db.from("blocks").insert([{user_id:state.user.id, blocked_id:userId}]),
+  ]).catch(()=>{});
+  state.followingSet.delete(userId);
+  state.blocksSet?.add(userId);
+  if(state.view==="home") render();
+});
+
+const unblockUser = safe(async(userId)=>{
+  if(!state.user) return;
+  await db.from("blocks").delete().eq("user_id",state.user.id).eq("blocked_id",userId);
+  state.blocksSet?.delete(userId);
 });

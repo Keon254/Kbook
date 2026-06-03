@@ -1,0 +1,271 @@
+KUDASAI SOCIAL NETWORK ULTRA EXPANSION UPDATE
+
+You are continuing development of my futuristic social platform “Kudasai”.
+
+DO NOT break working systems.
+DO NOT remove current features.
+ONLY expand intelligently and professionally.
+
+The goal is to make Kudasai feel like a futuristic anime-inspired social ecosystem far ahead of modern apps.
+
+==================================================
+FOLLOWERS / FOLLOWING SYSTEM EXPANSION
+======================================
+
+Users must be able to:
+
+* tap followers count
+* tap following count
+* open detailed follower lists
+* open detailed following lists
+* search followers instantly
+* sort followers
+* filter followers
+* follow/unfollow directly
+* view mutual followers
+* see who recently followed them
+* see verified users
+* see online users
+* see active now indicators
+
+==================================================
+ADVANCED SOCIAL FEATURES
+========================
+
+Add:
+
+* close friends system
+* favorite users system
+* private accounts
+* follow request approvals
+* blocked users list
+* mute users
+* restrict users
+* hidden followers option
+* profile privacy controls
+* custom profile themes
+
+==================================================
+PROFILE SYSTEM EXPANSION
+========================
+
+Profiles should include:
+
+* animated banners
+* profile music/theme
+* futuristic profile cards
+* pinned posts
+* featured media section
+* achievements/badges
+* profile stats dashboard
+* account level/rank system
+* profile customization
+* animated avatars
+* customizable status message
+
+Add tabs:
+
+* posts
+* media
+* replies
+* reposts
+* liked posts
+* saved posts
+
+==================================================
+REAL-TIME SOCIAL ACTIVITY
+=========================
+
+Add live updates:
+
+* new follower animations
+* live notification popups
+* live activity feed
+* typing indicators
+* active now status
+* recently active users
+* instant follow count updates
+* realtime post interactions
+
+==================================================
+DISCOVERY + EXPLORE SYSTEM
+==========================
+
+Build:
+
+* explore page
+* trending hashtags
+* trending users
+* trending posts
+* recommended creators
+* AI content recommendations
+* category discovery
+* anime/community hubs
+* interest-based feed
+
+==================================================
+ADVANCED MESSAGING FEATURES
+===========================
+
+Add:
+
+* reply to messages
+* tag messages
+* quote messages
+* forward messages
+* pinned chats
+* pinned messages
+* reactions
+* GIF support
+* emoji picker
+* voice messages
+* image sharing
+* video sharing
+* message editing
+* message deletion
+* typing animations
+* unread counters
+* read receipts
+* message search
+* shared media tab
+
+Expected behavior:
+
+* clicking tagged message jumps to original
+* realtime sync
+* smooth transitions
+* no unread bugs
+* optimized Supabase realtime
+
+==================================================
+NOTIFICATION SYSTEM
+===================
+
+Create a futuristic notification center for:
+
+* follows
+* likes
+* comments
+* reposts
+* mentions
+* replies
+* messages
+* verification updates
+* trending alerts
+
+Features:
+
+* realtime notifications
+* grouped notifications
+* read/unread state
+* notification filters
+* animated popup alerts
+
+==================================================
+CONTENT FEATURES
+================
+
+Add:
+
+* image carousel posts
+* fullscreen media viewer
+* short-form videos
+* autoplay previews
+* advanced post composer
+* markdown support
+* polls
+* scheduled posts
+* drafts
+* hashtags
+* mentions
+* post analytics
+* bookmarks
+* collections/folders
+
+==================================================
+FUTURISTIC UI / UX
+==================
+
+Design style:
+
+* futuristic
+* cinematic
+* immersive
+* elegant anime inspiration
+* not overdone
+
+Add:
+
+* holographic effects
+* glassmorphism
+* dynamic lighting
+* smooth transitions
+* animated gradients
+* floating navigation
+* ambient glow
+* responsive layouts
+* desktop + mobile optimization
+* cinematic loading screens
+* futuristic skeleton loaders
+
+==================================================
+PERFORMANCE + SECURITY
+======================
+
+Requirements:
+
+* optimize all Supabase queries
+* improve database indexing
+* prevent duplicate records
+* improve realtime performance
+* secure authentication
+* optimize media loading
+* modular architecture
+* scalable codebase
+* advanced error handling
+* smooth Replit deployment
+
+==================================================
+DATABASE REQUIREMENTS
+=====================
+
+Check and improve:
+
+* follows table
+* profiles table
+* messages table
+* posts table
+* notifications table
+
+Ensure:
+
+* proper foreign keys
+* indexes
+* realtime compatibility
+* scalable architecture
+* no schema cache issues
+
+Include ALL required SQL migrations.
+
+==================================================
+IMPORTANT RULES
+===============
+
+* Analyze existing files before editing
+* Never destroy working systems
+* Return FULL updated code
+* Separate:
+
+  * HTML
+  * CSS
+  * JavaScript
+  * SQL
+* Add comments for important logic
+* Maintain Supabase compatibility
+* Keep code clean and modular
+
+==================================================
+FINAL GOAL
+==========
+
+Kudasai should feel like a futuristic next-generation anime-inspired social universe with advanced social interactions, immersive UI, realtime systems, premium messaging, intelligent discovery, and cinematic desktop/mobile experiences.

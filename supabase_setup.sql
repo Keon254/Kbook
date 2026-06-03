@@ -208,6 +208,48 @@ alter publication supabase_realtime add table public.notifications;
 alter publication supabase_realtime add table public.messages;
 
 
+-- ── 12. STORIES ───────────────────────────────────────────────
+create table if not exists public.stories (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid references auth.users(id) on delete cascade,
+  image_url  text not null,
+  caption    text,
+  created_at timestamptz default now()
+);
+alter table public.stories enable row level security;
+drop policy if exists "Anyone can view stories"  on public.stories;
+drop policy if exists "Users can create stories" on public.stories;
+drop policy if exists "Users can delete stories" on public.stories;
+create policy "Anyone can view stories"  on public.stories for select using (true);
+create policy "Users can create stories" on public.stories for insert with check (auth.uid()=user_id);
+create policy "Users can delete stories" on public.stories for delete using (auth.uid()=user_id);
+create index if not exists stories_user_idx    on public.stories(user_id);
+create index if not exists stories_created_idx on public.stories(created_at desc);
+alter publication supabase_realtime add table public.stories;
+
+-- ── 13. MUTES ─────────────────────────────────────────────────
+create table if not exists public.mutes (
+  user_id  uuid references auth.users(id) on delete cascade,
+  muted_id uuid references auth.users(id) on delete cascade,
+  primary key (user_id, muted_id)
+);
+alter table public.mutes enable row level security;
+drop policy if exists "Users manage their mutes" on public.mutes;
+create policy "Users manage their mutes" on public.mutes for all using (auth.uid()=user_id);
+
+-- ── 14. BLOCKS ────────────────────────────────────────────────
+create table if not exists public.blocks (
+  user_id    uuid references auth.users(id) on delete cascade,
+  blocked_id uuid references auth.users(id) on delete cascade,
+  primary key (user_id, blocked_id)
+);
+alter table public.blocks enable row level security;
+drop policy if exists "Users manage their blocks" on public.blocks;
+create policy "Users manage their blocks" on public.blocks for all using (auth.uid()=user_id);
+
+-- ── 15. PROFILE EXTRA COLUMNS ─────────────────────────────────
+alter table public.profiles add column if not exists status_message text;
+
 -- ── 11. STORAGE BUCKETS ───────────────────────────────────────
 insert into storage.buckets (id, name, public) values ('images','images',true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('videos','videos',true) on conflict (id) do nothing;
