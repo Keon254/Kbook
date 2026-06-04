@@ -220,6 +220,7 @@ async function loadFeed(){
   }
 
   await loadFeedPage();
+  loadStories();
 }
 
 function render(posts){
@@ -251,7 +252,9 @@ function postCard(p){
     <div class="post" id="post-${p.id}">
       <div class="post-shimmer"></div>
       <div class="post-header-row">
-        <div class="post-avatar" onclick="goProfile('${p.user_id}')" style="cursor:pointer">${(user.username||"U")[0].toUpperCase()}</div>
+        <div class="post-avatar" onclick="goProfile('${p.user_id}')" style="cursor:pointer${user.avatar_url?';background:none;padding:0;overflow:hidden':''}">
+          ${user.avatar_url?`<img src="${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(user.username||"U")[0].toUpperCase()}
+        </div>
         <div class="post-meta">
           <div style="display:flex;align-items:center;gap:5px">
             <span class="username" onclick="goProfile('${p.user_id}')" style="cursor:pointer">@${user.username||"user"}</span>
@@ -792,6 +795,8 @@ function openEditModal(){
   const bInput = $("editBio");
   if(uInput) uInput.value = me.username||"";
   if(bInput) bInput.value = me.bio||"";
+  const sInput = $("editStatusMsg");
+  if(sInput) sInput.value = me.status_message||"";
   $("editModal").style.display = "flex";
 }
 
@@ -801,14 +806,15 @@ function closeEditModal(e){
 }
 
 const saveProfile = safe(async()=>{
-  const username   = $("editUsername")?.value.trim();
-  const bio        = $("editBio")?.value.trim();
-  const avatarFile = $("editAvatarFile")?.files?.[0];
-  const bannerFile = $("editBannerFile")?.files?.[0];
+  const username      = $("editUsername")?.value.trim();
+  const bio           = $("editBio")?.value.trim();
+  const statusMessage = $("editStatusMsg")?.value.trim();
+  const avatarFile    = $("editAvatarFile")?.files?.[0];
+  const bannerFile    = $("editBannerFile")?.files?.[0];
 
   if(!username){ alert("Username cannot be empty."); return; }
 
-  const updates = { username, bio: bio||"" };
+  const updates = { username, bio: bio||"", status_message: statusMessage||"" };
 
   const progressWrap = $("editProgress");
   const progressBar  = $("editProgressBar");
@@ -1004,11 +1010,6 @@ async function goMessages(){
   // Ensure profiles loaded
   await Promise.all(convos.map(c=>ensureProfile(c.otherId)));
 
-  // Mark unread as read (all in one go)
-  await db.from("messages").update({read:true})
-    .eq("receiver_id", state.user.id).eq("read", false);
-  updateDMBadge();
-
   if(!convos.length){
     $("feed").innerHTML = `
       <div class="empty-state">
@@ -1077,19 +1078,16 @@ async function openDM(otherId){
 
   // Subscribe to this thread — also auto-mark new incoming as read
   if(dmChannel) db.removeChannel(dmChannel);
-  dmChannel = db.channel(`dm-${[state.user.id,otherId].sort().join("-")}`)
-    .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},
+  // Filter to only incoming messages — outgoing are rendered immediately after send
+  dmChannel = db.channel(`dm-thread-${[state.user.id,otherId].sort().join("-")}`)
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",
+       filter:`receiver_id=eq.${state.user.id}`},
       async(payload)=>{
         const m = payload.new;
-        if((m.sender_id===state.user.id && m.receiver_id===otherId) ||
-           (m.sender_id===otherId && m.receiver_id===state.user.id)){
-          // If sender is other person, mark it read immediately (we're watching)
-          if(m.sender_id===otherId){
-            await db.from("messages").update({read:true}).eq("id",m.id);
-            updateDMBadge();
-          }
-          await loadThread(otherId);
-        }
+        if(m.sender_id !== otherId) return; // different conversation
+        await db.from("messages").update({read:true}).eq("id",m.id);
+        updateDMBadge();
+        await loadThread(otherId);
       })
     .subscribe();
 }
@@ -1113,6 +1111,9 @@ async function loadThread(otherId){
 
   const otherProfile = state.profilesMap[otherId]||{};
   const meProfile    = state.profilesMap[state.user.id]||{};
+
+  // Track the last message sent by me for read receipt display
+  const lastMineId = [...(data||[])].reverse().find(m=>m.sender_id===state.user.id)?.id;
 
   const QUICK_REACTIONS = ["❤️","😂","🔥","👍","😮","😢"];
 
@@ -1145,9 +1146,8 @@ async function loadThread(otherId){
           </div>`).join("")}
       </div>` : "";
 
-    // Read receipt (show only on last sent message)
-    const isLastMine = mine && (!data[data.indexOf(m)+1] || data[data.indexOf(m)+1].sender_id!==state.user.id || true);
-    const readHtml = (mine && m.read) ? `<div class="dm-read-receipt">✓✓ Seen</div>` : (mine ? `<div class="dm-read-receipt" style="opacity:.35">✓ Sent</div>` : "");
+    // Read receipt — only on the last message I sent
+    const readHtml = (mine && m.id===lastMineId) ? (m.read ? `<div class="dm-read-receipt">✓✓ Seen</div>` : `<div class="dm-read-receipt" style="opacity:.4">✓ Sent</div>`) : "";
 
     return `
       <div class="dm-msg-wrap ${wrapClass}" id="dmsg-${m.id}">
@@ -1269,7 +1269,7 @@ async function openPost(postId){
         </div>
         ${isMe?`<button class="delete-btn" onclick="deletePost('${post.id}');closePostModal()">🗑</button>`:""}
       </div>
-      <div class="content" style="font-size:17px;margin-bottom:16px">${escHtml(post.content)}</div>
+      <div class="content" style="font-size:17px;margin-bottom:16px">${parseContent(post.content)}</div>
       ${post.image?`<img src="${post.image}" style="width:100%;border-radius:18px;margin-bottom:14px">`:""}
       ${post.video?`<video controls src="${post.video}" style="width:100%;border-radius:18px;margin-bottom:14px"></video>`:""}
       <div class="actions" style="margin-bottom:18px">
@@ -1442,13 +1442,50 @@ function initParticles(){
 }
 
 // ================= REALTIME =================
-function startRealtime(){
-  db.channel("posts-live")
-    .on("postgres_changes",{event:"*",schema:"public",table:"posts"},
-      ()=>{ if(state.view==="home") loadFeed(); })
-    .subscribe();
+let _realtimeChannels = [];
 
-  db.channel("notifs-live")
+function startRealtime(){
+  // Prevent duplicate subscriptions — tear down any existing channels first
+  _realtimeChannels.forEach(ch=>{ try{ db.removeChannel(ch); }catch(e){} });
+  _realtimeChannels = [];
+
+  // Smart post updates: prepend on INSERT, remove on DELETE, no full reload
+  const postsCh = db.channel("posts-live")
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"posts"},
+      async(payload)=>{
+        if(state.view!=="home" || !payload?.new) return;
+        const p = payload.new;
+        if(p.user_id===state.user.id) return; // own posts already rendered
+        if(state.mutesSet?.has(p.user_id)||state.blocksSet?.has(p.user_id)) return;
+        if(state.tab==="following" && !state.followingSet.has(p.user_id)) return;
+        await ensureProfile(p.user_id);
+        state.posts.unshift(p);
+        const feed = $("feed");
+        if(!feed) return;
+        const div = document.createElement("div");
+        div.innerHTML = postCard(p);
+        const card = div.firstElementChild;
+        if(card){
+          card.style.cssText += ";opacity:0;transform:translateY(-10px);transition:opacity .4s,transform .4s";
+          feed.prepend(card);
+          requestAnimationFrame(()=>{ card.style.opacity="1"; card.style.transform="translateY(0)"; });
+        }
+      })
+    .on("postgres_changes",{event:"DELETE",schema:"public",table:"posts"},
+      (payload)=>{
+        if(!payload?.old?.id) return;
+        state.posts = state.posts.filter(p=>p.id!==payload.old.id);
+        const el = $(`post-${payload.old.id}`);
+        if(el){
+          el.style.transition="opacity .25s,transform .25s";
+          el.style.opacity="0"; el.style.transform="scale(0.95)";
+          setTimeout(()=>el.remove(), 260);
+        }
+      })
+    .subscribe();
+  _realtimeChannels.push(postsCh);
+
+  const notifsCh = db.channel("notifs-live")
     .on("postgres_changes",
       {event:"INSERT",schema:"public",table:"notifications",
        filter:`user_id=eq.${state.user.id}`},
@@ -1461,13 +1498,15 @@ function startRealtime(){
         }
       })
     .subscribe();
+  _realtimeChannels.push(notifsCh);
 
-  db.channel("dm-badge-live")
+  const dmCh = db.channel("dm-badge-live")
     .on("postgres_changes",
       {event:"INSERT",schema:"public",table:"messages",
        filter:`receiver_id=eq.${state.user.id}`},
       ()=> updateDMBadge())
     .subscribe();
+  _realtimeChannels.push(dmCh);
 }
 
 // ================= NAV =================
@@ -1815,25 +1854,29 @@ function initInfiniteScroll(){
 // ================= DM TYPING INDICATOR =================
 let typingTimer = null;
 let isTyping = false;
+let typingChannel = null;
 const TYPING_CHANNEL_PREFIX = "typing-";
 
 function initDMTyping(otherId){
   const input = $("dmInput");
   if(!input) return;
 
+  // Clean up previous typing channel to prevent stacking
+  if(typingChannel){ try{ db.removeChannel(typingChannel); }catch(e){} typingChannel=null; }
+  isTyping = false;
+
   const channelName = TYPING_CHANNEL_PREFIX+[state.user.id,otherId].sort().join("-");
 
   input.addEventListener("input",()=>{
     if(!isTyping){
       isTyping = true;
-      db.channel(channelName).send({type:"broadcast",event:"typing",payload:{userId:state.user.id}})
-        .catch(()=>{});
+      if(typingChannel) typingChannel.send({type:"broadcast",event:"typing",payload:{userId:state.user.id}}).catch(()=>{});
     }
     clearTimeout(typingTimer);
     typingTimer = setTimeout(()=>{ isTyping=false; },2000);
-  });
+  },{passive:true});
 
-  db.channel(channelName)
+  typingChannel = db.channel(channelName)
     .on("broadcast",{event:"typing"},(payload)=>{
       if(payload.payload?.userId===otherId){
         const indicator = $("typingIndicator");
@@ -2079,11 +2122,9 @@ function renderDMContent(content){
 let _allNotifs = [];
 
 function filterNotifications(type){
-  document.querySelectorAll(".notif-filter-btn").forEach(btn=>{
-    const t = btn.textContent.trim();
-    const isAll = type==="all" && t==="All";
-    const isMatch = t.includes({like:"❤️",comment:"💬",follow:"👤",message:"✉️"}[type]||"__NONE__");
-    btn.classList.toggle("active", isAll || isMatch);
+  const typeOrder = ["all","like","comment","follow","message"];
+  document.querySelectorAll(".notif-filter-btn").forEach((btn,i)=>{
+    btn.classList.toggle("active", typeOrder[i]===type);
   });
 
   const icons   = {like:"❤️",comment:"💬",follow:"👤",message:"✉️"};

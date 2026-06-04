@@ -1,0 +1,188 @@
+KUDASAI ADVANCED REALTIME + IMMERSION UPDATE
+
+Most core systems in Kudasai are now working.
+
+DO NOT rebuild the app.
+DO NOT replace existing architecture.
+ONLY enhance, optimize, and evolve the current platform into a more immersive futuristic social experience.
+
+==================================================
+MAIN GOALS
+==========
+
+1. IMPROVE REALTIME EXPERIENCE
+2. MAKE THE APP FEEL MORE ALIVE
+3. ADD IMMERSIVE MICRO-INTERACTIONS
+4. POLISH SOCIAL FEATURES
+5. OPTIMIZE PERFORMANCE + STABILITY
+
+==================================================
+REALTIME IMMERSION
+==================
+
+Improve realtime systems across the app:
+
+* live post updates
+* live follower count updates
+* live message delivery
+* instant read receipts
+* realtime typing indicators
+* realtime notifications
+* realtime online/offline indicators
+* realtime story updates
+
+Requirements:
+
+* smooth animations
+* no duplicate realtime events
+* prevent listener stacking
+* optimized Supabase subscriptions
+* fast UI response
+
+==================================================
+ADVANCED STORY SYSTEM
+=====================
+
+Upgrade stories into a premium experience:
+
+* animated story rings
+* smooth story transitions
+* story progress bars
+* story reactions
+* story replies
+* story viewers list
+* pause/resume stories
+* tap navigation
+* mobile fullscreen story mode
+* preload next stories
+
+Add:
+
+* image stories
+* video stories
+* text stories
+* futuristic gradients/backgrounds
+
+==================================================
+MICRO-INTERACTIONS
+==================
+
+Make the UI feel alive with:
+
+* hover physics
+* smooth button animations
+* floating effects
+* glow reactions
+* animated notifications
+* card depth movement
+* interactive profile cards
+* smooth modal transitions
+* animated counters
+* responsive touch feedback
+
+==================================================
+SOCIAL EXPERIENCE UPGRADES
+==========================
+
+Improve:
+
+* followers/following pages
+* profile interactions
+* post interactions
+* explore/discovery
+* notifications center
+* chat interactions
+
+Add:
+
+* profile hover previews
+* animated verification badges
+* post save animation
+* repost animations
+* smart recommendation sections
+* trending activity feed
+
+==================================================
+MESSAGE SYSTEM POLISH
+=====================
+
+Refine messaging:
+
+* smoother reply/tag system
+* animated jump-to-message
+* modern message bubbles
+* better media previews
+* voice message UI
+* reactions animation
+* unread separators
+* floating date separators
+* message grouping
+
+==================================================
+MOBILE EXPERIENCE
+=================
+
+Make mobile feel premium:
+
+* smoother gestures
+* optimized bottom navigation
+* immersive fullscreen media
+* swipe transitions
+* touch-friendly interactions
+* faster loading
+* responsive keyboard handling
+
+==================================================
+DESKTOP EXPERIENCE
+==================
+
+Improve desktop UX:
+
+* cinematic feed layout
+* floating side panels
+* better hover states
+* keyboard shortcuts
+* expandable chat panel
+* improved spacing
+* smoother transitions
+
+==================================================
+PERFORMANCE + CLEANUP
+=====================
+
+Optimize:
+
+* realtime subscriptions
+* image rendering
+* lazy loading
+* animation performance
+* memory usage
+* query efficiency
+* component rendering
+
+Fix:
+
+* duplicate listeners
+* unnecessary rerenders
+* realtime lag
+* scroll lag
+* UI flickering
+
+==================================================
+IMPORTANT RULES
+===============
+
+* Analyze current code before editing
+* Preserve all working systems
+* Improve instead of replacing
+* Keep modular architecture
+* Return full changed sections
+* Separate HTML/CSS/JS clearly
+* Keep Supabase compatible
+* Optimize for Replit hosting
+
+==================================================
+FINAL GOAL
+==========
+
+Kudasai should feel like a futuristic living social platform with immersive realtime systems, cinematic interactions, premium responsiveness, elegant anime-inspired visuals, and smooth next-generation social communication.
