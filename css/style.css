@@ -26,13 +26,18 @@
 /* ── RESET ──────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
 
 body {
   font-family: Inter, -apple-system, sans-serif;
   background: var(--bg);
   color: #e8eaf0;
   overflow: hidden;
+  overflow-x: hidden;
+  max-width: 100vw;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -2117,99 +2122,170 @@ h1 { text-align: center; font-size: 28px; font-weight: 900; letter-spacing: -0.0
 }
 
 /* ════════════════════════════════════════════════════════════
+   RESPONSIVE — SMALL TABLET (≤900px)
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  #app { grid-template-columns: 68px 1fr; }
+  .sidebar { padding: 16px 8px; align-items: center; }
+  .brand h2, .nav-label, .nav-palette-btn { display: none; }
+  .nav-item { padding: 13px; justify-content: center; }
+  .nav-icon { font-size: 20px; }
+}
+
+/* ════════════════════════════════════════════════════════════
    RESPONSIVE — MOBILE (≤768px)
    ════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  body { overflow: auto; }
-
-  #app {
-    display: block;
-    height: auto;
-    min-height: 100vh;
-    padding-bottom: 64px;
+  /* Prevent any horizontal overflow at the document level */
+  html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw;
   }
 
-  .sidebar { display: none; }
-  .rightbar { display: none; }
+  body { overflow-y: auto; }
+
+  /*
+   * CRITICAL FIX: JS sets $("app").style.display = "grid" (inline style).
+   * Inline styles override media queries — so the grid columns (240px 1fr 300px)
+   * remained active on mobile even when sidebar/rightbar were display:none,
+   * leaving the feed column with near-zero width (1fr of ~-150px).
+   * Using !important here overrides the inline style and forces a block layout.
+   */
+  #app {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: auto !important;
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding-bottom: 72px;
+  }
+
+  .sidebar { display: none !important; }
+  .rightbar { display: none !important; }
 
   .mobile-bottom-nav { display: flex; }
 
+  /* Main column — full width, no horizontal overflow */
   .main {
-    padding: 12px 14px 16px;
-    overflow: visible;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 14px 20px;
+    overflow-x: hidden;
+    overflow-y: visible;
     height: auto;
+    box-sizing: border-box;
   }
 
+  /* Topbar — flush to main edges, sticky on page scroll */
   .topbar {
     margin-left: -14px;
     margin-right: -14px;
+    width: calc(100% + 28px);
     padding: 10px 14px;
     position: sticky;
     top: 0;
     z-index: 100;
+    box-sizing: border-box;
   }
 
-  .search { max-width: none; font-size: 15px; }
+  .search { max-width: none; width: 100%; font-size: 15px; }
 
   /* Composer */
-  .composer { border-radius: 20px; padding: 14px; }
+  .composer {
+    border-radius: 20px;
+    padding: 14px;
+    width: 100%;
+    box-sizing: border-box;
+  }
   #postInput { min-height: 80px; font-size: 16px; }
 
-  /* Post cards */
+  /* Post cards — full width, no overflow */
   .post {
     border-radius: 20px;
     padding: 16px;
     margin-bottom: 12px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .post-avatar { width: 36px; height: 36px; font-size: 14px; }
-  .content { font-size: 15px; }
-  .actions { gap: 6px; }
+  .content { font-size: 15px; word-break: break-word; overflow-wrap: break-word; }
+  .actions { gap: 6px; flex-wrap: wrap; }
   .actions button { padding: 8px 11px; font-size: 12px; }
 
   /* Feed tabs */
   .feed-tabs { margin-bottom: 14px; }
   .tab-btn { padding: 12px 10px; font-size: 13px; }
 
+  /* Stories bar — contained scroll, never overflows viewport */
+  .stories-bar {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+
   /* Profile */
   .profile-banner { height: 110px; border-radius: 18px; }
-  .profile-card { padding: 20px; border-radius: 20px; }
+  .profile-card { padding: 20px; border-radius: 20px; width: 100%; box-sizing: border-box; }
   .profile-avatar { width: 72px; height: 72px; font-size: 30px; }
   .profile-username { font-size: 18px; }
 
   /* DMs */
   .dm-thread { max-height: calc(100vh - 280px); }
-  .dm-header { position: sticky; top: -12px; }
+  .dm-header { position: sticky; top: -0px; }
   .dm-input-row { position: sticky; bottom: -16px; }
 
-  /* Modal */
-  .modal-box { border-radius: 22px; }
+  /* Notifications */
+  .notif-item { width: 100%; box-sizing: border-box; }
 
-  /* Modals full-screen on very small screens */
-  .modal-overlay { padding: 8px; align-items: flex-end; }
-  .modal-box { max-height: 92vh; border-radius: 24px 24px 0 0; }
+  /* Modals — slide up from bottom on mobile */
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal-box {
+    max-height: 92vh;
+    border-radius: 24px 24px 0 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
 
   /* Skeleton */
   .skeleton-card { border-radius: 20px; }
 
   /* Lightbox */
   .lightbox-img { max-width: 98vw; max-height: 85vh; border-radius: 14px; }
+
+  /* Media grid inside posts */
+  .media-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Touch-friendly tap targets */
+  .actions button { min-height: 38px; }
+  .follow-btn { min-height: 36px; }
+  .nav-item { min-height: 44px; }
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ════════════════════════════════════════════════════════════
    RESPONSIVE — SMALL MOBILE (≤480px)
    ════════════════════════════════════════════════════════════ */
 @media (max-width: 480px) {
-  .main { padding: 10px 10px 14px; }
+  .main {
+    padding: 0 12px 20px;
+  }
 
   .topbar {
-    margin-left: -10px;
-    margin-right: -10px;
-    padding: 10px;
+    margin-left: -12px;
+    margin-right: -12px;
+    width: calc(100% + 24px);
+    padding: 10px 12px;
   }
 
   .composer { padding: 12px; }
-  .composer-actions { gap: 7px; }
+  .composer-actions { gap: 7px; flex-wrap: wrap; }
   .file-label { padding: 8px 11px; font-size: 12px; }
   #postBtn { padding: 11px 18px; font-size: 13px; }
 
@@ -2219,10 +2295,18 @@ h1 { text-align: center; font-size: 28px; font-weight: 900; letter-spacing: -0.0
   .content { font-size: 14px; }
   .actions button { padding: 7px 9px; font-size: 11px; border-radius: 10px; }
 
-  .dm-msg-wrap { max-width: 86%; }
+  .dm-msg-wrap { max-width: 88%; }
   .dm-reply-btn { display: none !important; }
 
   .cmd-box { margin: 0 10px; }
+
+  /* Story rings slightly smaller on very small screens */
+  .story-ring { width: 48px; height: 48px; }
+  .story-label { max-width: 48px; font-size: 9px; }
+
+  /* Feed tabs scrollable on tiny screens */
+  .feed-tabs { overflow-x: auto; flex-wrap: nowrap; }
+  .tab-btn { flex-shrink: 0; white-space: nowrap; }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -2328,21 +2412,7 @@ h1 { text-align: center; font-size: 28px; font-weight: 900; letter-spacing: -0.0
 
 .post-analytics span { display: flex; align-items: center; gap: 4px; }
 
-/* ════════════════════════════════════════════════════════════
-   SMOOTH SCROLL SNAP (mobile feed TikTok feel)
-   ════════════════════════════════════════════════════════════ */
-@media (max-width: 768px) {
-  /* Smooth momentum scrolling on iOS */
-  .main {
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  /* Touch-friendly tap sizes */
-  .actions button { min-height: 38px; }
-  .follow-btn { min-height: 36px; }
-  .comment-btn { min-height: 38px; }
-  .nav-item { min-height: 44px; }
-}
+/* (merged into main mobile breakpoint above) */
 
 /* ============================================================
    KUDASAI — ULTRA EXPANSION UPDATE

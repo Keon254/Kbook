@@ -1,0 +1,118 @@
+KUDASAI MOBILE LAYOUT FIX UPDATE
+
+The mobile layout currently has a major responsiveness issue.
+
+PROBLEM:
+
+* the feed is pushed to the left
+* there is a large empty black area on the right side
+* desktop spacing/layout is leaking into mobile
+* containers are wider than the viewport
+* mobile UI is not centered properly
+
+DO NOT redesign the app.
+ONLY fix and optimize the responsive layout professionally.
+
+==================================================
+MOBILE LAYOUT FIXES
+===================
+
+Fix all mobile responsiveness issues:
+
+* make feed full width on mobile
+* remove right-side empty space
+* prevent horizontal overflow
+* ensure body does not exceed viewport width
+* fix container sizing
+* fix sidebar spacing
+* optimize mobile padding/margins
+* improve mobile alignment
+* prevent elements from overflowing screen
+
+Requirements:
+
+* mobile must feel native
+* no sideways scrolling
+* all cards centered correctly
+* bottom navbar stays fixed correctly
+* feed should scale naturally
+* floating elements should stay inside viewport
+
+==================================================
+RESPONSIVE REQUIREMENTS
+=======================
+
+Create proper breakpoints:
+
+Desktop:
+
+* full multi-column layout
+
+Tablet:
+
+* reduced spacing
+* adaptive layout
+
+Mobile:
+
+* single-column immersive layout
+* hidden desktop sidebars
+* fullscreen feed experience
+
+==================================================
+CSS FIXES TO CHECK
+==================
+
+Analyze and fix:
+
+* width issues
+* max-width issues
+* fixed positioning problems
+* flexbox overflow
+* grid overflow
+* absolute positioning issues
+* transform overflow
+* margin-left causing shifts
+* desktop styles affecting mobile
+
+Ensure:
+
+* width: 100%
+* max-width: 100vw
+* overflow-x: hidden
+* responsive flex/grid behavior
+
+==================================================
+UI POLISH
+=========
+
+While fixing responsiveness:
+
+* preserve futuristic style
+* preserve glassmorphism
+* preserve animations
+* improve spacing consistency
+* improve mobile touch feel
+
+==================================================
+IMPORTANT RULES
+===============
+
+* analyze existing layout before editing
+* preserve working systems
+* improve instead of rewriting
+* return full changed CSS/HTML/JS sections
+* explain what caused the overflow issue
+* optimize for Replit hosting
+
+==================================================
+FINAL GOAL
+==========
+
+Kudasai mobile should feel like a premium futuristic native social app with:
+
+* perfectly centered feed
+* zero horizontal overflow
+* immersive fullscreen mobile experience
+* smooth responsive behavior
+* clean spacing and alignment
