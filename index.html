@@ -61,11 +61,14 @@
   </div>
 </div>
 
-<!-- FULLSCREEN LIGHTBOX -->
+<!-- FULLSCREEN LIGHTBOX / GALLERY -->
 <div id="lightbox" class="lightbox-overlay" style="display:none" onclick="closeLightbox()">
   <button class="lightbox-close" onclick="closeLightbox()">✕</button>
-  <img id="lightboxImg" class="lightbox-img" src="" alt="">
-  <video id="lightboxVid" class="lightbox-vid" controls style="display:none"></video>
+  <button class="lightbox-nav lightbox-prev" id="lightboxPrev" onclick="event.stopPropagation();galleryPrev()" style="display:none">‹</button>
+  <img id="lightboxImg" class="lightbox-img" src="" alt="" onclick="event.stopPropagation()">
+  <video id="lightboxVid" class="lightbox-vid" controls style="display:none" onclick="event.stopPropagation()"></video>
+  <button class="lightbox-nav lightbox-next" id="lightboxNext" onclick="event.stopPropagation();galleryNext()" style="display:none">›</button>
+  <div class="lightbox-counter" id="lightboxCounter" style="display:none"></div>
 </div>
 
 <!-- AUTH -->
@@ -139,8 +142,11 @@
         <div class="progress-bar" id="uploadProgressBar"></div>
       </div>
 
+      <!-- IMAGE PREVIEW STRIP (multi-photo) -->
+      <div id="composerImgPreviews" class="composer-img-previews" style="display:none"></div>
+
       <div class="composer-actions">
-        <label class="file-label">📷 Photo <input type="file" id="imageInput" accept="image/*" style="display:none"></label>
+        <label class="file-label">📷 Photo <input type="file" id="imageInput" accept="image/*" multiple style="display:none"></label>
         <label class="file-label">🎥 Video <input type="file" id="videoInput" accept="video/*" style="display:none"></label>
         <button class="file-label" id="emojiBtn" onclick="toggleEmoji()" type="button">😊</button>
         <button id="postBtn">Post</button>

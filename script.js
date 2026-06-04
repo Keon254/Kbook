@@ -271,8 +271,7 @@ function postCard(p){
       </div>
       <div class="content" style="cursor:pointer" onclick="openPost('${p.id}')">${parseContent(p.content)}</div>
       ${quotedHtml}
-      ${p.image ? `<img src="${p.image}" loading="lazy" style="cursor:pointer" onclick="openLightbox('${p.image}','img')">` : ""}
-      ${p.video ? `<video controls src="${p.video}" onclick="event.stopPropagation()"></video>` : ""}
+      ${mediaHtml(p)}
       <div class="actions">
         <button class="${liked?"btn-liked":""}" onclick="likeBurst(event,'${p.id}')">
           ${liked?"❤️":"🤍"} ${p.likes??0}
@@ -379,10 +378,10 @@ const createPost = safe(async()=>{
   if(!cooldown("post",2000)){ alert("Please wait before posting again."); return; }
 
   const text     = $("postInput").value.trim();
-  const imgInput = $("imageInput");
   const vidInput = $("videoInput");
+  const imgFiles = _pendingImgFiles.slice(); // snapshot of staged images
 
-  if(!text && !imgInput?.files?.[0] && !vidInput?.files?.[0]){
+  if(!text && imgFiles.length === 0 && !vidInput?.files?.[0]){
     alert("Write something or attach a photo/video.");
     return;
   }
@@ -394,13 +393,19 @@ const createPost = safe(async()=>{
   let image=null, video=null;
   setUploadProgress(0);
 
-  if(imgInput?.files?.[0]){
-    setUploadProgress(20);
-    const file = imgInput.files[0];
-    const {data,error} = await db.storage.from("images")
-      .upload(`${state.user.id}/${Date.now()}_${file.name}`, file, {upsert:true});
-    if(error) alert("Image upload failed: "+error.message);
-    else { const {data:u}=db.storage.from("images").getPublicUrl(data.path); image=u.publicUrl; }
+  // Upload all staged images in parallel
+  if(imgFiles.length > 0){
+    setUploadProgress(15);
+    const uploads = await Promise.all(imgFiles.map(async(file)=>{
+      const path = `${state.user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`;
+      const {data,error} = await db.storage.from("images").upload(path, file, {upsert:true});
+      if(error){ console.warn("Image upload failed:", error.message); return null; }
+      const {data:u} = db.storage.from("images").getPublicUrl(data.path);
+      return u.publicUrl;
+    }));
+    const validUrls = uploads.filter(Boolean);
+    if(validUrls.length === 1)      image = validUrls[0];
+    else if(validUrls.length > 1)   image = JSON.stringify(validUrls);
     setUploadProgress(60);
   }
 
@@ -429,7 +434,8 @@ const createPost = safe(async()=>{
 
   $("postInput").value="";
   autoResizeTextarea($("postInput"));
-  if(imgInput) imgInput.value="";
+  _pendingImgFiles = [];
+  renderComposerPreviews();
   if(vidInput) vidInput.value="";
   clearQuote();
   setTimeout(()=>setUploadProgress(null), 600);
@@ -1657,19 +1663,21 @@ function clearQuote(){
 
 // ================= FULLSCREEN LIGHTBOX =================
 function openLightbox(src, type="img"){
-  const lb  = $("lightbox");
-  const img = $("lightboxImg");
-  const vid = $("lightboxVid");
-  if(!lb) return;
-  if(type==="img"){
-    img.src = src; img.style.display="block";
-    vid.style.display="none";
-  } else {
+  // Route single video to gallery-free view; images go through gallery
+  if(type==="vid" || type==="video"){
+    const lb  = $("lightbox");
+    const img = $("lightboxImg");
+    const vid = $("lightboxVid");
+    if(!lb) return;
     vid.src = src; vid.style.display="block";
     img.style.display="none";
+    lb.style.display="flex";
+    document.body.style.overflow="hidden";
+    _galleryUrls=[]; // no gallery nav for video
+    _updateGalleryUI();
+    return;
   }
-  lb.style.display="flex";
-  document.body.style.overflow="hidden";
+  openGallery([src], 0);
 }
 
 function closeLightbox(){
@@ -1678,6 +1686,7 @@ function closeLightbox(){
   document.body.style.overflow="";
   const vid = $("lightboxVid");
   if(vid){ vid.pause(); vid.src=""; }
+  _galleryUrls=[];
 }
 
 // ================= COMMAND PALETTE =================
@@ -2061,7 +2070,17 @@ document.addEventListener("DOMContentLoaded", async()=>{
     }
   });
 
-  // Escape closes modals, Ctrl+K opens palette
+  // Wire up multi-image composer input
+  $("imageInput")?.addEventListener("change", function(){
+    for(const file of this.files){
+      if(_pendingImgFiles.length >= 10) break; // cap at 10 images
+      _pendingImgFiles.push(file);
+    }
+    this.value = ""; // reset so the same file can be re-added
+    renderComposerPreviews();
+  });
+
+  // Escape closes modals, Ctrl+K opens palette, arrows navigate gallery
   document.addEventListener("keydown",e=>{
     if(e.key==="Escape"){
       closePostModal();
@@ -2072,6 +2091,12 @@ document.addEventListener("DOMContentLoaded", async()=>{
     if((e.ctrlKey||e.metaKey) && e.key==="k"){
       e.preventDefault();
       openPalette();
+    }
+    // Arrow key navigation inside lightbox/gallery
+    const lb = $("lightbox");
+    if(lb && lb.style.display !== "none" && _galleryUrls.length > 1){
+      if(e.key==="ArrowLeft")  { e.preventDefault(); galleryPrev(); }
+      if(e.key==="ArrowRight") { e.preventDefault(); galleryNext(); }
     }
   });
 
@@ -2493,3 +2518,181 @@ const unblockUser = safe(async(userId)=>{
   await db.from("blocks").delete().eq("user_id",state.user.id).eq("blocked_id",userId);
   state.blocksSet?.delete(userId);
 });
+
+// ═══════════════════════════════════════════════════════════
+// CAROUSEL + GALLERY SYSTEM
+// ═══════════════════════════════════════════════════════════
+
+// ── Image field parser ──────────────────────────────────────
+// image column stores either a single URL string, or a
+// JSON-encoded array of URLs for multi-photo posts.
+function parseImages(imageField){
+  if(!imageField) return [];
+  if(imageField.startsWith("[")){
+    try{ return JSON.parse(imageField); }catch(e){ return [imageField]; }
+  }
+  return [imageField];
+}
+
+// ── Media HTML generator (used inside postCard) ─────────────
+function mediaHtml(p){
+  const imgs = parseImages(p.image);
+  let html = "";
+
+  if(imgs.length === 1){
+    // Single image — clean full-width photo with zoom-in cursor
+    const safe_url = escHtml(imgs[0]);
+    html += `<img class="post-img" src="${safe_url}" loading="lazy"
+      onclick="openGallery([${JSON.stringify(imgs).slice(1,-1).replace(/"/g,"&quot;")}],0)">`;
+  } else if(imgs.length > 1){
+    const slides = imgs.map((url,i)=>
+      `<div class="carousel-slide">
+        <img src="${escHtml(url)}" loading="lazy"
+          onclick="event.stopPropagation();openGallery(${escHtml(JSON.stringify(imgs))},${i})">
+       </div>`
+    ).join("");
+    const dots = imgs.map((_,i)=>
+      `<span class="carousel-dot${i===0?" active":""}"
+        onclick="event.stopPropagation();carouselGoTo('${p.id}',${i})"></span>`
+    ).join("");
+    html += `
+      <div class="post-carousel" id="carousel-${p.id}"
+           data-index="0" data-count="${imgs.length}"
+           data-urls="${escHtml(JSON.stringify(imgs))}"
+           ontouchstart="carouselTouchStart(event,'${p.id}')"
+           ontouchend="carouselTouchEnd(event,'${p.id}')">
+        <div class="carousel-track" id="carousel-track-${p.id}">${slides}</div>
+        <button class="carousel-prev" onclick="event.stopPropagation();carouselPrev('${p.id}')">‹</button>
+        <button class="carousel-next" onclick="event.stopPropagation();carouselNext('${p.id}')">›</button>
+        <div class="carousel-dots" id="carousel-dots-${p.id}">${dots}</div>
+        <div class="carousel-counter" id="carousel-counter-${p.id}">1 / ${imgs.length}</div>
+      </div>`;
+  }
+
+  if(p.video){
+    html += `<video class="post-video" controls src="${escHtml(p.video)}"
+      onclick="event.stopPropagation()"></video>`;
+  }
+
+  return html;
+}
+
+// ── Carousel navigation ─────────────────────────────────────
+function carouselGoTo(postId, idx){
+  const el = $("carousel-"+postId);
+  if(!el) return;
+  const count = parseInt(el.dataset.count)||1;
+  idx = ((idx % count) + count) % count; // wrap
+  el.dataset.index = idx;
+
+  const track = $("carousel-track-"+postId);
+  if(track) track.style.transform = `translateX(-${idx * 100}%)`;
+
+  const dotsEl = $("carousel-dots-"+postId);
+  if(dotsEl){
+    dotsEl.querySelectorAll(".carousel-dot").forEach((d,i)=>{
+      d.classList.toggle("active", i===idx);
+    });
+  }
+
+  const counter = $("carousel-counter-"+postId);
+  if(counter) counter.textContent = `${idx+1} / ${count}`;
+}
+
+function carouselNext(postId){
+  const el = $("carousel-"+postId);
+  if(el) carouselGoTo(postId, parseInt(el.dataset.index||0)+1);
+}
+
+function carouselPrev(postId){
+  const el = $("carousel-"+postId);
+  if(el) carouselGoTo(postId, parseInt(el.dataset.index||0)-1);
+}
+
+// Touch swipe: ≥40px horizontal swipe advances the carousel
+const _carouselTouchX = {};
+function carouselTouchStart(e, postId){
+  _carouselTouchX[postId] = e.touches[0].clientX;
+}
+function carouselTouchEnd(e, postId){
+  const sx = _carouselTouchX[postId];
+  if(sx == null) return;
+  const diff = sx - e.changedTouches[0].clientX;
+  if(Math.abs(diff) > 40) diff > 0 ? carouselNext(postId) : carouselPrev(postId);
+  delete _carouselTouchX[postId];
+}
+
+// ── Composer multi-image staging ────────────────────────────
+let _pendingImgFiles = [];
+
+function renderComposerPreviews(){
+  const strip = $("composerImgPreviews");
+  if(!strip) return;
+  if(_pendingImgFiles.length === 0){
+    strip.style.display = "none";
+    strip.innerHTML = "";
+    return;
+  }
+  strip.style.display = "flex";
+  strip.innerHTML = _pendingImgFiles.map((f,i)=>{
+    const url = URL.createObjectURL(f);
+    return `<div class="composer-img-thumb">
+      <img src="${url}" alt="">
+      <button class="composer-img-remove" onclick="removeComposerImg(${i})" title="Remove">✕</button>
+    </div>`;
+  }).join("") +
+  (_pendingImgFiles.length > 1
+    ? `<div class="composer-img-count">${_pendingImgFiles.length} photos</div>`
+    : "");
+}
+
+function removeComposerImg(i){
+  _pendingImgFiles.splice(i,1);
+  renderComposerPreviews();
+}
+
+// ── Gallery lightbox ────────────────────────────────────────
+let _galleryUrls = [];
+let _galleryIdx  = 0;
+
+function openGallery(urls, startIdx=0){
+  if(!Array.isArray(urls)) urls = [urls];
+  _galleryUrls = urls.filter(Boolean);
+  _galleryIdx  = Math.min(startIdx, _galleryUrls.length-1);
+  _renderGallerySlide();
+  const lb = $("lightbox");
+  if(lb){ lb.style.display = "flex"; document.body.style.overflow = "hidden"; }
+}
+
+function galleryPrev(){
+  if(_galleryUrls.length < 2) return;
+  _galleryIdx = ((_galleryIdx - 1) + _galleryUrls.length) % _galleryUrls.length;
+  _renderGallerySlide();
+}
+
+function galleryNext(){
+  if(_galleryUrls.length < 2) return;
+  _galleryIdx = (_galleryIdx + 1) % _galleryUrls.length;
+  _renderGallerySlide();
+}
+
+function _renderGallerySlide(){
+  const img = $("lightboxImg");
+  const vid = $("lightboxVid");
+  if(img){ img.src = _galleryUrls[_galleryIdx]||""; img.style.display = "block"; }
+  if(vid) vid.style.display = "none";
+  _updateGalleryUI();
+}
+
+function _updateGalleryUI(){
+  const multi   = _galleryUrls.length > 1;
+  const prevBtn = $("lightboxPrev");
+  const nextBtn = $("lightboxNext");
+  const counter = $("lightboxCounter");
+  if(prevBtn) prevBtn.style.display = multi ? "flex" : "none";
+  if(nextBtn) nextBtn.style.display = multi ? "flex" : "none";
+  if(counter){
+    counter.style.display = multi ? "block" : "none";
+    if(multi) counter.textContent = `${_galleryIdx+1} / ${_galleryUrls.length}`;
+  }
+}
