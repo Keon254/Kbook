@@ -81,15 +81,10 @@ function setActiveNav(id){
 }
 
 // ================= AUTH =================
-function isGmail(email){
-  return /^[a-zA-Z0-9._%+\-]+@gmail\.com$/i.test(email.trim());
-}
-
 const login = safe(async()=>{
   const email = $("email").value.trim();
   const pass  = $("password").value;
-  if(!email || !pass){ alert("Please enter your Gmail and password."); return; }
-  if(!isGmail(email)){ showAuthError("Only Gmail accounts (@gmail.com) are allowed."); return; }
+  if(!email || !pass){ showAuthError("Please enter your email and password."); return; }
   const {data,error} = await db.auth.signInWithPassword({ email, password:pass });
   if(error){ showAuthError(error.message); return; }
   state.user = data.user;
@@ -99,13 +94,12 @@ const login = safe(async()=>{
 const signup = safe(async()=>{
   const email = $("email").value.trim();
   const pass  = $("password").value;
-  if(!email || !pass){ alert("Please enter your Gmail and password."); return; }
-  if(!isGmail(email)){ showAuthError("Only Gmail accounts (@gmail.com) are allowed."); return; }
+  if(!email || !pass){ showAuthError("Please enter your email and password."); return; }
   if(pass.length < 6){ showAuthError("Password must be at least 6 characters."); return; }
   const {data,error} = await db.auth.signUp({ email, password:pass });
   if(error){ showAuthError(error.message); return; }
-  if(data.user){
-    await db.from("profiles").insert([{ user_id:data.user.id, username:email.split("@")[0], balance:0 }]);
+  if(data.user && !data.user.identities?.length === 0){
+    await db.from("profiles").insert([{ user_id:data.user.id, username:email.split("@")[0], balance:0 }]).catch(()=>{});
   }
   showAuthError("Account created! Check your email to confirm, then log in.", "success");
 });

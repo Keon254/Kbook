@@ -105,13 +105,12 @@
       Continue with Google
     </button>
     <div class="auth-divider"><span>or use email</span></div>
-    <form id="authForm" onsubmit="return false">
-    <input id="email" placeholder="Gmail address" autocomplete="email">
+    <form id="authForm" onsubmit="event.preventDefault(); login();">
+    <input id="email" type="email" placeholder="Email address" autocomplete="email">
     <input id="password" type="password" placeholder="Password (min 6 chars)" autocomplete="current-password">
     <button id="signupBtn" type="button">Create Account</button>
-    <button id="loginBtn" type="submit">Login</button>
+    <button id="loginBtn" type="button">Login</button>
     </form>
-    <p class="auth-note">Only Gmail accounts are accepted</p>
   </div>
 </div>
 
