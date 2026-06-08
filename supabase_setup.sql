@@ -59,6 +59,19 @@ alter table public.posts add column if not exists poll_options  text;
 alter table public.posts add column if not exists poll_votes    text default '{}';
 alter table public.posts add column if not exists poll_ends_at  timestamptz;
 
+-- Extra post columns (threads)
+alter table public.posts add column if not exists thread_id     uuid;
+alter table public.posts add column if not exists thread_order  integer default 0;
+
+-- Extra post columns (audio)
+alter table public.posts add column if not exists audio_url     text;
+
+-- Extra post columns (reactions)
+alter table public.posts add column if not exists reactions     jsonb default '{}';
+
+-- Index for thread fetching
+create index if not exists posts_thread_idx on public.posts(thread_id);
+
 -- ── POLL VOTES TABLE ─────────────────────────────────────────
 create table if not exists public.poll_votes (
   post_id      uuid references public.posts(id) on delete cascade,

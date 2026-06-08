@@ -22,8 +22,9 @@ const state = {
   repostsSet:   new Set(),
   likesSet:     new Set(),
   onlineSet:    new Set(),
-  mutesSet:     new Set(),
-  blocksSet:    new Set(),
+  mutesSet:        new Set(),
+  blocksSet:       new Set(),
+  myReactionsMap:  {},
 };
 
 const $ = id => document.getElementById(id);
@@ -184,6 +185,7 @@ async function start(){
   if(landing) landing.style.display = "none";
   document.querySelector(".auth").style.display = "none";
   $("app").style.display = "grid";
+  initTheme();
   initParticles();
   initInfiniteScroll();
   initPullToRefresh();
@@ -195,6 +197,7 @@ async function start(){
   updateDMBadge();
   loadSidebar();
   loadStories();
+  initDraftSave();
 }
 
 // ================= PROFILES =================
@@ -317,6 +320,7 @@ function postCard(p){
           <button class="post-more-btn" onclick="openUserMenu(event,'${p.user_id}')">⋯</button>` : `
           <button class="delete-btn" onclick="deletePost('${p.id}')" title="Delete post">🗑</button>`}
       </div>
+      ${p.thread_order > 0 ? `<div class="thread-badge">🧵 Thread reply</div>` : (p.thread_id ? `<div class="thread-badge">🧵 Thread</div>` : "")}
       <div class="content" style="cursor:pointer" onclick="openPost('${p.id}')">${parseContent(p.content)}</div>
       ${quotedHtml}
       ${p.poll_options ? renderPollCard(p) : mediaHtml(p)}
@@ -333,6 +337,7 @@ function postCard(p){
           ${bookmarked?"🔖":"🏷"} ${bookmarked?"Saved":"Save"}
         </button>
       </div>
+      ${renderReactions(p)}
       <div class="comments-section" id="comments-${p.id}" style="display:none">
         <div class="comments-list" id="comments-list-${p.id}"></div>
         <div class="comment-input-row">
@@ -431,9 +436,11 @@ const createPost = safe(async()=>{
 
   const pollOptions = _pollActive ? getPollOptions() : [];
   const isPoll = _pollActive && pollOptions.length >= 2;
+  const isThread = _threadActive && _threadSegments.some(s=>s.trim());
+  const audioInput = $("audioInput");
 
-  if(!text && imgFiles.length === 0 && !vidInput?.files?.[0] && !isPoll){
-    alert("Write something, attach a photo/video, or create a poll.");
+  if(!text && imgFiles.length === 0 && !vidInput?.files?.[0] && !isPoll && !isThread && !audioInput?.files?.[0]){
+    alert("Write something, attach a photo/video/audio, or create a poll/thread.");
     return;
   }
   if(_pollActive && pollOptions.length < 2){
@@ -445,7 +452,7 @@ const createPost = safe(async()=>{
   postBtn.disabled = true;
   postBtn.textContent = "Posting…";
 
-  let image=null, video=null;
+  let image=null, video=null, audio_url=null;
   setUploadProgress(0);
 
   // Upload all staged images in parallel
@@ -471,10 +478,40 @@ const createPost = safe(async()=>{
       .upload(`${state.user.id}/${Date.now()}_${file.name}`, file, {upsert:true});
     if(error) alert("Video upload failed: "+error.message);
     else { const {data:u}=db.storage.from("videos").getPublicUrl(data.path); video=u.publicUrl; }
-    setUploadProgress(80);
+    setUploadProgress(70);
   }
 
-  const insertObj = { content:text, user_id:state.user.id, image, video };
+  if(audioInput?.files?.[0]){
+    setUploadProgress(75);
+    const file = audioInput.files[0];
+    const {data,error} = await db.storage.from("images")
+      .upload(`audio/${state.user.id}/${Date.now()}_${file.name}`, file, {upsert:true});
+    if(error) console.warn("Audio upload failed:", error.message);
+    else { const {data:u}=db.storage.from("images").getPublicUrl(data.path); audio_url=u.publicUrl; }
+    setUploadProgress(85);
+  }
+
+  // THREAD: post all segments with shared thread_id
+  if(isThread){
+    const threadId = crypto.randomUUID();
+    const segments = _threadSegments.filter(s=>s.trim());
+    for(let i=0; i<segments.length; i++){
+      await db.from("posts").insert([{
+        content: segments[i].trim(), user_id: state.user.id,
+        thread_id: threadId, thread_order: i
+      }]);
+    }
+    postBtn.disabled=false; postBtn.textContent="Post";
+    $("postInput").value=""; autoResizeTextarea($("postInput"));
+    _pendingImgFiles=[]; renderComposerPreviews();
+    _threadActive=false; toggleThreadBuilder();
+    localStorage.removeItem("kudasai_draft");
+    if(audioInput) audioInput.value="";
+    setUploadProgress(100); setTimeout(()=>setUploadProgress(null),600);
+    await loadFeed(); return;
+  }
+
+  const insertObj = { content:text, user_id:state.user.id, image, video, audio_url };
   if(quoteState){
     insertObj.quoted_post_id  = quoteState.postId;
     insertObj.quoted_content  = quoteState.content;
@@ -499,8 +536,12 @@ const createPost = safe(async()=>{
   _pendingImgFiles = [];
   renderComposerPreviews();
   if(vidInput) vidInput.value="";
+  if(audioInput) audioInput.value="";
   if(isPoll){ _pollActive=false; togglePollBuilder(); }
   clearQuote();
+  localStorage.removeItem("kudasai_draft");
+  const draftEl = $("draftIndicator");
+  if(draftEl) draftEl.classList.remove("visible");
   setTimeout(()=>setUploadProgress(null), 600);
 
   await loadFeed();
@@ -2119,12 +2160,18 @@ document.addEventListener("DOMContentLoaded", async()=>{
     if((e.ctrlKey||e.metaKey) && e.key==="Enter"){ e.preventDefault(); createPost(); }
   });
 
-  // Auto-resize textarea
+  // Auto-resize textarea + mention autocomplete
   $("postInput")?.addEventListener("input", e=>{
     autoResizeTextarea(e.target);
-    // Hide emoji picker when typing
     const picker = $("emojiPicker");
     if(picker) picker.style.display="none";
+    handleMentionInput(e.target);
+  });
+
+  // Close mention dropdown on outside click
+  document.addEventListener("click", e=>{
+    const md = $("mentionDropdown");
+    if(md && !md.contains(e.target) && e.target !== $("postInput")) hideMentionDropdown();
   });
 
   // Close emoji picker on outside click
@@ -2804,6 +2851,10 @@ function mediaHtml(p){
       onclick="event.stopPropagation()"></video>`;
   }
 
+  if(p.audio_url){
+    html += `<div class="post-audio"><span class="audio-icon">🎵</span><audio controls preload="none" src="${escHtml(p.audio_url)}"></audio></div>`;
+  }
+
   return html;
 }
 
@@ -2925,4 +2976,230 @@ function _updateGalleryUI(){
     counter.style.display = multi ? "block" : "none";
     if(multi) counter.textContent = `${_galleryIdx+1} / ${_galleryUrls.length}`;
   }
+}
+
+// ================= THEME TOGGLE =================
+function toggleTheme(){
+  const body = document.body;
+  const isLight = body.getAttribute("data-theme") === "light";
+  const next = isLight ? "dark" : "light";
+  body.setAttribute("data-theme", next);
+  localStorage.setItem("kudasai_theme", next);
+  const btn = $("themeToggle");
+  if(btn) btn.textContent = next === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
+}
+
+function initTheme(){
+  const saved = localStorage.getItem("kudasai_theme") || "dark";
+  document.body.setAttribute("data-theme", saved);
+  const btn = $("themeToggle");
+  if(btn) btn.textContent = saved === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
+}
+
+// ================= DRAFT AUTO-SAVE =================
+let _draftTimer = null;
+function initDraftSave(){
+  const input = $("postInput");
+  if(!input) return;
+  const draft = localStorage.getItem("kudasai_draft");
+  if(draft && draft.trim()){
+    input.value = draft;
+    autoResizeTextarea(input);
+    showToast("✏️ Draft restored");
+  }
+  input.addEventListener("input", ()=>{
+    clearTimeout(_draftTimer);
+    const draftEl = $("draftIndicator");
+    _draftTimer = setTimeout(()=>{
+      const val = input.value;
+      if(val.trim()){
+        localStorage.setItem("kudasai_draft", val);
+        if(draftEl) draftEl.classList.add("visible");
+        setTimeout(()=>{ if(draftEl) draftEl.classList.remove("visible"); }, 1500);
+      } else {
+        localStorage.removeItem("kudasai_draft");
+        if(draftEl) draftEl.classList.remove("visible");
+      }
+    }, 800);
+  });
+}
+
+// ================= @MENTION AUTOCOMPLETE =================
+function handleMentionInput(textarea){
+  const val = textarea.value;
+  const pos = textarea.selectionStart;
+  const before = val.slice(0, pos);
+  const match = before.match(/@(\w*)$/);
+  if(match){
+    showMentionDropdown(match[1]);
+  } else {
+    hideMentionDropdown();
+  }
+}
+
+function showMentionDropdown(query){
+  const dropdown = $("mentionDropdown");
+  if(!dropdown) return;
+  const q = (query||"").toLowerCase();
+  const profiles = Object.values(state.profilesMap)
+    .filter(p => p.user_id !== state.user?.id &&
+      (!q || (p.username||"").toLowerCase().startsWith(q)))
+    .slice(0, 6);
+  if(!profiles.length){ hideMentionDropdown(); return; }
+  const me = state.profilesMap[state.user?.id];
+  dropdown.innerHTML = profiles.map(p=>{
+    const av = p.avatar_url
+      ? `<img src="${escHtml(p.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+      : (p.username||"U")[0].toUpperCase();
+    return `<div class="mention-item" onclick="insertMention('${escHtml(p.username)}')">
+      <div class="mention-item-avatar">${av}</div>
+      <span class="mention-item-name">@${escHtml(p.username)}</span>
+    </div>`;
+  }).join("");
+  dropdown.style.display = "block";
+}
+
+function hideMentionDropdown(){
+  const d = $("mentionDropdown");
+  if(d) d.style.display = "none";
+}
+
+function insertMention(username){
+  const input = $("postInput");
+  if(!input) return;
+  const val = input.value;
+  const pos = input.selectionStart;
+  const before = val.slice(0, pos);
+  const after  = val.slice(pos);
+  const newBefore = before.replace(/@\w*$/, `@${username} `);
+  input.value = newBefore + after;
+  input.focus();
+  const newPos = newBefore.length;
+  input.selectionStart = input.selectionEnd = newPos;
+  hideMentionDropdown();
+}
+
+// ================= THREAD BUILDER =================
+let _threadActive = false;
+let _threadSegments = [];
+
+function toggleThreadBuilder(){
+  _threadActive = !_threadActive;
+  const builder = $("threadBuilder");
+  const btn = $("threadToggleBtn");
+  if(!builder) return;
+  if(_threadActive){
+    _threadSegments = ["", ""];
+    builder.style.display = "block";
+    btn?.classList.add("poll-toggle-active");
+    renderThreadSegments();
+    setTimeout(()=>{
+      const first = builder.querySelector(".thread-seg-input");
+      if(first) first.focus();
+    }, 50);
+  } else {
+    _threadSegments = [];
+    builder.style.display = "none";
+    btn?.classList.remove("poll-toggle-active");
+  }
+}
+
+function renderThreadSegments(){
+  const list = $("threadSegmentsList");
+  if(!list) return;
+  const me = state.profilesMap[state.user?.id];
+  const av = me?.avatar_url
+    ? `<img src="${escHtml(me.avatar_url)}">`
+    : (me?.username||"K")[0].toUpperCase();
+  list.innerHTML = _threadSegments.map((text, i)=>`
+    <div class="thread-segment">
+      <div class="thread-seg-avatar">${av}</div>
+      ${i < _threadSegments.length - 1 ? '<div class="thread-seg-line"></div>' : ''}
+      <textarea class="thread-seg-input" placeholder="Post ${i+1}…" rows="2"
+        oninput="_threadSegments[${i}]=this.value;autoResizeTextarea(this)"
+      >${escHtml(text)}</textarea>
+      ${_threadSegments.length > 2
+        ? `<button class="thread-seg-remove" onclick="removeThreadSegment(${i})" type="button" title="Remove">✕</button>`
+        : ""}
+    </div>`).join("");
+}
+
+function addThreadSegment(){
+  if(_threadSegments.length >= 8){ showToast("Max 8 posts in a thread"); return; }
+  _threadSegments.push("");
+  renderThreadSegments();
+  setTimeout(()=>{
+    const inputs = $("threadSegmentsList")?.querySelectorAll(".thread-seg-input");
+    if(inputs?.length) inputs[inputs.length-1].focus();
+  }, 30);
+}
+
+function removeThreadSegment(i){
+  if(_threadSegments.length <= 2) return;
+  _threadSegments.splice(i, 1);
+  renderThreadSegments();
+}
+
+// ================= AUDIO POST =================
+function onAudioSelected(input){
+  if(input.files?.[0]){
+    const name = input.files[0].name;
+    const lbl = $("audioLabel");
+    if(lbl) lbl.childNodes[0].textContent = `🎵 ${name.slice(0,14)}`;
+  }
+}
+
+// ================= REACTIONS =================
+const REACTIONS = ["❤️","🔥","😂","😮","👏","🎉"];
+
+function renderReactions(p){
+  let rxn = {};
+  try { rxn = p.reactions ? (typeof p.reactions==="string" ? JSON.parse(p.reactions) : p.reactions) : {}; } catch(e){}
+  const myR = state.myReactionsMap[p.id];
+  const chips = REACTIONS.map(emoji=>{
+    const count = rxn[emoji]||0;
+    if(!count && myR!==emoji) return "";
+    const reacted = myR===emoji;
+    return `<span class="reaction-chip${reacted?" reacted":""}" onclick="event.stopPropagation();reactPost('${p.id}','${emoji}')">${emoji} <small>${count}</small></span>`;
+  }).join("");
+  return `<div class="reaction-row">
+    ${chips}
+    <span class="reaction-add-btn" onclick="event.stopPropagation();openReactionPicker(event,'${p.id}')">+ React</span>
+  </div>`;
+}
+
+const reactPost = safe(async(postId, emoji)=>{
+  if(!state.user){ showToast("Log in to react"); return; }
+  const post = state.posts.find(p=>p.id===postId);
+  if(!post) return;
+  let rxn = {};
+  try { rxn = post.reactions ? {...(typeof post.reactions==="string" ? JSON.parse(post.reactions) : post.reactions)} : {}; } catch(e){}
+  const prev = state.myReactionsMap[postId];
+  if(prev){ rxn[prev] = Math.max(0,(rxn[prev]||1)-1); if(!rxn[prev]) delete rxn[prev]; }
+  if(prev !== emoji){ rxn[emoji]=(rxn[emoji]||0)+1; state.myReactionsMap[postId]=emoji; }
+  else { delete state.myReactionsMap[postId]; }
+  post.reactions = rxn;
+  await db.from("posts").update({reactions:JSON.stringify(rxn)}).eq("id",postId);
+  render();
+  closeReactionPicker();
+});
+
+function openReactionPicker(e, postId){
+  e.stopPropagation();
+  closeReactionPicker();
+  const picker = document.createElement("div");
+  picker.className = "reaction-picker-popup";
+  picker.id = "reactionPicker";
+  picker.innerHTML = REACTIONS.map(emoji=>
+    `<span onclick="reactPost('${postId}','${emoji}');closeReactionPicker()" title="${emoji}">${emoji}</span>`
+  ).join("");
+  const rect = e.target.getBoundingClientRect();
+  picker.style.left = `${Math.min(rect.left, window.innerWidth - 280)}px`;
+  picker.style.top  = `${rect.top - 58}px`;
+  document.body.appendChild(picker);
+  setTimeout(()=>document.addEventListener("click", closeReactionPicker, {once:true}), 10);
+}
+
+function closeReactionPicker(){
+  $("reactionPicker")?.remove();
 }

@@ -132,6 +132,7 @@
     <div class="nav-item" id="nav-jobs" onclick="goJobs()"><span class="nav-icon">💼</span><span class="nav-label">Jobs</span></div>
     <div class="nav-item" id="nav-surveys" onclick="goSurveys()"><span class="nav-icon">📋</span><span class="nav-label">Surveys</span></div>
     <div class="nav-palette-btn" onclick="openPalette()" title="Command Palette (Ctrl+K)">⌘ K</div>
+    <div class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">☀️ Light Mode</div>
   </aside>
 
   <!-- MAIN -->
@@ -155,7 +156,11 @@
 
     <!-- COMPOSER -->
     <div class="composer" id="composer">
-      <textarea id="postInput" placeholder="What's happening?" rows="3"></textarea>
+      <div class="composer-wrap">
+        <textarea id="postInput" placeholder="What's happening?" rows="3"></textarea>
+        <div id="mentionDropdown" class="mention-dropdown"></div>
+      </div>
+      <div class="draft-indicator" id="draftIndicator">💾 Draft saved</div>
 
       <!-- EMOJI PICKER -->
       <div id="emojiPicker" class="emoji-picker" style="display:none"></div>
@@ -167,6 +172,14 @@
 
       <!-- IMAGE PREVIEW STRIP (multi-photo) -->
       <div id="composerImgPreviews" class="composer-img-previews" style="display:none"></div>
+
+      <!-- THREAD BUILDER (hidden by default) -->
+      <div id="threadBuilder" style="display:none">
+        <div class="thread-builder">
+          <div id="threadSegmentsList"></div>
+          <button class="thread-add-btn" onclick="addThreadSegment()" type="button">+ Add to thread</button>
+        </div>
+      </div>
 
       <!-- POLL BUILDER (hidden by default) -->
       <div id="pollBuilder" style="display:none">
@@ -188,7 +201,9 @@
       <div class="composer-actions">
         <label class="file-label">📷 Photo <input type="file" id="imageInput" accept="image/*" multiple style="display:none"></label>
         <label class="file-label">🎥 Video <input type="file" id="videoInput" accept="video/*" style="display:none"></label>
+        <label class="file-label" id="audioLabel">🎵 Audio <input type="file" id="audioInput" accept="audio/*" style="display:none" onchange="onAudioSelected(this)"></label>
         <button class="file-label" id="pollToggleBtn" onclick="togglePollBuilder()" type="button">📊 Poll</button>
+        <button class="file-label" id="threadToggleBtn" onclick="toggleThreadBuilder()" type="button">🧵 Thread</button>
         <button class="file-label" id="emojiBtn" onclick="toggleEmoji()" type="button">😊</button>
         <button id="postBtn">Post</button>
       </div>
