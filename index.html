@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="/config.js"></script>
 
 </head>
 <body>
@@ -83,10 +84,12 @@
       Continue with Google
     </button>
     <div class="auth-divider"><span>or use email</span></div>
+    <form id="authForm" onsubmit="return false">
     <input id="email" placeholder="Gmail address" autocomplete="email">
     <input id="password" type="password" placeholder="Password (min 6 chars)" autocomplete="current-password">
-    <button id="signupBtn">Create Account</button>
-    <button id="loginBtn">Login</button>
+    <button id="signupBtn" type="button">Create Account</button>
+    <button id="loginBtn" type="submit">Login</button>
+    </form>
     <p class="auth-note">Only Gmail accounts are accepted</p>
   </div>
 </div>
