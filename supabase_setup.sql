@@ -54,6 +54,26 @@ alter table public.posts add column if not exists quoted_post_id  uuid;
 alter table public.posts add column if not exists quoted_content  text;
 alter table public.posts add column if not exists quoted_username text;
 
+-- Extra post columns (polls)
+alter table public.posts add column if not exists poll_options  text;
+alter table public.posts add column if not exists poll_votes    text default '{}';
+alter table public.posts add column if not exists poll_ends_at  timestamptz;
+
+-- ── POLL VOTES TABLE ─────────────────────────────────────────
+create table if not exists public.poll_votes (
+  post_id      uuid references public.posts(id) on delete cascade,
+  user_id      uuid references auth.users(id) on delete cascade,
+  option_index integer not null,
+  created_at   timestamptz default now(),
+  primary key (post_id, user_id)
+);
+alter table public.poll_votes enable row level security;
+
+drop policy if exists "Anyone can read poll votes"        on public.poll_votes;
+drop policy if exists "Authenticated users can vote"      on public.poll_votes;
+create policy "Anyone can read poll votes"   on public.poll_votes for select using (true);
+create policy "Authenticated users can vote" on public.poll_votes for insert with check (auth.uid()=user_id);
+
 
 -- ── 3. LIKES ────────────────────────────────────────────────
 create table if not exists public.likes (

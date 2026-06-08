@@ -72,8 +72,29 @@
   <div class="lightbox-counter" id="lightboxCounter" style="display:none"></div>
 </div>
 
+<!-- LANDING PAGE -->
+<div id="landingPage" class="landing-page">
+  <canvas id="landingCanvas"></canvas>
+  <div class="landing-content">
+    <div class="landing-logo-wrap">
+      <div class="landing-logo">K</div>
+      <div class="landing-logo-ring"></div>
+    </div>
+    <h1 class="landing-title">KUDASAI</h1>
+    <p class="landing-tagline">The social platform of the future</p>
+    <div class="landing-features">
+      <div class="landing-feat"><span class="landing-feat-icon">⚡</span><span>Real-time feeds</span></div>
+      <div class="landing-feat"><span class="landing-feat-icon">🌐</span><span>Global community</span></div>
+      <div class="landing-feat"><span class="landing-feat-icon">🔮</span><span>Next-gen experience</span></div>
+    </div>
+    <button class="landing-cta" onclick="enterApp()">Enter the Future <span class="landing-arrow">→</span></button>
+    <p class="landing-sub">Sign in or create an account to continue</p>
+  </div>
+  <div class="landing-grid"></div>
+</div>
+
 <!-- AUTH -->
-<div class="auth" id="authScreen">
+<div class="auth" id="authScreen" style="display:none">
   <div class="auth-box">
     <div class="auth-glow"></div>
     <div class="logo">K</div>
@@ -148,9 +169,27 @@
       <!-- IMAGE PREVIEW STRIP (multi-photo) -->
       <div id="composerImgPreviews" class="composer-img-previews" style="display:none"></div>
 
+      <!-- POLL BUILDER (hidden by default) -->
+      <div id="pollBuilder" style="display:none">
+        <div class="poll-options-list" id="pollOptionsList">
+          <input class="poll-option-input" id="pollOpt0" placeholder="Option 1" maxlength="80">
+          <input class="poll-option-input" id="pollOpt1" placeholder="Option 2" maxlength="80">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <button class="poll-add-opt-btn" onclick="addPollOption()" type="button">+ Add option</button>
+          <span style="font-size:12px;color:rgba(255,255,255,0.25);margin-left:auto">Duration:</span>
+          <select id="pollDuration" class="poll-duration-select">
+            <option value="1">1 day</option>
+            <option value="3" selected>3 days</option>
+            <option value="7">7 days</option>
+          </select>
+        </div>
+      </div>
+
       <div class="composer-actions">
         <label class="file-label">📷 Photo <input type="file" id="imageInput" accept="image/*" multiple style="display:none"></label>
         <label class="file-label">🎥 Video <input type="file" id="videoInput" accept="video/*" style="display:none"></label>
+        <button class="file-label" id="pollToggleBtn" onclick="togglePollBuilder()" type="button">📊 Poll</button>
         <button class="file-label" id="emojiBtn" onclick="toggleEmoji()" type="button">😊</button>
         <button id="postBtn">Post</button>
       </div>

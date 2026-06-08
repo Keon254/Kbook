@@ -133,12 +133,66 @@ function showAuthError(msg, type="error"){
   setTimeout(()=>{ el.style.display="none"; }, 4000);
 }
 
+// ================= LANDING PAGE =================
+function enterApp(){
+  const landing = $("landingPage");
+  if(!landing) return;
+  landing.classList.add("exiting");
+  setTimeout(()=>{
+    landing.style.display = "none";
+    const auth = $("authScreen");
+    if(auth) auth.style.display = "flex";
+    initLandingParticles(false);
+  }, 580);
+}
+
+function initLandingParticles(run=true){
+  const canvas = $("landingCanvas");
+  if(!canvas) return;
+  const ctx = canvas.getContext("2d");
+  let W = canvas.width  = window.innerWidth;
+  let H = canvas.height = window.innerHeight;
+  let animId;
+  const particles = Array.from({length:80},()=>({
+    x: Math.random()*W, y: Math.random()*H,
+    vx: (Math.random()-0.5)*0.4, vy: (Math.random()-0.5)*0.4,
+    r: Math.random()*1.5+0.5,
+    a: Math.random()
+  }));
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    particles.forEach(p=>{
+      p.x += p.vx; p.y += p.vy;
+      if(p.x<0) p.x=W; if(p.x>W) p.x=0;
+      if(p.y<0) p.y=H; if(p.y>H) p.y=0;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle = `rgba(0,212,255,${p.a*0.5})`;
+      ctx.fill();
+    });
+    animId = requestAnimationFrame(draw);
+  }
+  if(run){
+    draw();
+    window.addEventListener("resize",()=>{
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    },{once:false});
+  } else {
+    cancelAnimationFrame(animId);
+  }
+}
+
 // ================= START =================
 async function start(){
+  // Hide landing and auth, show app
+  const landing = $("landingPage");
+  if(landing) landing.style.display = "none";
   document.querySelector(".auth").style.display = "none";
   $("app").style.display = "grid";
   initParticles();
   initInfiniteScroll();
+  initPullToRefresh();
   await Promise.all([loadProfiles(), loadSocialData()]);
   await loadFeed();
   startRealtime();
@@ -271,7 +325,7 @@ function postCard(p){
       </div>
       <div class="content" style="cursor:pointer" onclick="openPost('${p.id}')">${parseContent(p.content)}</div>
       ${quotedHtml}
-      ${mediaHtml(p)}
+      ${p.poll_options ? renderPollCard(p) : mediaHtml(p)}
       <div class="actions">
         <button class="${liked?"btn-liked":""}" onclick="likeBurst(event,'${p.id}')">
           ${liked?"❤️":"🤍"} ${p.likes??0}
@@ -381,8 +435,15 @@ const createPost = safe(async()=>{
   const vidInput = $("videoInput");
   const imgFiles = _pendingImgFiles.slice(); // snapshot of staged images
 
-  if(!text && imgFiles.length === 0 && !vidInput?.files?.[0]){
-    alert("Write something or attach a photo/video.");
+  const pollOptions = _pollActive ? getPollOptions() : [];
+  const isPoll = _pollActive && pollOptions.length >= 2;
+
+  if(!text && imgFiles.length === 0 && !vidInput?.files?.[0] && !isPoll){
+    alert("Write something, attach a photo/video, or create a poll.");
+    return;
+  }
+  if(_pollActive && pollOptions.length < 2){
+    alert("Add at least 2 poll options.");
     return;
   }
 
@@ -425,6 +486,13 @@ const createPost = safe(async()=>{
     insertObj.quoted_content  = quoteState.content;
     insertObj.quoted_username = quoteState.username;
   }
+  if(isPoll){
+    const durationDays = parseInt($("pollDuration")?.value||"3");
+    const ends = new Date(Date.now() + durationDays*24*60*60*1000).toISOString();
+    insertObj.poll_options  = JSON.stringify(pollOptions);
+    insertObj.poll_votes    = JSON.stringify({});
+    insertObj.poll_ends_at  = ends;
+  }
   const {error} = await db.from("posts").insert([insertObj]);
 
   setUploadProgress(100);
@@ -437,6 +505,7 @@ const createPost = safe(async()=>{
   _pendingImgFiles = [];
   renderComposerPreviews();
   if(vidInput) vidInput.value="";
+  if(isPoll){ _pollActive=false; togglePollBuilder(); }
   clearQuote();
   setTimeout(()=>setUploadProgress(null), 600);
 
@@ -2044,6 +2113,9 @@ const submitMobilePost = safe(async()=>{
 
 // ================= INIT =================
 document.addEventListener("DOMContentLoaded", async()=>{
+  // Start landing page particles
+  initLandingParticles(true);
+
   $("loginBtn").onclick  = login;
   $("signupBtn").onclick = signup;
   $("postBtn").onclick   = createPost;
@@ -2125,6 +2197,170 @@ document.addEventListener("DOMContentLoaded", async()=>{
     }
   });
 });
+
+// ================= POLLS =================
+let _pollActive = false;
+let _pollOptionCount = 2;
+
+function togglePollBuilder(){
+  _pollActive = !_pollActive;
+  const builder = $("pollBuilder");
+  const btn = $("pollToggleBtn");
+  const imgLabel = $("imageInput")?.parentElement;
+  const vidLabel = $("videoInput")?.parentElement;
+  if(!builder) return;
+  if(_pollActive){
+    builder.style.display = "block";
+    btn?.classList.add("poll-toggle-active");
+    // Disable photo/video when poll is active
+    if(imgLabel) imgLabel.style.opacity="0.35", imgLabel.style.pointerEvents="none";
+    if(vidLabel) vidLabel.style.opacity="0.35", vidLabel.style.pointerEvents="none";
+    $("pollOpt0")?.focus();
+  } else {
+    builder.style.display = "none";
+    btn?.classList.remove("poll-toggle-active");
+    if(imgLabel) imgLabel.style.opacity="", imgLabel.style.pointerEvents="";
+    if(vidLabel) vidLabel.style.opacity="", vidLabel.style.pointerEvents="";
+    // Reset options back to 2
+    _pollOptionCount = 2;
+    const list = $("pollOptionsList");
+    if(list){
+      list.innerHTML = `
+        <input class="poll-option-input" id="pollOpt0" placeholder="Option 1" maxlength="80">
+        <input class="poll-option-input" id="pollOpt1" placeholder="Option 2" maxlength="80">`;
+    }
+  }
+}
+
+function addPollOption(){
+  if(_pollOptionCount >= 4){ showToast("Max 4 options"); return; }
+  const list = $("pollOptionsList");
+  if(!list) return;
+  const input = document.createElement("input");
+  input.className = "poll-option-input";
+  input.id = `pollOpt${_pollOptionCount}`;
+  input.placeholder = `Option ${_pollOptionCount+1}`;
+  input.maxLength = 80;
+  list.appendChild(input);
+  _pollOptionCount++;
+  input.focus();
+}
+
+function getPollOptions(){
+  const opts = [];
+  for(let i=0;i<_pollOptionCount;i++){
+    const v = ($(`pollOpt${i}`)?.value||"").trim();
+    if(v) opts.push(v);
+  }
+  return opts;
+}
+
+function renderPollCard(p){
+  if(!p.poll_options) return "";
+  let options;
+  try { options = JSON.parse(p.poll_options); } catch{ return ""; }
+  const votes = p.poll_votes ? JSON.parse(p.poll_votes) : {};
+  const myVote = p._myVote ?? null;
+  const totalVotes = Object.values(votes).reduce((a,b)=>a+b,0);
+  const hasVoted = myVote !== null;
+  const ended = p.poll_ends_at && new Date(p.poll_ends_at) < new Date();
+  const showResults = hasVoted || ended || p.user_id === state.user?.id;
+  const maxVotes = Math.max(...Object.values(votes), 1);
+
+  const optHtml = options.map((opt,i)=>{
+    const count = votes[i]||0;
+    const pct   = totalVotes ? Math.round(count/totalVotes*100) : 0;
+    const isWinner = showResults && count === Math.max(...Object.values(votes)) && count > 0;
+    const isMine   = myVote === i;
+    return `
+      <button class="poll-option-btn"
+        onclick="${!showResults?`votePoll('${p.id}',${i})`:'void 0'}"
+        ${showResults?"disabled":""}>
+        ${showResults ? `<div class="poll-option-fill${isWinner?" winner":""}" style="transform:scaleX(${pct/100})"></div>` : ""}
+        <div class="poll-option-label">
+          <span>${escHtml(opt)}${isMine?`<span class="poll-option-check">✓</span>`:""}${isWinner&&showResults?`<span class="poll-option-check">🏆</span>`:""}</span>
+          ${showResults?`<span class="poll-option-pct">${pct}%</span>`:""}
+        </div>
+      </button>`;
+  }).join("");
+
+  const endsText = p.poll_ends_at
+    ? (ended ? "Poll ended" : `Ends ${timeAgo(p.poll_ends_at)} ago`)
+    : "";
+
+  return `<div class="poll-card">
+    ${optHtml}
+    <div class="poll-meta">
+      <span>${totalVotes} vote${totalVotes!==1?"s":""}</span>
+      ${endsText ? `<span>·</span><span>${endsText}</span>` : ""}
+    </div>
+  </div>`;
+}
+
+const votePoll = safe(async(postId, optionIndex)=>{
+  if(!state.user){ alert("Log in to vote."); return; }
+  if(!cooldown("poll_"+postId, 1000)) return;
+
+  const {data:existing} = await db.from("poll_votes")
+    .select("option_index").eq("post_id",postId).eq("user_id",state.user.id).maybeSingle();
+  if(existing){ showToast("You already voted!"); return; }
+
+  await db.from("poll_votes").insert([{post_id:postId, user_id:state.user.id, option_index:optionIndex}]);
+
+  // Re-fetch post to update counts
+  const {data:post} = await db.from("posts").select("*").eq("id",postId).maybeSingle();
+  if(post){
+    const idx = state.posts.findIndex(p=>p.id===postId);
+    if(idx>=0){
+      state.posts[idx] = {...post, _myVote:optionIndex};
+      render();
+    }
+  }
+  showToast("Vote recorded! ✓");
+});
+
+// ================= PULL TO REFRESH (mobile) =================
+function initPullToRefresh(){
+  if(window.innerWidth > 768) return;
+  const main = document.querySelector(".main");
+  if(!main) return;
+
+  let startY = 0;
+  let pulling = false;
+  let indicator = document.createElement("div");
+  indicator.className = "ptr-indicator";
+  indicator.innerHTML = `<div class="ptr-spinner"></div><span>Refreshing…</span>`;
+  document.body.appendChild(indicator);
+
+  main.addEventListener("touchstart", e=>{
+    if(main.scrollTop === 0) startY = e.touches[0].clientY;
+  }, {passive:true});
+
+  main.addEventListener("touchend", async e=>{
+    if(!pulling) return;
+    pulling = false;
+    indicator.classList.add("visible");
+    await loadFeed();
+    setTimeout(()=>indicator.classList.remove("visible"), 600);
+  }, {passive:true});
+
+  main.addEventListener("touchmove", e=>{
+    if(main.scrollTop > 0) return;
+    const dy = e.touches[0].clientY - startY;
+    if(dy > 60) pulling = true;
+  }, {passive:true});
+}
+
+function showToast(msg, duration=2500){
+  const container = $("notifToastContainer");
+  if(!container) return;
+  const t = document.createElement("div");
+  t.className = "notif-toast";
+  t.innerHTML = `<div class="toast-body" style="flex:1"><div class="toast-title">${escHtml(msg)}</div></div>`;
+  t.onclick = ()=>t.remove();
+  container.appendChild(t);
+  setTimeout(()=>{ t.classList.add("toast-out"); setTimeout(()=>t.remove(), 400); }, duration);
+}
 
 // ================= CONTENT PARSER (hashtags + mentions) =================
 function parseContent(text){
