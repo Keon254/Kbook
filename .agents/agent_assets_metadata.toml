@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "-OwSz-YR3x2yCumDf74-b"
+uri = "file://supabase_setup.txt"
+type = "text"
+title = "KUDASAI — Full Supabase Setup SQL"
