@@ -179,12 +179,24 @@ function initLandingParticles(run=true){
 }
 
 // ================= START =================
+function hideSplash(){
+  const sp = $("splashScreen");
+  if(!sp || sp.classList.contains("splash-out")) return;
+  const fill = sp.querySelector(".splash-progress-fill");
+  if(fill){ fill.style.animation="none"; fill.style.transition="width 0.25s ease"; fill.style.width="100%"; }
+  setTimeout(()=>{
+    sp.classList.add("splash-out");
+    setTimeout(()=>{ if(sp.parentNode) sp.parentNode.removeChild(sp); }, 650);
+  }, 280);
+}
+
 async function start(){
   // Hide landing and auth, show app
   const landing = $("landingPage");
   if(landing) landing.style.display = "none";
   document.querySelector(".auth").style.display = "none";
   $("app").style.display = "grid";
+  hideSplash();
   initTheme();
   initParticles();
   initInfiniteScroll();
@@ -2220,6 +2232,8 @@ document.addEventListener("DOMContentLoaded", async()=>{
   if(data?.session?.user){
     state.user = data.session.user;
     start();
+  } else {
+    hideSplash();
   }
 
   // Handle Google OAuth redirect

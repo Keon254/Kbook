@@ -1,0 +1,190 @@
+KUDASAI BRAND IDENTITY + FUTURISTIC LOGO UPDATE
+
+Kudasai is evolving into a real futuristic social platform.
+
+DO NOT redesign the entire app.
+ONLY upgrade branding, logo integration, visual identity, and premium UI polish.
+
+==================================================
+MAIN GOALS
+==========
+
+1. CREATE A PROFESSIONAL FUTURISTIC LOGO
+2. IMPROVE BRAND IDENTITY
+3. ADD PREMIUM VISUAL POLISH
+4. MAKE THE PLATFORM LOOK APP-STORE READY
+5. IMPROVE UI CONSISTENCY
+
+==================================================
+LOGO SYSTEM
+===========
+
+Design and integrate a futuristic premium logo for Kudasai.
+
+Logo style:
+
+* futuristic
+* elegant
+* minimal
+* anime-inspired but subtle
+* recognizable at small sizes
+* premium dark-mode friendly
+
+Possible themes:
+
+* glowing “K”
+* cyber emblem
+* holographic symbol
+* futuristic diamond/star
+* anime-tech hybrid icon
+
+Requirements:
+
+* transparent PNG version
+* favicon version
+* navbar logo version
+* mobile app icon version
+* loading screen version
+
+Color style:
+
+* neon cyan
+* electric blue
+* violet glow
+* holographic gradients
+* clean dark aesthetic
+
+==================================================
+FAVICON + BROWSER BRANDING
+==========================
+
+Add:
+
+* favicon integration
+* browser tab branding
+* loading icon
+* startup splash logo
+* animated loading screen
+
+Ensure:
+
+* favicon works correctly
+* logo scales properly
+* mobile browser support
+* desktop browser support
+
+==================================================
+BRANDING POLISH
+===============
+
+Improve overall identity:
+
+* stronger typography
+* futuristic font pairing
+* cinematic startup feel
+* elegant UI consistency
+* premium visual hierarchy
+* cohesive color system
+
+==================================================
+UI DESIGN IMPROVEMENTS
+======================
+
+Refine:
+
+* navigation bar
+* sidebar visuals
+* feed cards
+* buttons
+* modals
+* profile cards
+* messaging UI
+* notifications
+
+Add:
+
+* smoother hover effects
+* glow animations
+* glassmorphism refinement
+* subtle ambient motion
+* futuristic gradients
+* layered depth effects
+
+==================================================
+MOBILE + DESKTOP BRAND EXPERIENCE
+=================================
+
+Desktop:
+
+* cinematic futuristic interface
+* premium spacing
+* immersive layout
+
+Mobile:
+
+* app-like experience
+* polished bottom navigation
+* fullscreen immersive feel
+* smooth responsive branding
+
+==================================================
+SEO + PUBLIC PRESENCE
+=====================
+
+Improve:
+
+* meta tags
+* Open Graph preview
+* social sharing preview
+* favicon metadata
+* site title consistency
+* branding consistency
+
+Generate:
+
+* robots.txt
+* sitemap.xml
+
+==================================================
+PERFORMANCE + QUALITY
+=====================
+
+Optimize:
+
+* logo loading
+* image rendering
+* responsive scaling
+* animation smoothness
+* loading performance
+
+Prevent:
+
+* blurry logos
+* oversized assets
+* overflow issues
+* inconsistent branding
+
+==================================================
+IMPORTANT RULES
+===============
+
+* Analyze current design before editing
+* Preserve working systems
+* Improve instead of replacing
+* Return complete updated sections
+* Separate HTML/CSS/JS clearly
+* Keep futuristic aesthetic elegant
+* Optimize for Replit + GitHub Pages
+
+==================================================
+FINAL GOAL
+==========
+
+Kudasai should feel like a premium futuristic social platform with:
+
+* iconic branding
+* professional logo system
+* cinematic UI
+* elegant anime-inspired identity
+* immersive mobile + desktop design
+* app-store-quality presentation
