@@ -1,0 +1,194 @@
+KUDASAI LEGAL + TRUST PAGES UPDATE
+
+Kudasai is preparing to become a public monetized social platform.
+
+DO NOT redesign the app.
+DO NOT break existing systems.
+ONLY add professional trust/legal pages and integrate them cleanly into the platform.
+
+==================================================
+MAIN GOALS
+==========
+
+1. ADD PROFESSIONAL LEGAL PAGES
+2. IMPROVE GOOGLE/ADSENSE TRUST
+3. MAKE THE PLATFORM LOOK OFFICIAL
+4. IMPROVE PUBLIC BRAND CREDIBILITY
+5. CREATE CLEAN MODERN PAGE DESIGNS
+
+==================================================
+PAGES TO CREATE
+===============
+
+Create these fully designed pages:
+
+1. ABOUT PAGE
+   Include:
+
+* what Kudasai is
+* futuristic social platform vision
+* anime-inspired design philosophy
+* realtime communication features
+* creator/community focus
+
+Design:
+
+* cinematic hero section
+* animated gradients
+* futuristic cards
+* immersive layout
+
+==================================================
+2. CONTACT PAGE
+Include:
+
+* contact form
+* support email section
+* feedback area
+* report issue section
+* social/contact links
+
+Features:
+
+* modern glassmorphism form
+* responsive mobile layout
+* smooth animations
+
+==================================================
+3. PRIVACY POLICY PAGE
+Create a professional modern privacy policy covering:
+
+* user accounts
+* data collection
+* cookies
+* authentication
+* messaging/privacy
+* analytics
+* security
+
+Style:
+
+* readable
+* professional
+* modern layout
+* dark futuristic theme
+
+==================================================
+4. TERMS OF SERVICE PAGE
+Include:
+
+* acceptable use
+* platform rules
+* account limitations
+* content ownership
+* moderation rights
+* suspension policy
+* legal disclaimers
+
+Design:
+
+* premium readable formatting
+* clean typography
+* responsive sections
+
+==================================================
+5. COMMUNITY GUIDELINES PAGE
+Create platform rules covering:
+
+* harassment
+* spam
+* hate speech
+* NSFW restrictions
+* impersonation
+* copyright abuse
+* safe community behavior
+
+Add:
+
+* futuristic icons
+* categorized rule cards
+* animated hover effects
+
+==================================================
+NAVIGATION + FOOTER
+===================
+
+Integrate all pages into:
+
+* footer navigation
+* mobile menu
+* desktop navigation
+* settings/help section
+
+Ensure:
+
+* easy accessibility
+* responsive behavior
+* smooth page transitions
+
+==================================================
+SEO + ADSENSE READINESS
+=======================
+
+Improve:
+
+* meta tags
+* semantic HTML
+* accessibility
+* page titles
+* descriptions
+
+Generate:
+
+* robots.txt
+* sitemap.xml
+
+Ensure:
+
+* Google-friendly structure
+* AdSense-friendly layout
+* mobile responsiveness
+
+==================================================
+DESIGN STYLE
+============
+
+Style should remain:
+
+* futuristic
+* elegant
+* cinematic
+* anime-inspired but subtle
+* premium dark-mode aesthetic
+
+Add:
+
+* glassmorphism
+* ambient glow
+* smooth animations
+* immersive sections
+* modern typography
+
+==================================================
+IMPORTANT RULES
+===============
+
+* Analyze existing layout before editing
+* Preserve current systems
+* Keep branding consistent
+* Return full updated files
+* Separate HTML/CSS/JS clearly
+* Keep mobile + desktop optimized
+* Optimize for Replit + GitHub Pages
+
+==================================================
+FINAL GOAL
+==========
+
+Kudasai should feel like a real professional futuristic social platform with:
+
+* official legal/trust pages
+* strong public credibility
+* Google/AdSense readiness
+* premium branding
+* cinematic modern presentation

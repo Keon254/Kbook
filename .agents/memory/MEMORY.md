@@ -1,0 +1,1 @@
+- [KUDASAI body::before z-index trap](body-before-z-index.md) — non-positioned elements render behind body::before (z-index:0); fix with position:relative;z-index:1
