@@ -4014,3 +4014,200 @@ audio::-webkit-media-controls-panel { background: rgba(0,212,255,0.08); }
    ════════════════════════════════════════════════════════════ */
 .draft-indicator { font-size: 11px; color: rgba(0,212,255,0.5); padding: 2px 0 4px; display: none; }
 .draft-indicator.visible { display: block; }
+
+/* ════════════════════════════════════════════════════════════
+   UI POLISH — Premium Glow & Depth System
+   ════════════════════════════════════════════════════════════ */
+
+/* Enhanced post card */
+.post {
+  background: linear-gradient(135deg, rgba(12,12,22,0.92) 0%, rgba(8,8,16,0.96) 100%) !important;
+  border: 1px solid rgba(0,212,255,0.07) !important;
+  transition: border-color 0.3s var(--transition), box-shadow 0.3s var(--transition), transform 0.2s var(--transition) !important;
+  will-change: transform, box-shadow;
+}
+.post:hover {
+  border-color: rgba(0,212,255,0.2) !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,212,255,0.1), inset 0 1px 0 rgba(0,212,255,0.06) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Action buttons — scale + glow on hover */
+.actions button {
+  transition: color 0.15s, background 0.15s, transform 0.12s !important;
+}
+.actions button:hover {
+  transform: scale(1.08) !important;
+}
+.actions button:active {
+  transform: scale(0.95) !important;
+}
+.btn-liked { animation: likePopIn 0.22s var(--transition) !important; }
+@keyframes likePopIn { 0%{transform:scale(1)} 50%{transform:scale(1.35)} 100%{transform:scale(1)} }
+
+/* Post avatar ring on hover */
+.post-avatar {
+  transition: box-shadow 0.2s, transform 0.2s !important;
+}
+.post-avatar:hover {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 12px rgba(0,212,255,0.3) !important;
+  transform: scale(1.05) !important;
+}
+
+/* Verified badge pulse */
+.verify-badge {
+  animation: verifyGlow 2.5s ease-in-out infinite alternate;
+}
+@keyframes verifyGlow {
+  from { filter: drop-shadow(0 0 2px rgba(0,212,255,0.4)); }
+  to   { filter: drop-shadow(0 0 6px rgba(0,212,255,0.9)); }
+}
+
+/* Composer focus glow */
+.composer:focus-within {
+  box-shadow: 0 0 0 1px rgba(0,212,255,0.2), 0 8px 40px rgba(0,0,0,0.4) !important;
+}
+.composer textarea:focus,
+.composer input:focus {
+  border-color: rgba(0,212,255,0.35) !important;
+  box-shadow: 0 0 0 3px rgba(0,212,255,0.06) !important;
+}
+
+/* Post button — premium glow pulse */
+#postBtn {
+  position: relative;
+  overflow: hidden;
+}
+#postBtn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.12) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.5s;
+}
+#postBtn:hover::after { transform: translateX(100%); }
+
+/* Skeleton loading — smoother shimmer */
+.skeleton-line, .skeleton-avatar {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.09) 40%,
+    rgba(0,212,255,0.07) 50%,
+    rgba(255,255,255,0.09) 60%,
+    rgba(255,255,255,0.04) 100%);
+  background-size: 200% 100%;
+  animation: shimmerPremium 1.6s ease-in-out infinite !important;
+}
+@keyframes shimmerPremium {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Sidebar brand — holographic glow */
+.brand .logo.small {
+  box-shadow: 0 0 0 1px rgba(0,212,255,0.2), 0 0 20px rgba(0,212,255,0.15);
+  transition: box-shadow 0.3s;
+}
+.brand .logo.small:hover {
+  box-shadow: 0 0 0 2px rgba(0,212,255,0.5), 0 0 40px rgba(0,212,255,0.25);
+}
+
+/* Nav items — smooth left-border indicator */
+.nav-item {
+  position: relative;
+  overflow: hidden;
+}
+.nav-item::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 15%; bottom: 15%;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+  transform: scaleY(0);
+  transition: transform 0.2s var(--transition);
+}
+.nav-item.active-nav::before { transform: scaleY(1); }
+.nav-item:hover::before       { transform: scaleY(0.5); opacity: 0.5; }
+
+/* Hashtag + mention — interactive glow */
+.hashtag, .mention {
+  transition: color 0.15s, text-shadow 0.15s !important;
+}
+.hashtag:hover, .mention:hover {
+  text-shadow: 0 0 8px rgba(0,212,255,0.5) !important;
+}
+
+/* Trending items — subtle hover */
+.trending-item {
+  transition: background 0.15s, padding-left 0.15s !important;
+  border-radius: 10px;
+}
+.trending-item:hover { padding-left: 6px !important; }
+
+/* Post shimmer entrance */
+.post {
+  animation: postEntrance 0.3s var(--transition) both;
+}
+@keyframes postEntrance {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Quote card premium border */
+.quote-card {
+  border-left: 2px solid rgba(0,212,255,0.3) !important;
+  transition: border-color 0.2s !important;
+}
+.quote-card:hover { border-left-color: rgba(0,212,255,0.7) !important; }
+
+/* Mobile bottom nav active glow */
+.mob-nav-item.active-mob-nav .mob-nav-icon {
+  filter: drop-shadow(0 0 6px rgba(0,212,255,0.6));
+}
+
+/* Panel headers */
+.panel h3 {
+  letter-spacing: 0.04em;
+  font-size: 13px;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--accent), #e8eaf0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Reaction chips micro-bounce */
+.reaction-chip {
+  transition: all 0.15s var(--transition) !important;
+}
+.reaction-chip:active { transform: scale(0.92) !important; }
+
+/* Thread connector line gradient */
+.thread-seg-line {
+  background: linear-gradient(to bottom, rgba(0,212,255,0.5), rgba(0,212,255,0.05)) !important;
+}
+
+/* Light mode overrides for new polish */
+[data-theme="light"] .post {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+  border-color: rgba(0,0,0,0.07) !important;
+}
+[data-theme="light"] .post:hover {
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,136,204,0.12) !important;
+}
+[data-theme="light"] .panel h3 {
+  background: linear-gradient(90deg, var(--accent), #1a1a2e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+[data-theme="light"] .skeleton-line, [data-theme="light"] .skeleton-avatar {
+  background: linear-gradient(90deg,
+    rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.08) 40%,
+    rgba(0,136,204,0.06) 50%, rgba(0,0,0,0.08) 60%,
+    rgba(0,0,0,0.04) 100%);
+  background-size: 200% 100%;
+  animation: shimmerPremium 1.6s ease-in-out infinite;
+}

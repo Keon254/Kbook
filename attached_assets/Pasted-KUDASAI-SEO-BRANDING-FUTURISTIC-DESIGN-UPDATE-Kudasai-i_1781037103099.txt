@@ -1,0 +1,209 @@
+KUDASAI SEO + BRANDING + FUTURISTIC DESIGN UPDATE
+
+Kudasai is now evolving from a project into a real public social platform.
+
+DO NOT rebuild the app.
+DO NOT remove existing systems.
+ONLY enhance branding, discoverability, UI polish, and futuristic design quality.
+
+==================================================
+MAIN GOALS
+==========
+
+1. IMPROVE GOOGLE SEARCH VISIBILITY
+2. ADD PROFESSIONAL BRANDING
+3. UPGRADE FUTURISTIC UI
+4. IMPROVE MOBILE + DESKTOP DESIGN
+5. MAKE THE PLATFORM FEEL MORE PREMIUM
+
+==================================================
+SEO + SEARCH ENGINE OPTIMIZATION
+================================
+
+Improve discoverability for Google and search engines.
+
+Tasks:
+
+* add proper meta tags
+* improve page titles
+* improve descriptions
+* add Open Graph tags
+* add Twitter/X preview tags
+* generate robots.txt
+* generate sitemap.xml
+* improve semantic HTML
+* optimize loading speed
+* improve accessibility
+
+Add:
+
+* dynamic titles
+* dynamic descriptions
+* profile SEO
+* post SEO
+* structured metadata
+
+Ensure:
+
+* pages are indexable
+* no SEO-breaking errors
+* mobile-friendly SEO structure
+
+==================================================
+BRANDING + LOGO SYSTEM
+======================
+
+Upgrade branding:
+
+* improve favicon/logo integration
+* animated loading logo
+* startup splash screen
+* futuristic Kudasai identity
+* glowing logo effects
+* clean premium typography
+* stronger visual identity
+
+Style:
+
+* futuristic
+* elegant
+* anime-inspired but minimal
+* cinematic
+
+==================================================
+FUTURISTIC UI REDESIGN
+======================
+
+Refine existing design:
+
+* smoother glassmorphism
+* better gradients
+* holographic glow effects
+* cleaner spacing
+* floating UI layers
+* premium cards
+* animated hover states
+* depth effects
+* ambient background animations
+
+DO NOT overdo the anime style.
+Keep it premium and modern.
+
+==================================================
+HOME FEED IMPROVEMENTS
+======================
+
+Improve:
+
+* post card layout
+* feed spacing
+* media previews
+* post interactions
+* immersive scrolling
+* story integration
+* trending sections
+* explore discovery sections
+
+Add:
+
+* animated engagement counters
+* smarter post previews
+* better loading skeletons
+* realtime interaction polish
+
+==================================================
+PROFILE PAGE IMPROVEMENTS
+=========================
+
+Enhance profiles:
+
+* futuristic profile headers
+* animated banners
+* cleaner followers/following UI
+* hover profile cards
+* profile badges
+* activity indicators
+* pinned content
+* improved tabs
+
+==================================================
+MESSAGING UI IMPROVEMENTS
+=========================
+
+Refine messaging:
+
+* modern message bubbles
+* animated replies
+* message tagging polish
+* smooth scroll-to-message
+* immersive chat layout
+* floating message actions
+* reactions animation
+* cleaner mobile DM UI
+
+==================================================
+MOBILE + DESKTOP POLISH
+=======================
+
+Desktop:
+
+* cinematic multi-column layout
+* smoother hover interactions
+* floating side panels
+* improved spacing
+
+Mobile:
+
+* fullscreen immersive experience
+* zero overflow
+* smooth gestures
+* optimized bottom navigation
+* responsive feed scaling
+
+==================================================
+PERFORMANCE + QUALITY
+=====================
+
+Optimize:
+
+* image loading
+* lazy loading
+* realtime subscriptions
+* animation performance
+* mobile responsiveness
+* rendering speed
+
+Fix:
+
+* overflow bugs
+* spacing inconsistencies
+* duplicated listeners
+* layout flickering
+* scroll lag
+
+==================================================
+IMPORTANT RULES
+===============
+
+* Analyze current files before editing
+* Preserve working systems
+* Improve instead of replacing
+* Return complete updated sections
+* Separate HTML/CSS/JS clearly
+* Generate any required SEO files
+* Keep Supabase compatibility
+* Optimize for Replit + GitHub Pages
+
+==================================================
+FINAL GOAL
+==========
+
+Kudasai should feel like a futuristic next-generation social platform with:
+
+* strong branding
+* Google search visibility
+* cinematic futuristic UI
+* premium mobile + desktop experiences
+* immersive realtime interactions
+* elegant anime-inspired aesthetics
+* polished professional presentation

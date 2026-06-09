@@ -504,7 +504,10 @@ const createPost = safe(async()=>{
     postBtn.disabled=false; postBtn.textContent="Post";
     $("postInput").value=""; autoResizeTextarea($("postInput"));
     _pendingImgFiles=[]; renderComposerPreviews();
-    _threadActive=false; toggleThreadBuilder();
+    // Reset thread builder directly (avoid toggle re-opening it)
+    _threadActive=false; _threadSegments=[];
+    const _tb=$("threadBuilder"); if(_tb) _tb.style.display="none";
+    $("threadToggleBtn")?.classList.remove("poll-toggle-active");
     localStorage.removeItem("kudasai_draft");
     if(audioInput) audioInput.value="";
     setUploadProgress(100); setTimeout(()=>setUploadProgress(null),600);
