@@ -1,0 +1,169 @@
+KUDASAI COMMUNITIES + CREATOR ECOSYSTEM UPDATE
+
+Kudasai is no longer a simple social platform.
+
+The next evolution is to create a living ecosystem where users can join communities, build audiences, and spend more time inside the platform.
+
+DO NOT rebuild existing systems.
+DO NOT replace working features.
+ONLY expand intelligently.
+
+==================================================
+COMMUNITIES SYSTEM
+==================
+
+Create a full community/group system.
+
+Users can:
+
+* create communities
+* join communities
+* leave communities
+* search communities
+* discover trending communities
+
+Community features:
+
+* banner image
+* avatar image
+* description
+* category
+* member count
+* rules section
+* moderators
+* community feed
+
+Examples:
+
+* Anime
+* Gaming
+* Art
+* Technology
+* RPG Games
+* Kudasai Updates
+
+==================================================
+CREATOR SYSTEM
+==============
+
+Add creator-focused features.
+
+Users can:
+
+* become creators
+* verify creator profiles
+* feature content
+* pin posts
+* track engagement
+
+Creator dashboard:
+
+* followers growth
+* profile visits
+* post performance
+* engagement analytics
+
+==================================================
+REPUTATION SYSTEM
+=================
+
+Create a progression system.
+
+Users earn:
+
+* reputation points
+* creator level
+* community level
+* activity badges
+
+Unlock:
+
+* profile effects
+* special badges
+* profile customization
+
+==================================================
+DISCOVERY ENGINE
+================
+
+Improve content discovery.
+
+Add:
+
+* trending communities
+* recommended communities
+* trending creators
+* trending posts
+* personalized suggestions
+
+==================================================
+SOCIAL FEATURES
+===============
+
+Add:
+
+* mentions (@username)
+* hashtags
+* community tags
+* featured posts
+* community announcements
+* event posts
+
+==================================================
+USER RETENTION FEATURES
+=======================
+
+Add:
+
+* daily login streaks
+* achievement system
+* milestone celebrations
+* onboarding progress
+* profile completion rewards
+
+==================================================
+VISUAL DESIGN
+=============
+
+Keep current futuristic design.
+
+Enhance:
+
+* community cards
+* creator cards
+* achievement animations
+* badge effects
+* level indicators
+
+Style:
+
+* futuristic
+* premium
+* immersive
+* anime-inspired but elegant
+
+==================================================
+PERFORMANCE
+===========
+
+Optimize:
+
+* community feeds
+* search
+* realtime updates
+* notifications
+* analytics queries
+
+==================================================
+FINAL GOAL
+==========
+
+Kudasai should feel like a complete social ecosystem where users:
+
+* build audiences
+* join communities
+* discover content
+* earn reputation
+* spend more time on the platform
+
+The platform should feel closer to Reddit, Discord, X, and modern creator platforms while maintaining its unique futuristic identity.

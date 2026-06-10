@@ -213,6 +213,8 @@ async function start(){
   NetworkEngine.init();
   Settings.init();
   loadFollowersSet();
+  checkDailyStreak();
+  loadJoinedCommSet();
 }
 
 // ================= PROFILES =================
@@ -330,13 +332,16 @@ function postCard(p){
             ${state._followersSet&&state._followersSet.has(p.user_id)&&!isMe?`<span class="mutual-badge">Follows you</span>`:""}
           </div>
           <span class="post-time">${timeAgo(p.created_at)}</span>
+          ${(p.likes||0)>=10?`<span class="hot-badge">🔥 Hot</span>`:''}
+          ${p.community_id?`<span class="comm-tag" onclick="event.stopPropagation();goComm('${p.community_id}')">🏘 ${escHtml(state.commNamesMap?.[p.community_id]||'Community')}</span>`:''}
         </div>
         ${!isMe ? `
           <button class="follow-btn ${following?"following":""}" onclick="toggleFollow('${p.user_id}')">
             ${following?"✓ Following":"+ Follow"}
           </button>
           <button class="post-more-btn" onclick="openUserMenu(event,'${p.user_id}')">⋯</button>` : `
-          <button class="delete-btn" onclick="deletePost('${p.id}')" title="Delete post">🗑</button>`}
+          <button class="delete-btn" onclick="deletePost('${p.id}')" title="Delete post">🗑</button>
+          <button class="delete-btn" onclick="${p.id===(state.profilesMap[state.user?.id]?.pinned_post_id)?`unpinPost()`:`pinPost('${p.id}')`}" title="${p.id===(state.profilesMap[state.user?.id]?.pinned_post_id)?'Unpin':'Pin'}">📌</button>`}
       </div>
       ${p.thread_order > 0 ? `<div class="thread-badge">🧵 Thread reply</div>` : (p.thread_id ? `<div class="thread-badge">🧵 Thread</div>` : "")}
       <div class="content" style="cursor:pointer" onclick="openPost('${p.id}')">${parseContent(p.content)}</div>
@@ -533,6 +538,7 @@ const createPost = safe(async()=>{
   }
 
   const insertObj = { content:text, user_id:state.user.id, image, video, audio_url };
+  if(state.pendingCommId){ insertObj.community_id = state.pendingCommId; state.pendingCommId = null; }
   if(quoteState){
     insertObj.quoted_post_id  = quoteState.postId;
     insertObj.quoted_content  = quoteState.content;
@@ -832,10 +838,15 @@ async function goProfile(userId){
     <div class="profile-card" style="margin-top:-40px;position:relative">
       <div class="profile-avatar" style="${me.avatar_url?'background:none;overflow:hidden;padding:0':''}">${avatarInner}</div>
       <div class="profile-info">
-        <div class="profile-username">@${escHtml(me.username||"user")}</div>
+        <div class="profile-username" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;justify-content:center">
+          @${escHtml(me.username||"user")}
+          ${me.is_creator?`<span class="creator-badge">🎨 Creator</span>`:''}
+          ${me.reputation!=null?renderLevelBadge(me.reputation):''}
+        </div>
+        ${(me.streak_days||0)>1?`<div class="streak-bar" style="justify-content:center;margin:4px auto 0">🔥 ${me.streak_days}-day streak</div>`:''}
         ${me.bio ? `<div class="profile-bio">${escHtml(me.bio)}</div>` : ""}
         ${me.status_message ? `<div class="profile-status">💭 ${escHtml(me.status_message)}</div>` : ""}
-        <div class="profile-balance">💰 K${me.balance||0}</div>
+        <div class="profile-balance">💰 K${me.balance||0}${me.reputation?` · ${me.reputation} XP`:''}</div>
         <div class="profile-stats">
           <span onclick="openFollowersList('${targetId}')" style="cursor:pointer"><strong id="follCount">${follRes.count||0}</strong> Followers</span>
           <span onclick="openFollowingList('${targetId}')" style="cursor:pointer"><strong>${followingRes.count||0}</strong> Following</span>
@@ -843,7 +854,8 @@ async function goProfile(userId){
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center">
         ${isMe ? `
-          <button class="comment-btn" onclick="openEditModal()">✏️ Edit Profile</button>` : `
+          <button class="comment-btn" onclick="openEditModal()">✏️ Edit Profile</button>
+          ${!me.is_creator?`<button class="comment-btn" onclick="becomeCreator()" style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(236,72,153,.15));border-color:rgba(168,85,247,.35);color:#c084fc">🎨 Go Creator</button>`:''}` : `
           <button class="follow-btn ${following?"following":""}" id="followBtn-${targetId}" onclick="toggleFollow('${targetId}')">
             ${following?"✓ Following":"+ Follow"}
           </button>
@@ -886,7 +898,15 @@ async function loadProfileTab(tab, targetId, isMe){
     const {data} = await db.from("posts").select("*")
       .eq("user_id",targetId).order("created_at",{ascending:false});
     if(!data?.length){ container.innerHTML=`<div class="empty-state">No posts yet.</div>`; return; }
-    container.innerHTML = data.map(p=>postCard(p)).join("");
+    const profOwner = state.profilesMap[targetId]||{};
+    const pinnedId  = profOwner.pinned_post_id;
+    let pinnedHtml  = '';
+    if(pinnedId){
+      const pinned = (data||[]).find(p=>p.id===pinnedId);
+      if(pinned) pinnedHtml = `<div class="pinned-post-wrap"><div class="pinned-label">📌 Pinned Post</div>${postCard(pinned)}</div>`;
+    }
+    const rest = (data||[]).filter(p=>!pinnedId||p.id!==pinnedId);
+    container.innerHTML = pinnedHtml + rest.map(p=>postCard(p)).join("");
 
   } else if(tab==="media"){
     const {data} = await db.from("posts").select("*")
@@ -1189,6 +1209,7 @@ async function openDM(otherId){
     </div>
     <div class="dm-input-row">
       <label class="dm-img-btn" title="Send image">📷<input type="file" id="dmImgInput" accept="image/*" style="display:none" onchange="sendDMImage('${otherId}',this)"></label>
+      <button class="dm-voice-btn" id="voiceRecordBtn" onclick="toggleVoiceRecord('${otherId}')" title="Voice note">🎙</button>
       <input class="comment-input" id="dmInput" placeholder="Message @${other.username||"user"}…"
         onkeydown="if(event.key==='Enter') sendMessage('${otherId}')">
       <button class="comment-btn" onclick="sendMessage('${otherId}')">Send</button>
@@ -1744,7 +1765,9 @@ async function goExplore(){
     html += `<div class="empty-state">Nothing to explore yet. Be the first to post!</div>`;
   }
 
+  html += `<div id="exploreComms"></div>`;
   $("feed").innerHTML = html;
+  loadExploreComms();
 }
 
 // ================= QUOTE REPOST =================
@@ -2435,6 +2458,10 @@ function renderDMContent(content){
   if((content||"").startsWith("[img]")){
     const url = escHtml(content.slice(5));
     return `<img src="${url}" class="dm-img-preview" onclick="openLightbox('${url}','img')" alt="Image">`;
+  }
+  if((content||"").startsWith("[voice]")){
+    const url = escHtml(content.slice(7));
+    return `<div class="voice-note-player"><span class="voice-note-icon">🎙</span><audio controls preload="metadata"><source src="${url}"></audio></div>`;
   }
   return parseContent(content);
 }
@@ -3744,4 +3771,459 @@ async function loadSidebarTrendingCreators() {
       </div>`;
     }).join('');
   } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+// COMMUNITIES SYSTEM
+// ═══════════════════════════════════════════════════════════
+state.commNamesMap  = {};
+state.joinedCommSet = new Set();
+
+const COMM_CATEGORIES = ['General','Entertainment','Creative','Technology','Gaming','Anime','Art','Music','Sports','Official'];
+
+async function loadJoinedCommSet(){
+  if(!state.user) return;
+  try {
+    const {data} = await db.from('community_members').select('community_id').eq('user_id', state.user.id);
+    state.joinedCommSet = new Set((data||[]).map(r=>r.community_id));
+  } catch(e){}
+}
+
+async function goCommunities(){
+  state.view = 'communities';
+  setActiveNav('nav-communities');
+  showComposer(false); showFeedTabs(false);
+  transitionFeed();
+
+  $('feed').innerHTML = `
+    <div class="comm-page-header">
+      <div class="comm-page-title">🏘 Communities</div>
+      <button class="comm-create-btn" onclick="openCreateCommModal()">+ Create</button>
+    </div>
+    <div class="comm-cat-bar" id="commCatBar">
+      <button class="comm-cat-btn active" onclick="filterComms('all',this)">All</button>
+      ${COMM_CATEGORIES.map(c=>`<button class="comm-cat-btn" onclick="filterComms('${c}',this)">${c}</button>`).join('')}
+    </div>
+    <div class="skeleton-card"><div class="skeleton-line" style="height:120px"></div></div>
+    <div class="skeleton-card"><div class="skeleton-line" style="height:120px"></div></div>
+    <div id="commList"></div>`;
+
+  await loadComms('all');
+}
+
+let _allComms = [];
+
+async function loadComms(cat){
+  try {
+    let q = db.from('communities').select('*').order('member_count',{ascending:false}).limit(30);
+    if(cat !== 'all') q = q.eq('category', cat);
+    const {data, error} = await q;
+    if(error) throw error;
+    _allComms = data||[];
+    renderCommList(_allComms);
+  } catch(e){
+    $('commList').innerHTML = `<div class="empty-state" style="padding:40px">
+      <div style="font-size:32px;margin-bottom:12px">🏗️</div>
+      <div>Communities are being set up!</div>
+      <div style="font-size:12px;margin-top:8px;color:rgba(255,255,255,0.35)">Run the migration SQL in your Supabase dashboard to enable this feature.</div>
+    </div>`;
+  }
+}
+
+function filterComms(cat, btn){
+  document.querySelectorAll('.comm-cat-btn').forEach(b=>b.classList.remove('active'));
+  btn?.classList.add('active');
+  if(cat==='all') renderCommList(_allComms);
+  else renderCommList(_allComms.filter(c=>c.category===cat));
+}
+
+function renderCommList(comms){
+  const list = $('commList');
+  if(!list) return;
+  if(!comms.length){ list.innerHTML=`<div class="empty-state" style="padding:30px">No communities found. Be the first to create one!</div>`; return; }
+  list.innerHTML = comms.map(c=>renderCommCard(c)).join('');
+}
+
+function renderCommCard(c){
+  const joined = state.joinedCommSet.has(c.id);
+  const av = c.avatar_url ? `<img src="${escHtml(c.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : c.name[0].toUpperCase();
+  return `
+    <div class="comm-card" onclick="goComm('${c.id}')">
+      <div class="comm-card-banner" style="${c.banner_url?`background:url(${escHtml(c.banner_url)}) center/cover`:'background:linear-gradient(135deg,rgba(0,212,255,.1),rgba(0,94,255,.08))'}"></div>
+      <div class="comm-card-body">
+        <div class="comm-card-avatar">${av}</div>
+        <div class="comm-card-info">
+          <div class="comm-card-name">${escHtml(c.name)}</div>
+          <div class="comm-card-cat">${escHtml(c.category||'General')}</div>
+          <div class="comm-card-desc">${escHtml((c.description||'').slice(0,80))}</div>
+          <div class="comm-card-meta">${c.member_count||0} members</div>
+        </div>
+        <button class="comm-join-btn ${joined?'joined':''}" onclick="event.stopPropagation();toggleCommJoin('${c.id}',this)">
+          ${joined?'✓ Joined':'Join'}
+        </button>
+      </div>
+    </div>`;
+}
+
+async function goComm(commId){
+  if(!commId) return;
+  state.view = 'comm_detail';
+  state.currentCommId = commId;
+  setActiveNav('nav-communities');
+  showComposer(false); showFeedTabs(false);
+  transitionFeed();
+
+  try {
+    const {data:c, error} = await db.from('communities').select('*').eq('id',commId).maybeSingle();
+    if(error||!c) throw error||new Error('not found');
+    state.commNamesMap[commId] = c.name;
+    const joined = state.joinedCommSet.has(commId);
+    const isOwner = c.created_by === state.user?.id;
+
+    $('feed').innerHTML = `
+      <div class="comm-detail-banner" style="${c.banner_url?`background:url(${escHtml(c.banner_url)}) center/cover`:'background:linear-gradient(135deg,rgba(0,212,255,.1),rgba(0,94,255,.07))'}">
+        <button class="dm-back" style="position:absolute;top:12px;left:12px" onclick="goCommunities()">← Back</button>
+      </div>
+      <div class="comm-detail-header">
+        <div class="comm-detail-avatar">${c.avatar_url?`<img src="${escHtml(c.avatar_url)}">`:(c.name[0].toUpperCase())}</div>
+        <div class="comm-detail-info">
+          <div class="comm-detail-name">${escHtml(c.name)}</div>
+          <div class="comm-detail-cat">${escHtml(c.category||'General')} · ${c.member_count||0} members</div>
+          ${c.description?`<div class="comm-detail-desc">${escHtml(c.description)}</div>`:''}
+        </div>
+        <div class="comm-detail-btns">
+          <button class="comm-join-btn ${joined?'joined':''}" id="commJoinBtn" onclick="toggleCommJoin('${commId}',this)">
+            ${joined?'✓ Joined':'Join'}
+          </button>
+          ${joined?`<button class="comm-post-btn" onclick="openCommComposer('${commId}')">✦ Post</button>`:''}
+        </div>
+      </div>
+      ${c.rules?`<div class="comm-rules-card"><div class="comm-rules-title">📋 Community Rules</div><div class="comm-rules-text">${escHtml(c.rules)}</div></div>`:''}
+      <div class="comm-feed-title">📰 Community Posts</div>
+      <div id="commFeed"><div class="skeleton-card"><div class="skeleton-line" style="height:80px"></div></div></div>`;
+
+    loadCommunityFeed(commId);
+  } catch(e){
+    $('feed').innerHTML = `<div class="empty-state" style="padding:40px">Community not found or database not set up yet.</div>`;
+  }
+}
+
+async function loadCommunityFeed(commId){
+  const feed = $('commFeed');
+  if(!feed) return;
+  try {
+    const {data, error} = await db.from('posts').select('*')
+      .eq('community_id', commId).order('created_at',{ascending:false}).limit(20);
+    if(error) throw error;
+    await Promise.all([...new Set((data||[]).map(p=>p.user_id))].map(ensureProfile));
+    if(!data?.length){ feed.innerHTML=`<div class="empty-state" style="padding:30px">No posts yet. Be the first to post!</div>`; return; }
+    feed.innerHTML = data.map(p=>postCard(p)).join('');
+  } catch(e){ feed.innerHTML = `<div class="empty-state" style="padding:20px">Could not load posts.</div>`; }
+}
+
+const toggleCommJoin = safe(async(commId, btn)=>{
+  if(!state.user) return;
+  const joined = state.joinedCommSet.has(commId);
+  if(joined){
+    await db.from('community_members').delete().eq('community_id',commId).eq('user_id',state.user.id);
+    state.joinedCommSet.delete(commId);
+    if(btn){ btn.textContent='Join'; btn.classList.remove('joined'); }
+    showToast('Left community');
+  } else {
+    await db.from('community_members').insert([{community_id:commId, user_id:state.user.id, role:'member'}]);
+    state.joinedCommSet.add(commId);
+    if(btn){ btn.textContent='✓ Joined'; btn.classList.add('joined'); }
+    showToast('Joined! 🎉');
+    awardXP(10, 'Joined a community');
+  }
+});
+
+function openCreateCommModal(){
+  let modal = $('createCommModal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'createCommModal';
+    modal.className = 'modal-overlay';
+    modal.onclick = e=>{ if(e.target===modal) modal.style.display='none'; };
+    modal.innerHTML = `
+      <div class="modal-box" style="max-width:480px">
+        <div class="modal-header"><span>✦ Create Community</span><button class="modal-close" onclick="$('createCommModal').style.display='none'">✕</button></div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+          <input class="comment-input" id="newCommName" placeholder="Community name" maxlength="40" style="width:100%">
+          <textarea class="comment-input" id="newCommDesc" placeholder="Description (optional)" rows="3" style="width:100%;resize:none"></textarea>
+          <textarea class="comment-input" id="newCommRules" placeholder="Rules (optional)" rows="3" style="width:100%;resize:none"></textarea>
+          <select class="settings-select" id="newCommCat" style="width:100%;max-width:100%">
+            ${COMM_CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('')}
+          </select>
+          <button class="comment-btn" onclick="saveNewCommunity()" style="width:100%;padding:14px">Create Community</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'flex';
+}
+
+const saveNewCommunity = safe(async()=>{
+  const name = $('newCommName')?.value.trim();
+  if(!name){ showToast('Community name is required'); return; }
+  const slug = name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,40) + '-' + Date.now();
+  const {data, error} = await db.from('communities').insert([{
+    name,
+    slug,
+    description: $('newCommDesc')?.value.trim()||null,
+    rules:       $('newCommRules')?.value.trim()||null,
+    category:    $('newCommCat')?.value||'General',
+    created_by:  state.user.id,
+  }]).select().single();
+  if(error){ showToast('Could not create community — run the SQL migration first'); return; }
+  $('createCommModal').style.display = 'none';
+  showToast('Community created! 🎉');
+  awardXP(25, 'Created a community');
+  await db.from('community_members').insert([{community_id:data.id, user_id:state.user.id, role:'moderator'}]);
+  state.joinedCommSet.add(data.id);
+  goComm(data.id);
+});
+
+function openCommComposer(commId){
+  state.pendingCommId = commId;
+  showComposer(true);
+  showToast('✦ Posting to community — write your post and hit Post!');
+  $('postInput')?.focus();
+}
+
+// ═══════════════════════════════════════════════════════════
+// VOICE NOTES (DMs)
+// ═══════════════════════════════════════════════════════════
+let _voiceRecorder  = null;
+let _voiceChunks    = [];
+let _voiceActive    = false;
+let _voiceOtherId   = null;
+let _voiceTimerEl   = null;
+let _voiceTimerInt  = null;
+let _voiceStartTime = 0;
+
+async function toggleVoiceRecord(otherId){
+  if(!_voiceActive){
+    await startVoiceRecord(otherId);
+  } else {
+    await stopVoiceRecord();
+  }
+}
+
+async function startVoiceRecord(otherId){
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    _voiceOtherId  = otherId;
+    _voiceChunks   = [];
+    _voiceActive   = true;
+    _voiceStartTime = Date.now();
+    _voiceRecorder = new MediaRecorder(stream);
+    _voiceRecorder.ondataavailable = e=>{ if(e.data.size>0) _voiceChunks.push(e.data); };
+    _voiceRecorder.onstop = ()=>{ stream.getTracks().forEach(t=>t.stop()); _uploadVoice(); };
+    _voiceRecorder.start();
+
+    const btn = $('voiceRecordBtn');
+    if(btn){ btn.textContent='⏹'; btn.classList.add('recording'); }
+    _voiceTimerInt = setInterval(()=>{
+      const s = Math.round((Date.now()-_voiceStartTime)/1000);
+      const btn2 = $('voiceRecordBtn');
+      if(btn2) btn2.title = `Recording ${s}s — click to send`;
+    }, 1000);
+    showToast('🎙 Recording… tap again to send');
+  } catch(e){
+    showToast('Microphone access denied');
+    _voiceActive = false;
+  }
+}
+
+async function stopVoiceRecord(){
+  clearInterval(_voiceTimerInt);
+  _voiceActive = false;
+  const btn = $('voiceRecordBtn');
+  if(btn){ btn.textContent='🎙'; btn.classList.remove('recording'); btn.title='Voice note'; }
+  if(_voiceRecorder && _voiceRecorder.state !== 'inactive') _voiceRecorder.stop();
+}
+
+async function _uploadVoice(){
+  if(!_voiceChunks.length || !_voiceOtherId) return;
+  const blob = new Blob(_voiceChunks, {type:'audio/webm'});
+  const path = `voice/${state.user.id}/${Date.now()}.webm`;
+  const {data, error} = await db.storage.from('images').upload(path, blob, {upsert:true, contentType:'audio/webm'});
+  if(error){ showToast('Voice note failed: '+error.message); return; }
+  const {data:urlData} = db.storage.from('images').getPublicUrl(data.path);
+  const {error:e2} = await db.from('messages').insert([{
+    sender_id: state.user.id, receiver_id: _voiceOtherId,
+    content: '[voice]'+urlData.publicUrl, read: false
+  }]);
+  if(e2){ showToast('Failed to send voice note'); return; }
+  showToast('Voice note sent 🎙');
+  await loadThread(_voiceOtherId);
+}
+
+// ═══════════════════════════════════════════════════════════
+// REPUTATION + LEVEL SYSTEM
+// ═══════════════════════════════════════════════════════════
+const LEVEL_THRESHOLDS = [0,100,300,600,1000,1500,2200,3100,4200,5500,7000];
+const LEVEL_NAMES = ['Newcomer','Rising','Social','Popular','Influencer','Veteran','Elite','Legend','Mythic','Deity','Transcendent'];
+const LEVEL_COLORS = ['#888','#00d4ff','#00dc82','#ffb800','#ff7c35','#a855f7','#ef4444','#ec4899','#f97316','#0ea5e9','#e2e8f0'];
+
+function getLevelInfo(rep){
+  const xp = rep||0;
+  let lv = 1;
+  for(let i=LEVEL_THRESHOLDS.length-1;i>=0;i--){ if(xp>=LEVEL_THRESHOLDS[i]){ lv=i+1; break; } }
+  const max = Math.min(lv, LEVEL_NAMES.length-1);
+  const next = LEVEL_THRESHOLDS[lv]||null;
+  const cur  = LEVEL_THRESHOLDS[lv-1]||0;
+  const pct  = next ? Math.round((xp-cur)/(next-cur)*100) : 100;
+  return { level:lv, name:LEVEL_NAMES[max]||'Transcendent', color:LEVEL_COLORS[max]||'#e2e8f0', xp, next, pct };
+}
+
+function renderLevelBadge(rep, small=false){
+  const info = getLevelInfo(rep);
+  return `<span class="level-badge${small?' level-badge-sm':''}" style="border-color:${info.color};color:${info.color}" title="${info.name} — ${info.xp} XP">Lv.${info.level}</span>`;
+}
+
+const awardXP = safe(async(amount, reason)=>{
+  if(!state.user) return;
+  // Optimistic update
+  const me = state.profilesMap[state.user.id];
+  if(me){ me.reputation = (me.reputation||0) + amount; me.level = getLevelInfo(me.reputation).level; }
+  const {data, error} = await db.from('profiles').update({
+    reputation: (me?.reputation||amount),
+    level: getLevelInfo(me?.reputation||amount).level
+  }).eq('user_id', state.user.id).select('reputation,level').single();
+  if(data){
+    const newInfo = getLevelInfo(data.reputation);
+    if(me){ me.reputation=data.reputation; me.level=data.level; }
+    // Level-up celebration
+    if(me && data.level > (me.level||1)){
+      showToast(`🎉 Level Up! You are now ${newInfo.name} (Lv.${data.level})`);
+      triggerConfetti();
+    }
+  }
+});
+
+function triggerConfetti(){
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:fixed;inset:0;z-index:99990;pointer-events:none;width:100%;height:100%';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const bits = Array.from({length:80},()=>({
+    x: Math.random()*canvas.width, y: -10,
+    vy: Math.random()*4+2, vx: (Math.random()-0.5)*3,
+    r: Math.random()*6+2,
+    color: ['#00d4ff','#00dc82','#ffb800','#ff7c35','#a855f7'][Math.floor(Math.random()*5)],
+    rot: Math.random()*360, rotV: (Math.random()-0.5)*8
+  }));
+  let frame = 0;
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    bits.forEach(b=>{
+      b.y+=b.vy; b.x+=b.vx; b.rot+=b.rotV; b.vy+=0.08;
+      ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.rot*Math.PI/180);
+      ctx.fillStyle=b.color; ctx.fillRect(-b.r,-b.r/2,b.r*2,b.r); ctx.restore();
+    });
+    frame++;
+    if(frame<120) requestAnimationFrame(draw);
+    else canvas.remove();
+  }
+  draw();
+}
+
+// ═══════════════════════════════════════════════════════════
+// DAILY LOGIN STREAK
+// ═══════════════════════════════════════════════════════════
+async function checkDailyStreak(){
+  if(!state.user) return;
+  try {
+    const {data:p} = await db.from('profiles').select('streak_days,last_streak_date').eq('user_id',state.user.id).single();
+    if(!p) return;
+    const today = new Date().toISOString().slice(0,10);
+    const last  = p.last_streak_date;
+    if(last === today) return; // already checked today
+    const yesterday = new Date(Date.now()-864e5).toISOString().slice(0,10);
+    let newStreak = 1;
+    if(last === yesterday){ newStreak = (p.streak_days||0) + 1; }
+    await db.from('profiles').update({streak_days:newStreak, last_streak_date:today}).eq('user_id',state.user.id);
+    const me = state.profilesMap[state.user.id];
+    if(me){ me.streak_days=newStreak; me.last_streak_date=today; }
+    if(newStreak > 1){
+      showToast(`🔥 ${newStreak}-day streak! Keep going!`);
+      if(newStreak % 7 === 0){ showToast(`🏆 ${newStreak}-day milestone!`); triggerConfetti(); awardXP(50, 'Streak milestone'); }
+    }
+    if(newStreak === 1 && last && last < yesterday) showToast('👋 Welcome back! Your streak reset.');
+  } catch(e){ console.warn('Streak check:', e?.message); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CREATOR MODE
+// ═══════════════════════════════════════════════════════════
+const becomeCreator = safe(async()=>{
+  if(!state.user) return;
+  const {error} = await db.from('profiles').update({is_creator:true}).eq('user_id',state.user.id);
+  if(error){ showToast('Could not activate creator mode'); return; }
+  const me = state.profilesMap[state.user.id];
+  if(me) me.is_creator = true;
+  showToast('🎨 Creator mode activated! Your profile now shows a Creator badge.');
+  awardXP(20, 'Became a creator');
+  goProfile();
+});
+
+// ═══════════════════════════════════════════════════════════
+// PIN POSTS
+// ═══════════════════════════════════════════════════════════
+const pinPost = safe(async(postId)=>{
+  const {error} = await db.from('profiles').update({pinned_post_id:postId}).eq('user_id',state.user.id);
+  if(error){ showToast('Could not pin post'); return; }
+  const me = state.profilesMap[state.user.id];
+  if(me) me.pinned_post_id = postId;
+  showToast('📌 Post pinned to your profile');
+});
+
+const unpinPost = safe(async()=>{
+  const {error} = await db.from('profiles').update({pinned_post_id:null}).eq('user_id',state.user.id);
+  if(error){ showToast('Could not unpin'); return; }
+  const me = state.profilesMap[state.user.id];
+  if(me) me.pinned_post_id = null;
+  showToast('📌 Post unpinned');
+  goProfile();
+});
+
+// ═══════════════════════════════════════════════════════════
+// COMMUNITY-AWARE POST SUBMIT
+// ═══════════════════════════════════════════════════════════
+// Patch submitPost to attach community_id if pending
+const _origSubmitPost = window.submitPost;
+// Will be applied as a post-submit hook
+function attachCommunityId(insertData){
+  if(state.pendingCommId){
+    insertData.community_id = state.pendingCommId;
+    state.pendingCommId = null;
+  }
+  return insertData;
+}
+
+// ═══════════════════════════════════════════════════════════
+// EXPLORE ENHANCEMENT — community discovery
+// ═══════════════════════════════════════════════════════════
+async function loadExploreComms(){
+  const el = $('exploreComms');
+  if(!el) return;
+  try {
+    const {data} = await db.from('communities').select('*').order('member_count',{ascending:false}).limit(4);
+    if(!data?.length){ el.innerHTML=''; return; }
+    el.innerHTML = `<div class="explore-section-title">🏘 Trending Communities</div>
+      <div class="explore-comm-grid">
+        ${data.map(c=>`
+          <div class="explore-comm-card" onclick="goComm('${c.id}')">
+            <div class="explore-comm-banner" style="${c.banner_url?`background:url(${escHtml(c.banner_url)}) center/cover`:'background:linear-gradient(135deg,rgba(0,212,255,.08),rgba(0,94,255,.06))'}"></div>
+            <div class="explore-comm-info">
+              <div class="explore-comm-name">${escHtml(c.name)}</div>
+              <div class="explore-comm-meta">${c.member_count||0} members</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  } catch(e){}
 }
