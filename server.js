@@ -5,8 +5,13 @@ const path = require('path');
 const PORT = 5000;
 const HOST = '0.0.0.0';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://zoipwzvfkbzszpiectzb.supabase.co";
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4";
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('ERROR: SUPABASE_URL and SUPABASE_ANON_KEY environment variables must be set.');
+  process.exit(1);
+}
 
 const mimeTypes = {
   '.html': 'text/html',
