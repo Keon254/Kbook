@@ -1,1 +1,3 @@
 - [KUDASAI body::before z-index trap](body-before-z-index.md) — non-positioned elements render behind body::before (z-index:0); fix with position:relative;z-index:1
+- [Splash double-render fix](splash-double-render.md) — landing-content needs ~0.95s animation-delay so it fades in after splash completes its 0.6s fade-out
+- [KUDASAI feature additions](kudasai-features.md) — NetworkEngine, Settings, hover cards, DM search, story reactions, achievements, feed scoring all appended to script.js

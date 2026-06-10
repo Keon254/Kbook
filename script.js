@@ -210,6 +210,9 @@ async function start(){
   loadSidebar();
   loadStories();
   initDraftSave();
+  NetworkEngine.init();
+  Settings.init();
+  loadFollowersSet();
 }
 
 // ================= PROFILES =================
@@ -320,8 +323,11 @@ function postCard(p){
         </div>
         <div class="post-meta">
           <div style="display:flex;align-items:center;gap:5px">
-            <span class="username" onclick="goProfile('${p.user_id}')" style="cursor:pointer">@${user.username||"user"}</span>
+            <span class="username" onclick="goProfile('${p.user_id}')" style="cursor:pointer"
+              onmouseenter="showHoverCard(event,'${p.user_id}')"
+              onmouseleave="removeHoverCard()">@${user.username||"user"}</span>
             ${verified ? `<span class="verify-badge" title="Verified">✓</span>` : ""}
+            ${state._followersSet&&state._followersSet.has(p.user_id)&&!isMe?`<span class="mutual-badge">Follows you</span>`:""}
           </div>
           <span class="post-time">${timeAgo(p.created_at)}</span>
         </div>
@@ -853,9 +859,14 @@ async function goProfile(userId){
       <button class="tab-btn"             id="ptab-likes"  onclick="switchProfileTab('likes','${targetId}',${isMe})">Likes</button>
       <button class="tab-btn"             id="ptab-replies" onclick="switchProfileTab('replies','${targetId}',${isMe})">Replies</button>
     </div>
-    <div id="profileContent"></div>`;
+    <div id="profileContent"></div>
+    <div id="profileAchievements"></div>`;
 
   loadProfileTab("posts", targetId, isMe);
+  loadAchievements(targetId).then(list => {
+    const el = $("profileAchievements");
+    if (el && list.length) el.innerHTML = renderAchievements(list);
+  });
 }
 
 function switchProfileTab(tab, targetId, isMe){
@@ -985,6 +996,7 @@ async function saveUsername(){ openEditModal(); }
 async function loadSidebar(){
   loadTrending();
   loadWhoToFollow();
+  loadSidebarTrendingCreators();
 }
 
 async function loadTrending(){
@@ -1144,25 +1156,14 @@ async function goMessages(){
     return;
   }
 
+  _dmConvoAll = convos;
   $("feed").innerHTML = `
+    <div class="dm-search-bar">
+      <input class="comment-input" placeholder="🔍 Search conversations…" oninput="filterDMConvos(this.value)" style="width:100%">
+    </div>
     <div class="search-section-title">💬 Conversations</div>
-    ${convos.map(c=>{
-      const u = state.profilesMap[c.otherId]||{};
-      const preview = escHtml((c.lastMsg.content||"").slice(0,60));
-      const mine = c.lastMsg.sender_id === state.user.id;
-      return `
-        <div class="dm-convo" onclick="openDM('${c.otherId}')">
-          <div class="avatar-wrap">
-            <div class="post-avatar">${(u.username||"?")[0].toUpperCase()}</div>
-            ${presenceDot(c.otherId)}
-          </div>
-          <div class="dm-convo-body">
-            <div class="dm-convo-name">@${u.username||"user"}</div>
-            <div class="dm-convo-preview">${mine?"You: ":""}${preview}</div>
-          </div>
-          <div class="dm-convo-time">${timeAgo(c.lastMsg.created_at)}</div>
-        </div>`;
-    }).join("")}`;
+    <div id="dmConvoList"></div>`;
+  renderDMConvoList(convos);
 }
 
 async function openDM(otherId){
@@ -1817,6 +1818,7 @@ const PALETTE_COMMANDS = [
   { icon:"🔖", label:"Bookmarks",        action:()=>goBookmarks() },
   { icon:"💬", label:"Messages",         action:()=>goMessages() },
   { icon:"💼", label:"Jobs",             action:()=>goJobs() },
+  { icon:"⚙️", label:"Settings",         action:()=>goSettings() },
   { icon:"✏️", label:"Edit Profile",     action:()=>openEditModal() },
   { icon:"🚪", label:"Log Out",          action:()=>{ db.auth.signOut(); location.reload(); }},
 ];
@@ -1950,7 +1952,7 @@ async function loadFeedPage(){
   await Promise.all([...new Set(data.map(p=>p.user_id))].map(ensureProfile));
 
   if(feedPage===0){
-    state.posts = data;
+    state.posts = state.tab==='forYou' ? applyFeedAlgorithm(data) : data;
     render();
   } else {
     state.posts = [...state.posts, ...data];
@@ -2623,6 +2625,7 @@ function renderStoryFrame(){
 
   clearTimeout(viewerTimer);
   viewerTimer = setTimeout(()=>nextStory(), 5000);
+  injectStoryExtras(story);
 }
 
 function nextStory(){
@@ -3219,4 +3222,526 @@ function openReactionPicker(e, postId){
 
 function closeReactionPicker(){
   $("reactionPicker")?.remove();
+}
+
+// ═══════════════════════════════════════════════════════════
+// SMART NETWORK ENGINE
+// ═══════════════════════════════════════════════════════════
+const NetworkEngine = {
+  quality: 'good',
+  retryQueue: [],
+  reconnectTimer: null,
+
+  init() {
+    this.check();
+    window.addEventListener('online',  () => { this.setQuality('good'); this.flushQueue(); this.reconnectSupa(); });
+    window.addEventListener('offline', () => this.setQuality('offline'));
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn) { conn.addEventListener('change', () => this.assessConnection(conn)); this.assessConnection(conn); }
+    setInterval(() => this.ping(), 45000);
+  },
+
+  assessConnection(conn) {
+    if (!navigator.onLine) { this.setQuality('offline'); return; }
+    const t = conn.effectiveType, rtt = conn.rtt || 0;
+    if (t === '4g' && rtt < 150)  { this.setQuality('excellent'); return; }
+    if (t === '4g' || t === '3g') { this.setQuality('good');      return; }
+    if (t === '2g' || rtt > 500)  { this.setQuality('weak');      return; }
+    this.setQuality('good');
+  },
+
+  async ping() {
+    if (!navigator.onLine) { this.setQuality('offline'); return; }
+    const t0 = Date.now();
+    try {
+      await fetch(`${window.SUPABASE_URL}/rest/v1/`, {
+        method: 'HEAD', headers: { apikey: window.SUPABASE_ANON_KEY },
+        signal: AbortSignal.timeout(5000)
+      });
+      const ms = Date.now() - t0;
+      this.setQuality(ms < 200 ? 'excellent' : ms < 700 ? 'good' : 'weak');
+    } catch(e) { if (!navigator.onLine) this.setQuality('offline'); }
+  },
+
+  check() {
+    if (!navigator.onLine) { this.setQuality('offline'); return; }
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn) this.assessConnection(conn);
+  },
+
+  setQuality(q) {
+    if (this.quality === q) return;
+    const prev = this.quality;
+    this.quality = q;
+    this.updateIndicator();
+    if (q === 'offline') {
+      this.showOfflineBanner(true);
+      document.body.classList.add('network-offline');
+    } else {
+      this.showOfflineBanner(false);
+      document.body.classList.remove('network-offline');
+      if (prev === 'offline') { showToast('🌐 Back online'); this.flushQueue(); this.reconnectSupa(); }
+    }
+    document.body.classList.toggle('data-saver-net', q === 'weak');
+  },
+
+  updateIndicator() {
+    const el = $('netQuality');
+    if (!el) return;
+    const cfg = { excellent: ['#00dc82','●'], good: ['#00d4ff','●'], weak: ['#ffb800','● Slow'], offline: ['#ff4842','● Offline'] }[this.quality] || ['#00d4ff','●'];
+    el.style.color = cfg[0];
+    el.textContent = cfg[1];
+    el.title = `Network: ${this.quality}`;
+    el.dataset.quality = this.quality;
+  },
+
+  showOfflineBanner(show) {
+    let b = $('offlineBanner');
+    if (!b) {
+      b = document.createElement('div');
+      b.id = 'offlineBanner';
+      b.className = 'offline-banner';
+      b.innerHTML = `<span>⚠️ You're offline — posts and messages will sync when you reconnect</span>`;
+      document.body.appendChild(b);
+    }
+    b.classList.toggle('visible', show);
+  },
+
+  enqueue(fn, label) {
+    this.retryQueue.push({ fn, label });
+    showToast(`📌 Queued: ${label}`);
+  },
+
+  async flushQueue() {
+    const q = this.retryQueue.splice(0);
+    for (const item of q) { try { await item.fn(); } catch(e) {} }
+    if (q.length) showToast(`✓ ${q.length} action${q.length > 1 ? 's' : ''} synced`);
+  },
+
+  reconnectSupa() {
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => { try { startRealtime(); initPresence(); } catch(e) {} }, 1200);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+// SETTINGS ENGINE
+// ═══════════════════════════════════════════════════════════
+const Settings = {
+  defaults: { dataSaver:false, reduceMotion:false, perfMode:false, notifLikes:true, notifComments:true, notifFollows:true, notifMessages:true, notifSounds:false, feedAlgo:'smart' },
+
+  load() { try { return { ...this.defaults, ...JSON.parse(localStorage.getItem('kudasai_settings')||'{}') }; } catch(e) { return {...this.defaults}; } },
+
+  save(key, val) { const c = this.load(); c[key] = val; localStorage.setItem('kudasai_settings', JSON.stringify(c)); this.apply(c); },
+
+  apply(cfg) {
+    document.body.classList.toggle('data-saver',    cfg.dataSaver);
+    document.body.classList.toggle('reduce-motion', cfg.reduceMotion || window.matchMedia('(prefers-reduced-motion:reduce)').matches);
+    document.body.classList.toggle('perf-mode',     cfg.perfMode);
+  },
+
+  init() {
+    this.apply(this.load());
+    if (window.matchMedia('(prefers-reduced-motion:reduce)').matches) document.body.classList.add('reduce-motion');
+  },
+
+  get(key) { return this.load()[key]; }
+};
+
+// ─── Settings Page ────────────────────────────────────────
+function goSettings() {
+  state.view = 'settings';
+  setActiveNav('nav-settings');
+  showComposer(false); showFeedTabs(false);
+  transitionFeed();
+
+  const cfg = Settings.load();
+  const me  = state.profilesMap[state.user?.id] || {};
+  const cp  = profileCompletion(me);
+
+  const toggle = (key, label, desc) => `
+    <div class="settings-row">
+      <div class="settings-row-info">
+        <div class="settings-row-label">${label}</div>
+        <div class="settings-row-desc">${desc}</div>
+      </div>
+      <label class="settings-toggle">
+        <input type="checkbox" ${cfg[key]?'checked':''} onchange="Settings.save('${key}',this.checked)">
+        <span class="settings-toggle-thumb"></span>
+      </label>
+    </div>`;
+
+  const select = (key, label, desc, opts) => `
+    <div class="settings-row">
+      <div class="settings-row-info">
+        <div class="settings-row-label">${label}</div>
+        <div class="settings-row-desc">${desc}</div>
+      </div>
+      <select class="settings-select" onchange="Settings.save('${key}',this.value)">
+        ${opts.map(([v,l])=>`<option value="${v}"${cfg[key]===v?' selected':''}>${l}</option>`).join('')}
+      </select>
+    </div>`;
+
+  const qmap = { excellent:'📶 Excellent', good:'📶 Good', weak:'⚠️ Weak', offline:'🔴 Offline' };
+
+  $('feed').innerHTML = `
+    <div class="settings-page">
+      <div class="settings-hero">
+        <div class="settings-hero-title">⚙️ Settings</div>
+        <div class="settings-hero-sub">Personalize your KUDASAI experience</div>
+      </div>
+
+      <div class="settings-profile-card">
+        <div class="profile-completion-wrap">
+          <svg class="completion-ring" viewBox="0 0 52 52">
+            <circle cx="26" cy="26" r="22" class="completion-bg"/>
+            <circle cx="26" cy="26" r="22" class="completion-fill"
+              stroke-dasharray="${(cp.pct/100)*138.2} 138.2"
+              stroke-dashoffset="34.6"/>
+          </svg>
+          <div class="completion-avatar">${me.avatar_url?`<img src="${escHtml(me.avatar_url)}">`:(me.username||'K')[0].toUpperCase()}</div>
+        </div>
+        <div class="settings-profile-info">
+          <div class="settings-profile-name">@${escHtml(me.username||'user')}</div>
+          <div class="settings-profile-pct">Profile ${cp.pct}% complete</div>
+          ${cp.missing.length?`<div class="settings-profile-tip">Add: ${cp.missing.join(', ')}</div>`:`<div class="settings-profile-tip done">✓ Profile complete!</div>`}
+        </div>
+        <button class="settings-edit-btn" onclick="openEditModal()">Edit</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">🌐 Network</div>
+        ${toggle('dataSaver','Data Saver','Reduces media quality and disables heavy animations to save data')}
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-label">Connection Quality</div>
+            <div class="settings-row-desc">${qmap[NetworkEngine.quality]||'Good'}</div>
+          </div>
+          <span style="font-size:18px">${NetworkEngine.quality==='offline'?'🔴':NetworkEngine.quality==='weak'?'⚠️':'📶'}</span>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">🎨 Display & Performance</div>
+        ${toggle('reduceMotion','Reduce Motion','Minimizes animations and transitions')}
+        ${toggle('perfMode','Performance Mode','Disables particles and complex effects for low-end devices')}
+        ${select('feedAlgo','Feed Algorithm','How your For You feed is sorted',[['smart','Smart (engagement-ranked)'],['recent','Newest First'],['trending','Trending Only']])}
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">🔔 Notifications</div>
+        ${toggle('notifLikes',    'Likes',         'Notify when someone likes your post')}
+        ${toggle('notifComments', 'Comments',      'Notify when someone comments on your post')}
+        ${toggle('notifFollows',  'New Followers', 'Notify when someone follows you')}
+        ${toggle('notifMessages', 'Messages',      'Notify when you receive a direct message')}
+        ${toggle('notifSounds',   'Sound Alerts',  'Play a sound for incoming notifications')}
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">🔐 Account</div>
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-label">Email</div>
+            <div class="settings-row-desc">${escHtml(state.user?.email||'—')}</div>
+          </div>
+        </div>
+        <div class="settings-row" style="cursor:pointer" onclick="openEditModal()">
+          <div class="settings-row-info">
+            <div class="settings-row-label">Edit Profile</div>
+            <div class="settings-row-desc">Update username, bio, avatar and banner</div>
+          </div>
+          <span style="color:var(--silver)">›</span>
+        </div>
+        <div class="settings-row" style="cursor:pointer" onclick="if(confirm('Sign out?')){db.auth.signOut();location.reload();}">
+          <div class="settings-row-info">
+            <div class="settings-row-label" style="color:#ff6b6b">Sign Out</div>
+            <div class="settings-row-desc">You will need to log in again</div>
+          </div>
+          <span style="color:#ff6b6b">›</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ─── Profile Completion ───────────────────────────────────
+function profileCompletion(p) {
+  const checks = [
+    { label:'username',   done:!!p.username },
+    { label:'bio',        done:!!p.bio },
+    { label:'avatar',     done:!!p.avatar_url },
+    { label:'banner',     done:!!p.banner_url },
+    { label:'status',     done:!!p.status_message },
+  ];
+  const done = checks.filter(c=>c.done).length;
+  return { pct: Math.round(done/checks.length*100), missing: checks.filter(c=>!c.done).map(c=>c.label) };
+}
+
+// ═══════════════════════════════════════════════════════════
+// PROFILE HOVER CARDS
+// ═══════════════════════════════════════════════════════════
+let _hoverTimer = null;
+let _hoverCard  = null;
+
+function showHoverCard(event, userId) {
+  clearTimeout(_hoverTimer);
+  _hoverTimer = setTimeout(async () => {
+    await ensureProfile(userId);
+    const u = state.profilesMap[userId];
+    if (!u || state.view === 'messages' || state.view === 'dm_thread') return;
+    removeHoverCard();
+
+    const following  = state.followingSet.has(userId);
+    const followsMe  = state._followersSet && state._followersSet.has(userId);
+    const isMe       = userId === state.user?.id;
+    const cp         = profileCompletion(u);
+
+    const card = document.createElement('div');
+    card.id        = 'profileHoverCard';
+    card.className = 'hover-card';
+    card.innerHTML = `
+      <div class="hover-card-banner" style="${u.banner_url?`background:url(${escHtml(u.banner_url)}) center/cover no-repeat`:'background:linear-gradient(135deg,rgba(0,212,255,.12),rgba(0,94,255,.1))'}"></div>
+      <div class="hover-card-body">
+        <div class="hover-card-top">
+          <div class="hover-card-avatar">${u.avatar_url?`<img src="${escHtml(u.avatar_url)}">`:(u.username||'U')[0].toUpperCase()}</div>
+          ${!isMe?`<button class="follow-btn ${following?'following':''}" onclick="toggleFollow('${userId}');removeHoverCard()">${following?'✓ Following':'+ Follow'}</button>`:''}
+        </div>
+        <div class="hover-card-name">
+          @${escHtml(u.username||'user')}
+          ${u.verified?'<span class="verify-badge" title="Verified">✓</span>':''}
+          ${followsMe?'<span class="mutual-badge">Follows you</span>':''}
+        </div>
+        ${u.bio?`<div class="hover-card-bio">${escHtml(u.bio.slice(0,100))}</div>`:''}
+        ${u.status_message?`<div class="hover-card-status">💭 ${escHtml(u.status_message.slice(0,60))}</div>`:''}
+        <div class="hover-card-footer">
+          ${presenceDot(userId)}&nbsp;<span style="font-size:11px;color:var(--silver)">${state.onlineSet.has(userId)?'Online now':'Offline'}</span>
+          <button class="hover-card-dm" onclick="startDM('${userId}');removeHoverCard()">✉ DM</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(card);
+    _hoverCard = card;
+
+    const rect = event.target.getBoundingClientRect();
+    let top  = rect.bottom + window.scrollY + 8;
+    let left = rect.left   + window.scrollX;
+    if (left + 290 > window.innerWidth - 10) left = window.innerWidth - 300;
+    if (left < 10) left = 10;
+    if (top + 240 > window.innerHeight + window.scrollY) top = rect.top + window.scrollY - 248;
+    card.style.top  = top  + 'px';
+    card.style.left = left + 'px';
+    card.addEventListener('mouseleave', removeHoverCard);
+  }, 550);
+}
+
+function removeHoverCard() {
+  clearTimeout(_hoverTimer);
+  if (_hoverCard) { _hoverCard.remove(); _hoverCard = null; }
+}
+
+// ═══════════════════════════════════════════════════════════
+// FEED ENGAGEMENT SCORING
+// ═══════════════════════════════════════════════════════════
+function scorePost(p) {
+  const ageH    = (Date.now() - new Date(p.created_at)) / 3600000;
+  const recency = Math.max(0, 1 - ageH / 48);
+  const likes   = p.likes || 0;
+  let rxn = 0;
+  try { if (p.reactions) { const r = typeof p.reactions==='string'?JSON.parse(p.reactions):p.reactions; rxn = Object.values(r).reduce((a,b)=>a+b,0); } } catch(e){}
+  return likes * 2.5 + rxn * 1.5 + recency * 40;
+}
+
+function applyFeedAlgorithm(posts) {
+  const algo = Settings.get('feedAlgo') || 'smart';
+  if (algo === 'recent')   return posts;
+  if (algo === 'trending') return [...posts].sort((a,b) => (b.likes||0) - (a.likes||0));
+  return [...posts].sort((a,b) => scorePost(b) - scorePost(a));
+}
+
+// ═══════════════════════════════════════════════════════════
+// MUTUAL / FOLLOWER SET
+// ═══════════════════════════════════════════════════════════
+async function loadFollowersSet() {
+  if (!state.user) return;
+  try {
+    const { data } = await db.from('follows').select('follower_id').eq('following_id', state.user.id);
+    state._followersSet = new Set((data||[]).map(r => r.follower_id));
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+// DM SEARCH
+// ═══════════════════════════════════════════════════════════
+let _dmConvoAll = [];
+
+function filterDMConvos(q) {
+  if (!q.trim()) { renderDMConvoList(_dmConvoAll); return; }
+  const lower = q.toLowerCase();
+  renderDMConvoList(_dmConvoAll.filter(c => {
+    const u = state.profilesMap[c.otherId] || {};
+    return (u.username||'').toLowerCase().includes(lower) ||
+           (c.lastMsg.content||'').toLowerCase().includes(lower);
+  }));
+}
+
+function renderDMConvoList(convos) {
+  const list = $('dmConvoList');
+  if (!list) return;
+  if (!convos.length) { list.innerHTML = `<div class="empty-state" style="padding:20px">No conversations found</div>`; return; }
+  list.innerHTML = convos.map(c => {
+    const u      = state.profilesMap[c.otherId] || {};
+    const mine   = c.lastMsg.sender_id === state.user.id;
+    const unread = !mine && !c.lastMsg.read;
+    const content = c.lastMsg.content || '';
+    const preview = content.startsWith('[img]') ? '📷 Photo' : escHtml(content.slice(0,55));
+    const av = u.avatar_url
+      ? `<img src="${escHtml(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+      : (u.username||'?')[0].toUpperCase();
+    return `
+      <div class="dm-convo${unread?' dm-convo-unread':''}" onclick="openDM('${c.otherId}')">
+        <div class="avatar-wrap">
+          <div class="post-avatar" style="${u.avatar_url?'background:none;padding:0;overflow:hidden':''}">${av}</div>
+          ${presenceDot(c.otherId)}
+        </div>
+        <div class="dm-convo-body">
+          <div class="dm-convo-name">@${escHtml(u.username||'user')}${unread?' <span class="dm-unread-dot"></span>':''}</div>
+          <div class="dm-convo-preview">${mine?'You: ':''}${preview}</div>
+        </div>
+        <div class="dm-convo-time">${timeAgo(c.lastMsg.created_at)}</div>
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// STORY ENHANCEMENTS — Reactions + Reply
+// ═══════════════════════════════════════════════════════════
+const STORY_REACTIONS = ['❤️','🔥','😂','😮','👏','🎉'];
+
+function injectStoryExtras(story) {
+  const box = document.querySelector('.story-viewer-box');
+  if (!box) return;
+  let extras = $('storyExtras');
+  if (!extras) {
+    extras = document.createElement('div');
+    extras.id = 'storyExtras';
+    extras.className = 'story-extras';
+    box.appendChild(extras);
+  }
+  extras.innerHTML = `
+    <div class="story-reaction-bar">
+      ${STORY_REACTIONS.map(e=>`<button class="story-react-btn" onclick="reactToStory('${story.id}','${e}')">${e}</button>`).join('')}
+    </div>
+    <div class="story-reply-row">
+      <input class="comment-input" id="storyReplyInput" placeholder="Reply to this story…"
+        onkeydown="if(event.key==='Enter')sendStoryReply('${story.id}')"
+        onclick="event.stopPropagation()">
+      <button class="comment-btn" onclick="sendStoryReply('${story.id}')">↗</button>
+    </div>`;
+}
+
+const reactToStory = safe(async (storyId, emoji) => {
+  showToast(emoji + ' Reacted!');
+  try { await db.from('story_reactions').insert([{ story_id:storyId, user_id:state.user.id, emoji }]); } catch(e){}
+});
+
+const sendStoryReply = safe(async (storyId) => {
+  const input = $('storyReplyInput');
+  const text  = input?.value.trim();
+  if (!text || !state.user) return;
+  const entry = viewerStories[viewerIdx];
+  if (!entry) return;
+  const { error } = await db.from('messages').insert([{
+    sender_id: state.user.id, receiver_id: entry.userId,
+    content: `📖 Story reply: ${text}`, read: false
+  }]);
+  if (error) throw error;
+  input.value = '';
+  showToast('Reply sent ✓');
+  // Pause the auto-advance timer while user types
+  clearTimeout(viewerTimer);
+  viewerTimer = setTimeout(()=>nextStory(), 5000);
+});
+
+// ═══════════════════════════════════════════════════════════
+// ACHIEVEMENTS
+// ═══════════════════════════════════════════════════════════
+const ACHIEVEMENTS = [
+  { id:'first_post',  icon:'✍️',  label:'First Post',    desc:'Posted for the first time' },
+  { id:'social_10',   icon:'👥',  label:'Social',        desc:'Gained 10 followers' },
+  { id:'viral',       icon:'🔥',  label:'Going Viral',   desc:'A post reached 10 likes' },
+  { id:'storyteller', icon:'📸',  label:'Storyteller',   desc:'Shared a story' },
+  { id:'connector',   icon:'🤝',  label:'Connector',     desc:'Followed 10 people' },
+  { id:'chatter',     icon:'💬',  label:'Chatterbox',    desc:'Sent 10 messages' },
+  { id:'complete',    icon:'⭐',   label:'Complete',      desc:'100% profile completion' },
+];
+
+async function loadAchievements(userId) {
+  try {
+    const [postsRes, follRes, followRes, storyRes] = await Promise.all([
+      db.from('posts').select('id,likes').eq('user_id',userId).order('likes',{ascending:false}).limit(1),
+      db.from('follows').select('follower_id',{count:'exact',head:true}).eq('following_id',userId),
+      db.from('follows').select('following_id',{count:'exact',head:true}).eq('follower_id',userId),
+      db.from('stories').select('id',{count:'exact',head:true}).eq('user_id',userId),
+    ]);
+    const stats = {
+      postCount:      postsRes.data?.length || 0,
+      maxLikes:       postsRes.data?.[0]?.likes || 0,
+      followerCount:  follRes.count  || 0,
+      followingCount: followRes.count || 0,
+      storyCount:     storyRes.count  || 0,
+    };
+    const u  = state.profilesMap[userId] || {};
+    const cp = profileCompletion(u);
+    const unlocked = new Set();
+    if (stats.postCount  >= 1)  unlocked.add('first_post');
+    if (stats.followerCount >= 10) unlocked.add('social_10');
+    if (stats.maxLikes   >= 10) unlocked.add('viral');
+    if (stats.storyCount >= 1)  unlocked.add('storyteller');
+    if (stats.followingCount >= 10) unlocked.add('connector');
+    if (cp.pct >= 100)          unlocked.add('complete');
+    return ACHIEVEMENTS.filter(a => unlocked.has(a.id));
+  } catch(e) { return []; }
+}
+
+function renderAchievements(list) {
+  if (!list.length) return '';
+  return `<div class="achievements-section">
+    <div class="achievements-title">🏆 Achievements</div>
+    <div class="achievements-grid">
+      ${list.map(a=>`
+        <div class="achievement-badge" title="${escHtml(a.desc)}">
+          <div class="achievement-icon">${a.icon}</div>
+          <div class="achievement-label">${a.label}</div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// TRENDING UPGRADES — Creators + Posts
+// ═══════════════════════════════════════════════════════════
+async function loadSidebarTrendingCreators() {
+  const el = $('trendingCreators');
+  if (!el) return;
+  try {
+    // Top users by follower count (approximate via profiles with most posts recently)
+    const { data } = await db.from('posts')
+      .select('user_id')
+      .gte('created_at', new Date(Date.now()-7*864e5).toISOString())
+      .limit(50);
+    if (!data?.length) { el.innerHTML = ''; return; }
+    const counts = {};
+    data.forEach(p => counts[p.user_id] = (counts[p.user_id]||0)+1);
+    const topIds = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);
+    await Promise.all(topIds.map(ensureProfile));
+    el.innerHTML = topIds.map(uid => {
+      const u = state.profilesMap[uid]||{};
+      if (!u.username || uid === state.user?.id) return '';
+      const av = u.avatar_url ? `<img src="${escHtml(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (u.username||'U')[0].toUpperCase();
+      return `<div class="creator-item" onclick="goProfile('${uid}')">
+        <div class="creator-avatar">${av}${presenceDot(uid)}</div>
+        <div class="creator-name">@${escHtml(u.username)}</div>
+        <div class="creator-count">${counts[uid]} posts</div>
+      </div>`;
+    }).join('');
+  } catch(e) {}
 }

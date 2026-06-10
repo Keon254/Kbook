@@ -1,0 +1,231 @@
+KUDASAI NEXT-GENERATION PLATFORM EVOLUTION
+
+Kudasai has most core social features already implemented.
+
+DO NOT rebuild existing systems.
+DO NOT replace working code.
+DO NOT generate unnecessary features.
+
+Your goal is to transform Kudasai from a project into a polished, production-quality social platform.
+
+==================================================
+PRIMARY OBJECTIVE
+=================
+
+Make Kudasai feel fast, intelligent, addictive, immersive, and professional.
+
+Every improvement should increase:
+
+* user retention
+* engagement
+* responsiveness
+* visual quality
+* platform stability
+
+==================================================
+SMART NETWORK ENGINE
+====================
+
+Build an intelligent network system.
+
+Features:
+
+* realtime connection monitoring
+* latency indicator
+* connection quality detection
+* offline mode
+* automatic reconnection
+* failed request retry queue
+* smart media loading
+
+Behavior:
+
+Excellent Network:
+
+* preload content
+* preload profiles
+* preload stories
+* enable advanced animations
+
+Weak Network:
+
+* reduce media quality
+* reduce background effects
+* aggressive lazy loading
+* prioritize text content
+
+Offline:
+
+* cache feed
+* cache profiles
+* cache messages
+* queue actions until reconnection
+
+==================================================
+INTELLIGENT FEED SYSTEM
+=======================
+
+Improve feed quality.
+
+Add:
+
+* smarter recommendations
+* trending content detection
+* engagement ranking
+* active discussion ranking
+* personalized suggestions
+
+Feed should feel alive.
+
+==================================================
+PREMIUM SOCIAL EXPERIENCE
+=========================
+
+Upgrade social interactions.
+
+Add:
+
+* profile hover cards
+* mutual follower indicators
+* profile completion system
+* user achievements
+* engagement milestones
+* account reputation system
+
+Users should feel progression.
+
+==================================================
+NEXT-GENERATION MESSAGING
+=========================
+
+Refine messaging.
+
+Improve:
+
+* message performance
+* reply system
+* message tagging
+* media sharing
+* unread management
+
+Add:
+
+* message search
+* jump to oldest unread
+* shared media gallery
+* message drafts
+* scheduled messages
+
+==================================================
+IMMERSIVE STORY SYSTEM
+======================
+
+Upgrade stories.
+
+Add:
+
+* story reactions
+* story replies
+* viewer analytics
+* story categories
+* story highlights
+* story archives
+
+Improve:
+
+* loading speed
+* animations
+* navigation
+
+==================================================
+ADVANCED DISCOVERY
+==================
+
+Build a modern discovery experience.
+
+Add:
+
+* trending creators
+* trending communities
+* trending hashtags
+* recommended users
+* recommended posts
+* recommendation engine
+
+==================================================
+PLATFORM INTELLIGENCE
+=====================
+
+Add a settings section containing:
+
+* data saver mode
+* animation control
+* performance mode
+* accessibility settings
+* network settings
+* notification preferences
+
+==================================================
+PERFORMANCE OPTIMIZATION
+========================
+
+Audit entire platform.
+
+Improve:
+
+* rendering speed
+* query efficiency
+* realtime subscriptions
+* memory usage
+* image loading
+* mobile responsiveness
+
+Fix:
+
+* duplicate listeners
+* layout shifts
+* unnecessary rerenders
+* lag spikes
+* animation stutters
+
+==================================================
+VISUAL EVOLUTION
+================
+
+Keep existing futuristic style.
+
+Enhance:
+
+* depth
+* lighting
+* motion
+* typography
+* transitions
+* spacing
+
+Design should feel:
+
+* futuristic
+* premium
+* immersive
+* professional
+* app-store quality
+
+Not childish.
+Not cluttered.
+Not overdone.
+
+==================================================
+SUCCESS CRITERIA
+================
+
+After this update Kudasai should feel like:
+
+* a real startup product
+* production-ready
+* highly responsive
+* visually premium
+* optimized for mobile and desktop
+* capable of supporting large user growth
+
+Analyze existing systems first, then implement only meaningful improvements.

@@ -190,6 +190,7 @@
     <div class="nav-item" id="nav-messages" onclick="goMessages()" style="position:relative"><span class="nav-icon">💬</span><span class="nav-label">Messages</span><span id="dmBadge" class="notif-badge" style="display:none"></span></div>
     <div class="nav-item" id="nav-jobs" onclick="goJobs()"><span class="nav-icon">💼</span><span class="nav-label">Jobs</span></div>
     <div class="nav-item" id="nav-surveys" onclick="goSurveys()"><span class="nav-icon">📋</span><span class="nav-label">Surveys</span></div>
+    <div class="nav-item" id="nav-settings" onclick="goSettings()"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
     <div class="nav-palette-btn" onclick="openPalette()" title="Command Palette (Ctrl+K)">⌘ K</div>
     <div class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">☀️ Light Mode</div>
     <div class="sidebar-footer">
@@ -207,6 +208,7 @@
 
     <div class="topbar">
       <input class="search" id="searchInput" placeholder="Search posts or @users…" oninput="handleSearch(this.value)">
+      <span id="netQuality" class="net-quality-dot" title="Network quality">●</span>
       <div id="userTag" style="cursor:pointer;font-weight:700;color:var(--accent)" onclick="goProfile()">@user</div>
     </div>
 
@@ -299,6 +301,10 @@
     <div class="panel">
       <h3>👥 Who to Follow</h3>
       <div id="whoToFollow"><p style="color:#555;font-size:13px">Loading…</p></div>
+    </div>
+    <div class="panel">
+      <h3>🌟 Active Creators</h3>
+      <div id="trendingCreators"><p style="color:#555;font-size:13px">Loading…</p></div>
     </div>
     <div class="panel">
       <h3>💰 Balance</h3>
