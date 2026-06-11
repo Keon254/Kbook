@@ -1,0 +1,106 @@
+KUDASAI PRODUCTION STABILITY MODE
+
+HIGHEST PRIORITY:
+Protect the GitHub version of Kudasai.
+
+GitHub is the source of truth.
+
+DO NOT make changes that could:
+
+- corrupt script.js
+- remove existing functionality
+- overwrite working systems
+- replace working code with placeholders
+- break authentication
+- break Supabase integration
+- create infinite loading screens
+- create startup loops
+- remove event listeners
+- remove navigation systems
+
+BEFORE ANY CHANGE:
+
+1. Analyze current code.
+2. Identify root cause.
+3. Explain proposed fix.
+4. Estimate affected files.
+5. Create a rollback plan.
+
+RULES:
+
+- Minimal changes only.
+- Surgical fixes only.
+- Preserve architecture.
+- Preserve database schema.
+- Preserve existing UI.
+- Preserve user data.
+
+STABILITY PRIORITY ORDER:
+
+1. GitHub production version
+2. Authentication
+3. Supabase connectivity
+4. Startup system
+5. Feed loading
+6. Messaging
+7. Communities
+8. Stories
+9. Creator tools
+10. New features
+
+LOADING SCREEN REQUIREMENTS:
+
+- Never stay longer than 10 seconds.
+- If startup fails, show error.
+- If config.js fails, show diagnostic screen.
+- Never allow infinite spinner.
+- Never hide errors.
+
+SUPABASE REQUIREMENTS:
+
+Verify:
+- config.js exists
+- SUPABASE_URL exists
+- SUPABASE_ANON_KEY exists
+- script order is correct
+- session retrieval works
+
+If any check fails:
+- show exact reason
+- stop startup safely
+- allow retry
+
+GITHUB SAFETY REQUIREMENTS:
+
+Before modifying:
+- compare against latest GitHub files
+- preserve existing logic
+- do not truncate large files
+- do not regenerate script.js from scratch
+
+If script.js exceeds 100KB:
+- patch specific sections only
+- never rewrite entire file
+
+OUTPUT REQUIRED:
+
+1. Root cause
+2. Files modified
+3. Exact code changes
+4. Rollback instructions
+5. Validation results
+
+SUCCESS CRITERIA:
+
+✓ No infinite loading
+✓ No "Supabase not configured"
+✓ No console errors
+✓ No 404 errors
+✓ Login works
+✓ Signup works
+✓ Feed loads
+✓ GitHub version preserved
+✓ Existing features preserved
+
+STABILITY IS MORE IMPORTANT THAN NEW FEATURES.
+DO NOT ADD FEATURES UNTIL THE PLATFORM IS FULLY STABLE.
