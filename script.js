@@ -4,10 +4,43 @@
 
 const { createClient } = supabase;
 
-const db = createClient(
-  window.SUPABASE_URL,
-  window.SUPABASE_ANON_KEY
-);
+const _SUPA_URL = window.SUPABASE_URL || '';
+const _SUPA_KEY = window.SUPABASE_ANON_KEY || '';
+const _CREDS_OK  = Boolean(_SUPA_URL && _SUPA_KEY);
+
+let db;
+try {
+  if (!_CREDS_OK) throw new Error('missing');
+  db = createClient(_SUPA_URL, _SUPA_KEY);
+} catch(_) {
+  // Stub client — prevents crashes when credentials are absent.
+  // auth.getSession returns no session → hideSplash() is called normally.
+  // auth.onAuthStateChange is a no-op (never signs in).
+  // All db.from() chains resolve to {data:null, error:{message:'...'}}
+  const _noopPromise = Promise.resolve({data:null, error:{message:'Supabase not configured.'}});
+  const _chainProxy = new Proxy(function(){return _chainProxy;},{
+    get(_,prop){
+      if(prop==='then')   return _noopPromise.then.bind(_noopPromise);
+      if(prop==='catch')  return _noopPromise.catch.bind(_noopPromise);
+      if(prop==='finally')return _noopPromise.finally.bind(_noopPromise);
+      return _chainProxy;
+    },
+    apply(){ return _chainProxy; }
+  });
+  db = {
+    auth: {
+      getSession:         ()=>Promise.resolve({data:{session:null},error:null}),
+      onAuthStateChange:  ()=>({data:{subscription:{unsubscribe:()=>{}}}}),
+      signInWithPassword: ()=>Promise.resolve({data:null,error:{message:'Supabase not configured.'}}),
+      signUp:             ()=>Promise.resolve({data:null,error:{message:'Supabase not configured.'}}),
+      signInWithOAuth:    ()=>Promise.resolve({data:null,error:{message:'Supabase not configured.'}}),
+      signOut:            ()=>Promise.resolve({error:null}),
+    },
+    from:    ()=>_chainProxy,
+    channel: ()=>({on:()=>({subscribe:()=>{}})}),
+    removeChannel: ()=>{},
+  };
+}
 
 // ================= STATE =================
 const state = {
@@ -50,9 +83,11 @@ function safe(fn){
       console.error(e);
       const msg = e?.message || String(e);
       if(msg.includes("relation") || msg.includes("does not exist")){
-        alert("Table not found. Please run supabase_setup.sql in your Supabase SQL Editor.");
+        typeof showToast==="function"
+          ? showToast("Table not found — run supabase-migration.sql in your Supabase SQL Editor.","error")
+          : console.error("Table not found. Run supabase-migration.sql.");
       } else {
-        alert(msg);
+        typeof showToast==="function" ? showToast(msg,"error") : console.error(msg);
       }
     }
   };
@@ -197,6 +232,7 @@ async function start(){
   document.querySelector(".auth").style.display = "none";
   $("app").style.display = "grid";
   hideSplash();
+  document.dispatchEvent(new Event("kudasai:started"));
   initTheme();
   initParticles();
   initInfiniteScroll();
@@ -2188,6 +2224,23 @@ const submitMobilePost = safe(async()=>{
 
 // ================= INIT =================
 document.addEventListener("DOMContentLoaded", async()=>{
+  // ── Splash guard: force-dismiss after 10 s max ──────────────────
+  const _splashGuard = setTimeout(()=>{
+    const sp = document.getElementById("splashScreen");
+    if(!sp || sp.classList.contains("splash-out")) return;
+    sp.classList.add("splash-out");
+    setTimeout(()=>{ if(sp.parentNode) sp.parentNode.removeChild(sp); }, 650);
+    if(!_CREDS_OK){
+      const errDiv = document.createElement("div");
+      errDiv.style.cssText = "position:fixed;inset:0;background:#030305;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#fff;font-family:Inter,sans-serif;padding:24px;text-align:center";
+      errDiv.innerHTML = `<div style="font-size:52px;font-weight:900;color:#00d4ff;letter-spacing:4px;margin-bottom:12px">K</div><h2 style="font-size:18px;font-weight:700;margin:0 0 10px">KUDASAI — Configuration Required</h2><p style="color:rgba(255,255,255,0.45);font-size:13px;max-width:340px;line-height:1.6">Set <code style="background:rgba(0,212,255,.12);color:#00d4ff;padding:2px 6px;border-radius:4px">SUPABASE_URL</code> and <code style="background:rgba(0,212,255,.12);color:#00d4ff;padding:2px 6px;border-radius:4px">SUPABASE_ANON_KEY</code> in Replit Secrets, then restart the app.</p><a href="/" style="margin-top:20px;padding:11px 28px;background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.3);border-radius:14px;color:#00d4ff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:.5px">↺ Retry</a>`;
+      document.body.appendChild(errDiv);
+    }
+  }, 10000);
+  // Cancel guard once app visibly starts
+  const _cancelGuard = ()=>{ clearTimeout(_splashGuard); };
+  document.addEventListener("kudasai:started", _cancelGuard, {once:true});
+
   // Start landing page particles
   initLandingParticles(true);
 
