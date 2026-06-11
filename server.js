@@ -59,7 +59,7 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-store' });
     res.end(data);
   });
 });
