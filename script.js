@@ -7,6 +7,10 @@ const _SUPA_URL = window.SUPABASE_URL || '';
 const _SUPA_KEY = window.SUPABASE_ANON_KEY || '';
 const _CREDS_OK = Boolean(_SUPA_URL && _SUPA_KEY);
 
+console.log('[KUDASAI] SUPABASE_URL set:', !!_SUPA_URL);
+console.log('[KUDASAI] SUPABASE_ANON_KEY set:', !!_SUPA_KEY);
+console.log('[KUDASAI] Connected:', _CREDS_OK);
+
 let db;
 if (_CREDS_OK) {
   db = createClient(_SUPA_URL, _SUPA_KEY);
@@ -98,28 +102,25 @@ function hideSplash() {
   setTimeout(() => { s.style.display = 'none'; }, 400);
 }
 
+function show(id, val = '')  { const el = $(id); if (el) el.style.display = val; }
+function hide(id)            { const el = $(id); if (el) el.style.display = 'none'; }
+function setText(id, txt)    { const el = $(id); if (el) el.textContent = txt; }
+
 function showLanding() {
-  $('landingPage').style.display = '';
-  $('authScreen').style.display = 'none';
-  $('app').style.display = 'none';
+  show('landingPage'); hide('authScreen'); hide('app');
   const content = document.querySelector('.landing-content');
   if (content) { content.style.animation = 'none'; content.style.opacity = '1'; content.style.transform = 'none'; }
 }
 
 function enterApp() {
-  $('landingPage').style.display = 'none';
-  $('authScreen').style.display = '';
-  $('authScreen').style.flexDirection = 'column';
-  $('authScreen').style.alignItems = 'center';
-  $('authScreen').style.justifyContent = 'center';
+  hide('landingPage');
+  const auth = $('authScreen');
+  if (auth) { auth.style.display = ''; auth.style.flexDirection = 'column'; auth.style.alignItems = 'center'; auth.style.justifyContent = 'center'; }
 }
 
 async function bootstrap() {
-  $('landingPage').style.display = 'none';
-  $('authScreen').style.display = 'none';
-  $('app').style.display = 'grid';
-  $('feedTabs').style.display = '';
-  $('composer').style.display = '';
+  hide('landingPage'); hide('authScreen');
+  show('app', 'grid'); show('feedTabs'); show('composer');
   await loadProfile();
   await loadFeed();
   setupInfiniteScroll();
@@ -156,8 +157,8 @@ async function signup() {
 async function loadProfile() {
   const { data } = await db.from('profiles').select('*').eq('user_id', state.user.id).maybeSingle();
   state.profile = data;
-  $('userTag').textContent = '@' + (data?.username || 'user');
-  $('balanceText').textContent = 'K' + (data?.balance || 0);
+  setText('userTag',    '@' + (data?.username || 'user'));
+  setText('balanceText','K'  + (data?.balance  || 0));
 }
 
 // ── Feed ──────────────────────────────────────

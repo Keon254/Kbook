@@ -1,0 +1,99 @@
+I can't safely give you back a "complete fixed version" of script.js from what you pasted, because the code you posted is only a portion of the file and it references a lot of HTML elements and functions that may or may not exist elsewhere.
+
+However, I can see the most likely cause of your "Supabase not configured" error.
+
+Your code requires:
+
+window.SUPABASE_URL
+window.SUPABASE_ANON_KEY
+
+to exist before script.js runs.
+
+Create/verify config.js
+window.SUPABASE_URL = "https://YOUR_PROJECT.supabase.co";
+window.SUPABASE_ANON_KEY = "YOUR_ANON_KEY";
+Verify index.html
+
+The script order must be:
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="./config.js"></script>
+
+<script src="./script.js"></script>
+Add startup diagnostics
+
+Replace:
+
+const _SUPA_URL = window.SUPABASE_URL || '';
+const _SUPA_KEY = window.SUPABASE_ANON_KEY || '';
+
+with:
+
+const _SUPA_URL = window.SUPABASE_URL || '';
+const _SUPA_KEY = window.SUPABASE_ANON_KEY || '';
+
+console.log('SUPABASE_URL:', !!_SUPA_URL);
+console.log('SUPABASE_ANON_KEY:', !!_SUPA_KEY);
+Add a visible error instead of silent failure
+
+Immediately after:
+
+const _CREDS_OK = Boolean(_SUPA_URL && _SUPA_KEY);
+
+add:
+
+if (!_CREDS_OK) {
+  console.error('Supabase not configured.');
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const splash = document.getElementById('splashScreen');
+
+    if (splash) {
+      splash.innerHTML = `
+        <div style="
+          display:flex;
+          flex-direction:column;
+          justify-content:center;
+          align-items:center;
+          height:100vh;
+          color:white;
+          text-align:center;
+          padding:20px;
+        ">
+          <h2>Supabase Configuration Missing</h2>
+          <p>config.js was not loaded or credentials are empty.</p>
+        </div>
+      `;
+    }
+  });
+}
+Fix possible crash points
+
+Your code contains many lines like:
+
+$('landingPage').style.display = '';
+$('authScreen').style.display = 'none';
+$('app').style.display = 'none';
+
+If any element is missing, the entire app crashes.
+
+Safer version:
+
+$('landingPage')?.style && ($('landingPage').style.display = '');
+$('authScreen')?.style && ($('authScreen').style.display = 'none');
+$('app')?.style && ($('app').style.display = 'none');
+
+or:
+
+const landing = $('landingPage');
+if (landing) landing.style.display = '';
+Most important next step
+
+Show me your:
+
+<!-- script tags from index.html -->
+
+especially the bottom 20–30 lines where config.js, supabase.js, and script.js are loaded.
+
+That's where the root cause of the "Supabase not configured" error is most likely hiding.
