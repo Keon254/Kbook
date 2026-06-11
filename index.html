@@ -189,6 +189,7 @@
     <div class="nav-item" id="nav-bookmarks" onclick="goBookmarks()"><span class="nav-icon">🔖</span><span class="nav-label">Bookmarks</span></div>
     <div class="nav-item" id="nav-messages" onclick="goMessages()" style="position:relative"><span class="nav-icon">💬</span><span class="nav-label">Messages</span><span id="dmBadge" class="notif-badge" style="display:none"></span></div>
     <div class="nav-item" id="nav-jobs" onclick="goJobs()"><span class="nav-icon">💼</span><span class="nav-label">Jobs</span></div>
+    <div class="nav-item" id="nav-kai" onclick="goKudasaiAI()"><span class="nav-icon" style="background:linear-gradient(135deg,#00d4ff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-style:normal">✦</span><span class="nav-label">KAI</span></div>
     <div class="nav-item" id="nav-communities" onclick="goCommunities()"><span class="nav-icon">🏘</span><span class="nav-label">Communities</span></div>
     <div class="nav-item" id="nav-surveys" onclick="goSurveys()"><span class="nav-icon">📋</span><span class="nav-label">Surveys</span></div>
     <div class="nav-item" id="nav-settings" onclick="goSettings()"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
@@ -336,7 +337,14 @@
       <span class="mob-nav-label">DMs</span>
       <span id="mdmBadge" class="mob-notif-dot" style="display:none"></span>
     </div>
+    <div class="mob-nav-item" id="mnav-kai" onclick="goKudasaiAI()">
+      <span class="mob-nav-icon">✦</span>
+      <span class="mob-nav-label">KAI</span>
+    </div>
   </nav>
+
+  <!-- KAI Floating Action Button -->
+  <button class="kai-fab" onclick="goKudasaiAI()" title="Open KAI — KUDASAI Intelligence Engine">✦</button>
 
 </div>
 

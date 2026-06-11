@@ -855,7 +855,7 @@ async function goProfile(userId){
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center">
         ${isMe ? `
           <button class="comment-btn" onclick="openEditModal()">✏️ Edit Profile</button>
-          ${!me.is_creator?`<button class="comment-btn" onclick="becomeCreator()" style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(236,72,153,.15));border-color:rgba(168,85,247,.35);color:#c084fc">🎨 Go Creator</button>`:''}` : `
+          ${me.is_creator?`<button class="comment-btn" onclick="creatorDashboard()" style="background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(0,94,255,.1));border-color:rgba(0,212,255,.3);color:var(--accent)">📊 Studio</button>`:`<button class="comment-btn" onclick="becomeCreator()" style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(236,72,153,.15));border-color:rgba(168,85,247,.35);color:#c084fc">🎨 Go Creator</button>`}` : `
           <button class="follow-btn ${following?"following":""}" id="followBtn-${targetId}" onclick="toggleFollow('${targetId}')">
             ${following?"✓ Following":"+ Follow"}
           </button>
@@ -4226,4 +4226,730 @@ async function loadExploreComms(){
           </div>`).join('')}
       </div>`;
   } catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CREATOR DASHBOARD / STUDIO
+// ═══════════════════════════════════════════════════════════════════
+async function creatorDashboard(){
+  state.view = 'creator_studio';
+  setActiveNav('nav-profile');
+  showComposer(false); showFeedTabs(false);
+  transitionFeed();
+
+  const uid = state.user?.id;
+  if(!uid) return;
+  const me = state.profilesMap[uid]||{};
+
+  $('feed').innerHTML = `
+    <div class="cs-header">
+      <button class="dm-back" onclick="goProfile()">← Back</button>
+      <div class="cs-title">📊 Creator Studio</div>
+      <div class="cs-subtitle">@${escHtml(me.username||'user')}</div>
+    </div>
+    <div style="padding:20px;text-align:center;color:rgba(255,255,255,0.35)">Loading your analytics…</div>`;
+
+  const [postsRes, follRes] = await Promise.all([
+    db.from('posts').select('*').eq('user_id', uid).order('created_at',{ascending:false}),
+    db.from('follows').select('*',{count:'exact',head:true}).eq('following_id', uid),
+  ]);
+
+  const posts    = postsRes.data||[];
+  const follCount = follRes.count||0;
+
+  // Comment counts on my posts
+  let commentMap = {};
+  if(posts.length){
+    const ids = posts.map(p=>p.id);
+    const {data:cmts} = await db.from('comments').select('post_id').in('post_id', ids);
+    (cmts||[]).forEach(c=>{ commentMap[c.post_id]=(commentMap[c.post_id]||0)+1; });
+  }
+
+  const totalLikes    = posts.reduce((s,p)=>s+(p.likes||0),0);
+  const totalComments = Object.values(commentMap).reduce((s,n)=>s+n,0);
+  const totalReposts  = posts.reduce((s,p)=>s+(p.reposts_count||0),0);
+  const totalPosts    = posts.length;
+  const avgEng = totalPosts ? ((totalLikes+totalComments)/totalPosts).toFixed(1) : '0';
+  const engRate = follCount ? (((totalLikes+totalComments)/follCount)*100).toFixed(1) : '0';
+
+  // Top 5 posts by likes
+  const topPosts = [...posts].sort((a,b)=>(b.likes||0)-(a.likes||0)).slice(0,5);
+
+  // Best hour weighted by likes
+  const hourW = {};
+  posts.forEach(p=>{ const h=new Date(p.created_at).getHours(); hourW[h]=(hourW[h]||0)+(p.likes||0)+1; });
+  const bestHour = Object.entries(hourW).sort((a,b)=>b[1]-a[1])[0];
+  const bestHourStr = bestHour ? `${bestHour[0]}:00 – ${parseInt(bestHour[0])+1}:00` : 'Post more to see';
+
+  // Activity: last 30 days
+  const ago30 = Date.now()-30*864e5;
+  const dayMap = {};
+  posts.filter(p=>new Date(p.created_at)>ago30).forEach(p=>{
+    const d = new Date(p.created_at).toISOString().slice(8,10)+'d';
+    dayMap[d]=(dayMap[d]||0)+1;
+  });
+  const maxDay = Math.max(1,...Object.values(dayMap));
+
+  // Top hashtags
+  const tagMap = {};
+  posts.forEach(p=>{ (p.content||'').match(/#\w+/g)?.forEach(t=>{ tagMap[t]=(tagMap[t]||0)+(p.likes||0)+1; }); });
+  const topTags = Object.entries(tagMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  // Trend alignment: platform trending tags vs my tags
+  const myTags = new Set(Object.keys(tagMap));
+
+  // Content score
+  const contentScore = Math.min(100, Math.round(
+    (totalLikes * 0.5 + totalComments * 1 + follCount * 0.1 + totalPosts * 0.3) / 10
+  ));
+  const scoreColor = contentScore>=80?'#00dc82':contentScore>=50?'#ffb800':'#ff7c35';
+
+  $('feed').innerHTML = `
+    <div class="cs-header">
+      <button class="dm-back" onclick="goProfile()">← Back</button>
+      <div class="cs-title">📊 Creator Studio</div>
+      <div class="cs-subtitle">@${escHtml(me.username||'user')} · ${renderLevelBadge(me.reputation)}</div>
+    </div>
+
+    <!-- Score -->
+    <div class="cs-score-card">
+      <div class="cs-score-ring" style="--score-color:${scoreColor}">
+        <div class="cs-score-val">${contentScore}</div>
+        <div class="cs-score-lbl">Creator Score</div>
+      </div>
+      <div class="cs-score-info">
+        <div class="cs-score-line">Engagement Rate: <strong style="color:var(--accent)">${engRate}%</strong></div>
+        <div class="cs-score-line">Avg Engagement: <strong>${avgEng}</strong> per post</div>
+        <div class="cs-score-line">Best Time to Post: <strong style="color:#ffb800">${bestHourStr}</strong></div>
+        <div class="cs-score-line">Posts (30d): <strong>${posts.filter(p=>new Date(p.created_at)>ago30).length}</strong></div>
+      </div>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="cs-stat-grid">
+      <div class="cs-stat"><div class="cs-stat-val">${totalPosts}</div><div class="cs-stat-lbl">Posts</div></div>
+      <div class="cs-stat"><div class="cs-stat-val">${totalLikes}</div><div class="cs-stat-lbl">Total Likes</div></div>
+      <div class="cs-stat"><div class="cs-stat-val">${totalComments}</div><div class="cs-stat-lbl">Comments</div></div>
+      <div class="cs-stat"><div class="cs-stat-val">${follCount}</div><div class="cs-stat-lbl">Followers</div></div>
+    </div>
+
+    <!-- Activity chart -->
+    <div class="cs-section-title">📈 Activity (Last 30 days)</div>
+    <div class="cs-chart">
+      ${Array.from({length:30},(_,i)=>{
+        const d = new Date(Date.now()-(29-i)*864e5).toISOString().slice(8,10)+'d';
+        const n = dayMap[d]||0;
+        const pct = Math.round((n/maxDay)*100);
+        return `<div class="cs-bar-wrap" title="${n} posts"><div class="cs-bar" style="height:${Math.max(4,pct)}%"></div></div>`;
+      }).join('')}
+    </div>
+
+    <!-- Top posts -->
+    <div class="cs-section-title">🏆 Top Performing Posts</div>
+    <div class="cs-top-posts">
+      ${topPosts.length ? topPosts.map((p,i)=>`
+        <div class="cs-top-post" onclick="openPost('${p.id}')">
+          <div class="cs-top-rank">#${i+1}</div>
+          <div class="cs-top-content">${escHtml((p.content||'').slice(0,60))}${p.content?.length>60?'…':''}</div>
+          <div class="cs-top-stats">❤️ ${p.likes||0} · 💬 ${commentMap[p.id]||0}</div>
+        </div>`).join('') : '<div class="empty-state" style="padding:20px">No posts yet</div>'}
+    </div>
+
+    <!-- Hashtags -->
+    ${topTags.length ? `
+    <div class="cs-section-title">🏷 Your Top Hashtags</div>
+    <div class="hashtag-chips" style="padding:0 16px 16px">
+      ${topTags.map(([t,w])=>`<div class="hashtag-chip" onclick="handleSearch('${t}')">${t} <span class="chip-count">${w}</span></div>`).join('')}
+    </div>` : ''}
+
+    <!-- AI tip -->
+    <div class="cs-ai-tip">
+      <div class="cs-ai-tip-icon">✦</div>
+      <div class="cs-ai-tip-text">
+        <strong>KAI Insight:</strong>
+        ${contentScore >= 70
+          ? `You're performing well! Your best time to post is <strong>${bestHourStr}</strong>. Keep using your top hashtags to maintain engagement.`
+          : `Try posting at <strong>${bestHourStr}</strong> for maximum reach, and use trending hashtags to grow your audience. Ask KAI for personalized content ideas!`}
+      </div>
+      <button class="cs-ai-btn" onclick="goKudasaiAI()">Ask KAI ✦</button>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// KUDASAI AI OS — Platform Intelligence Engine v2.0
+// ═══════════════════════════════════════════════════════════════════
+const KAI = {
+  version: '2.0',
+  _memory: { short:{}, medium:{}, long:{} },
+  _trendCache: null,
+  _trendCacheTime: 0,
+
+  // ── Memory Layer ──────────────────────────────────────────────
+  init(){
+    try {
+      const m = JSON.parse(localStorage.getItem('kai_memory_medium')||'{}');
+      this._memory.medium = m;
+    } catch(e){}
+    this._memory.short = { session_start: Date.now(), searches:[], views:[] };
+  },
+
+  remember(key, value, tier='medium'){
+    this._memory[tier][key] = { value, ts: Date.now() };
+    if(tier==='medium') {
+      try { localStorage.setItem('kai_memory_medium', JSON.stringify(this._memory.medium)); } catch(e){}
+    }
+  },
+
+  recall(key, tier='medium'){
+    const e = this._memory[tier]?.[key];
+    if(!e) return null;
+    const maxAge = tier==='short' ? 3600e3 : tier==='medium' ? 7*864e5 : Infinity;
+    if(Date.now()-e.ts > maxAge){ delete this._memory[tier][key]; return null; }
+    return e.value;
+  },
+
+  trackView(type, id){ this._memory.short.views = [...(this._memory.short.views||[]).slice(-19), {type,id,ts:Date.now()}]; },
+  trackSearch(q){ this._memory.short.searches = [...(this._memory.short.searches||[]).slice(-9), q]; },
+
+  // ── Trend Detection Layer ─────────────────────────────────────
+  async getTrends(){
+    if(this._trendCache && Date.now()-this._trendCacheTime < 5*60e3) return this._trendCache;
+    const since48h = new Date(Date.now()-48*3600e3).toISOString();
+    const since7d  = new Date(Date.now()-7*864e5).toISOString();
+    const [postsRes, commsRes, usersRes] = await Promise.all([
+      db.from('posts').select('id,content,likes,user_id,created_at').gte('created_at',since48h).order('likes',{ascending:false}).limit(20),
+      db.from('communities').select('*').order('member_count',{ascending:false}).limit(6),
+      db.from('profiles').select('user_id,username,verified,reputation,level,is_creator').order('reputation',{ascending:false}).limit(8),
+    ]);
+    const posts = postsRes.data||[];
+    const tagMap = {};
+    posts.forEach(p=>{ (p.content||'').match(/#\w+/g)?.forEach(t=>{ tagMap[t]=(tagMap[t]||0)+(p.likes||0)+1; }); });
+    const trendingTags = Object.entries(tagMap).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([t,s])=>({tag:t,score:s}));
+    const result = {
+      hotPosts: posts.slice(0,5),
+      trendingTags,
+      risingComms: commsRes.data||[],
+      topCreators: (usersRes.data||[]).filter(u=>u.user_id!==state.user?.id)
+    };
+    this._trendCache = result; this._trendCacheTime = Date.now();
+    return result;
+  },
+
+  // ── Recommendation Layer ───────────────────────────────────────
+  async getRecommendations(){
+    if(!state.user) return { posts:[], users:[], communities:[] };
+    const followedIds = [...state.followingSet, state.user.id];
+    const joinedComms = [...state.joinedCommSet];
+    const [recPostsRes, allUsersRes, commsRes] = await Promise.all([
+      db.from('posts').select('*')
+        .in('user_id', followedIds.length>1?followedIds:[state.user.id])
+        .not('id','in',`(${[...state.likesSet].join(',')||'00000000-0000-0000-0000-000000000000'})`)
+        .order('created_at',{ascending:false}).limit(10),
+      db.from('profiles').select('*').neq('user_id',state.user.id).limit(30),
+      db.from('communities').select('*').order('member_count',{ascending:false}).limit(8),
+    ]);
+    const suggestedUsers = (allUsersRes.data||[])
+      .filter(u=>!state.followingSet.has(u.user_id)).slice(0,4);
+    const suggestedComms = (commsRes.data||[])
+      .filter(c=>!state.joinedCommSet.has(c.id)).slice(0,4);
+    return {
+      posts: recPostsRes.data||[],
+      users: suggestedUsers,
+      communities: suggestedComms,
+    };
+  },
+
+  // ── Search Layer ───────────────────────────────────────────────
+  async search(query){
+    if(!query.trim()) return { posts:[], users:[], communities:[], total:0 };
+    const q = query.toLowerCase();
+    const words = q.split(/\s+/).filter(w=>w.length>1);
+    const [pRes, uRes, cRes] = await Promise.all([
+      db.from('posts').select('*').ilike('content',`%${query}%`).order('likes',{ascending:false}).limit(8),
+      db.from('profiles').select('*').or(`username.ilike.%${query}%,bio.ilike.%${query}%`).limit(6),
+      db.from('communities').select('*').or(`name.ilike.%${query}%,description.ilike.%${query}%`).limit(6),
+    ]);
+    const posts = pRes.data||[]; const users = uRes.data||[]; const communities = cRes.data||[];
+    await Promise.all([...new Set(posts.map(p=>p.user_id))].map(ensureProfile));
+    this.trackSearch(query);
+    this.remember(`search_${Date.now()}`, query);
+    return { posts, users, communities, total: posts.length+users.length+communities.length };
+  },
+
+  // ── Creator Intelligence Layer ────────────────────────────────
+  async getCreatorInsights(userId){
+    const [postsRes, follRes] = await Promise.all([
+      db.from('posts').select('*').eq('user_id',userId).order('created_at',{ascending:false}).limit(50),
+      db.from('follows').select('*',{count:'exact',head:true}).eq('following_id',userId),
+    ]);
+    const posts = postsRes.data||[];
+    const followers = follRes.count||0;
+    const totalLikes = posts.reduce((s,p)=>s+(p.likes||0),0);
+    const avgLikes = posts.length ? (totalLikes/posts.length).toFixed(1) : 0;
+    const best = [...posts].sort((a,b)=>(b.likes||0)-(a.likes||0))[0];
+    const hourW = {};
+    posts.forEach(p=>{ const h=new Date(p.created_at).getHours(); hourW[h]=(hourW[h]||0)+(p.likes||0)+1; });
+    const bestHour = Object.entries(hourW).sort((a,b)=>b[1]-a[1])[0]?.[0];
+    return { posts:posts.length, followers, totalLikes, avgLikes, best, bestHour,
+      engRate: followers ? (((totalLikes)/Math.max(followers,1))*100).toFixed(1) : '0' };
+  },
+
+  // ── Content Generation Layer ──────────────────────────────────
+  generateHashtags(topic){
+    const base = topic.toLowerCase().split(/\s+/).filter(w=>w.length>2).map(w=>`#${w}`);
+    const cached = this._trendCache?.trendingTags?.map(t=>t.tag)||[];
+    const platform = ['#kudasai','#explore','#trending','#community','#creator','#content','#anime','#gaming','#tech','#art'];
+    const combined = [...new Set([...base,...cached.slice(0,4),...platform.slice(0,4)])].slice(0,12);
+    return combined;
+  },
+
+  generateDraft(topic){
+    const t = topic||'this';
+    const trends = this._trendCache?.trendingTags?.slice(0,3).map(x=>x.tag).join(' ')||'';
+    const starters = [
+      `Just discovered something incredible about ${t} — let me share my thoughts 🧵`,
+      `Hot take on ${t}: it's changing everything we know. Here's why 👇`,
+      `The thing about ${t} that nobody talks about enough…`,
+      `My honest experience with ${t} after diving deep into it:`,
+      `If you're interested in ${t}, you need to know this right now 🔥`,
+      `Building something around ${t}. Early thoughts thread:`,
+      `Unpopular opinion about ${t} — and I'm standing by it.`,
+    ];
+    return starters.map((s,i)=>i===0?`${s}\n\n${trends}`:s);
+  },
+
+  generateBio(profile){
+    const lv = getLevelInfo(profile.reputation||0);
+    const templates = [
+      `${profile.is_creator?'🎨 Creator · ':''}${lv.name} on KUDASAI${profile.streak_days>5?` · 🔥 ${profile.streak_days}d streak`:''}`,
+      `Building in the open. ${lv.name} (Lv.${lv.level}) · Sharing ${profile.streak_days>0?`thoughts daily · `:''}ideas & vibes`,
+      `KUDASAI ${lv.name} · ${profile.is_creator?'Creator & ':''}Community explorer 🌐`,
+    ];
+    return templates;
+  },
+
+  // ── Moderation Layer ──────────────────────────────────────────
+  moderateText(text){
+    const t = (text||'').toLowerCase();
+    const spamPhrases = ['buy now','click here','free money','guaranteed','limited offer','act now','make money fast','earn $'];
+    const toxicWords  = ['hate','kill','die','stupid','idiot','loser','trash'];
+    const spamFlags   = spamPhrases.filter(p=>t.includes(p));
+    const toxicFlags  = toxicWords.filter(w=>t.split(/\W+/).includes(w));
+    const capsRatio   = (text.match(/[A-Z]/g)||[]).length / Math.max(text.length,1);
+    const capsFlag    = capsRatio > 0.5 && text.length > 20;
+    const score = Math.min(100, spamFlags.length*30 + toxicFlags.length*20 + (capsFlag?15:0));
+    return { safe: score<40, score, flags:[...spamFlags,...toxicFlags,...(capsFlag?['excessive_caps']:[])].slice(0,3) };
+  },
+
+  // ── Natural Language Query Handler ────────────────────────────
+  async handleQuery(query){
+    const q = query.toLowerCase().trim();
+    this.remember('lastQuery', query, 'short');
+
+    // Trend intent
+    if(/trend|hot|viral|popular|what.s happening|what.*going on|fire/.test(q)){
+      const t = await this.getTrends();
+      return { type:'trends', content:`Here's what's happening on KUDASAI right now:`, data:t };
+    }
+    // Recommendation
+    if(/recommend|suggest|what should i (read|see|watch)|for you|fyp|personali/.test(q)){
+      const r = await this.getRecommendations();
+      return { type:'recs', content:`Based on your activity, here's what I recommend:`, data:r };
+    }
+    // Write draft
+    if(/write|draft|post about|help me (write|post)|create a post/.test(q)){
+      const topic = q.replace(/write\s*a?\s*post?\s*(about)?|draft|help me (write|post)|create a post (about)?/g,'').trim()||'this topic';
+      const drafts = this.generateDraft(topic);
+      return { type:'drafts', content:`Here are some post ideas for **${topic}**:`, data:{drafts, topic} };
+    }
+    // Hashtags
+    if(/hashtag|tag.*for|tags.*about|suggest.*tag/.test(q)){
+      const topic = q.replace(/hashtag|tag.*for|tags.*about|suggest|generate/g,'').trim()||'content';
+      const tags = this.generateHashtags(topic);
+      return { type:'hashtags', content:`Suggested hashtags for **${topic}**:`, data:tags };
+    }
+    // Analytics / insights
+    if(/analytic|insight|how am i (doing)?|my stat|my performance|creator stat|my reach/.test(q)){
+      const ins = await this.getCreatorInsights(state.user.id);
+      return { type:'insights', content:`Here's your performance overview:`, data:ins };
+    }
+    // Bio generator
+    if(/bio|profile.*description|describe myself|write.*bio/.test(q)){
+      const me = state.profilesMap[state.user.id]||{};
+      const bios = this.generateBio(me);
+      return { type:'bios', content:`Here are some bio suggestions for you:`, data:bios };
+    }
+    // Who to follow
+    if(/who.*follow|follow.*recommend|new.*people|meet people|find.*follow/.test(q)){
+      const r = await this.getRecommendations();
+      return { type:'users', content:`People you might want to follow:`, data:r.users };
+    }
+    // Communities
+    if(/communit|group|join|find.*group/.test(q)){
+      const topic = q.replace(/communit\w*|group|join|find|show|me/g,'').trim();
+      if(topic.length > 1){
+        const s = await this.search(topic);
+        return { type:'search', content:`Here's what I found for "${topic}":`, data:s };
+      }
+      const r = await this.getRecommendations();
+      return { type:'communities', content:`Communities you might enjoy:`, data:r.communities };
+    }
+    // Creator dashboard
+    if(/creator.*dashboard|studio|my.*dashboard|open.*studio/.test(q)){
+      creatorDashboard(); return { type:'navigate', content:`Opening Creator Studio for you! 📊` };
+    }
+    // Help
+    if(/help|what can you do|\?$|commands|capabilities/.test(q)){
+      return { type:'help', content:'', data:null };
+    }
+    // Default: search
+    const s = await this.search(query);
+    if(s.total>0) return { type:'search', content:`Here's what I found for **"${query}"**:`, data:s };
+    return { type:'text', content:`I searched KUDASAI for "${query}" but didn't find much. Try: **"trending"**, **"recommend posts"**, **"write a post about [topic]"**, or **"who should I follow"**.` };
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// KUDASAI AI PAGE + CHAT UI
+// ═══════════════════════════════════════════════════════════════════
+let _kaiTab     = 'chat';
+let _kaiHistory = [];
+
+async function goKudasaiAI(){
+  state.view = 'kai';
+  setActiveNav('nav-kai');
+  showComposer(false); showFeedTabs(false);
+  transitionFeed();
+  KAI.init();
+
+  $('feed').innerHTML = `
+    <div class="kai-header">
+      <div class="kai-logo-wrap">
+        <div class="kai-logo-ring"><div class="kai-logo-inner">K</div></div>
+        <div>
+          <div class="kai-logo-title">KAI</div>
+          <div class="kai-logo-sub">KUDASAI Intelligence Engine v${KAI.version}</div>
+        </div>
+      </div>
+      <div class="kai-status"><span class="kai-dot"></span>Online</div>
+    </div>
+    <div class="kai-tabs" id="kaiTabs">
+      <button class="kai-tab-btn active" onclick="switchKaiTab('chat',this)">💬 Chat</button>
+      <button class="kai-tab-btn" onclick="switchKaiTab('trends',this)">🔥 Trends</button>
+      <button class="kai-tab-btn" onclick="switchKaiTab('discover',this)">🌐 Discover</button>
+      <button class="kai-tab-btn" onclick="switchKaiTab('insights',this)">📊 Insights</button>
+    </div>
+    <div id="kaiContent"></div>`;
+
+  _kaiTab = 'chat';
+  _kaiHistory = [];
+  renderKaiChat();
+}
+
+function switchKaiTab(tab, btn){
+  _kaiTab = tab;
+  document.querySelectorAll('.kai-tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(tab==='chat')     renderKaiChat();
+  else if(tab==='trends')  renderKaiTrends();
+  else if(tab==='discover') renderKaiDiscover();
+  else if(tab==='insights') renderKaiInsights();
+}
+
+function renderKaiChat(){
+  const c = $('kaiContent');
+  if(!c) return;
+  c.innerHTML = `
+    <div class="kai-chat-wrap">
+      <div class="kai-messages" id="kaiMessages">
+        ${_kaiHistory.length===0 ? renderKaiBubble('kai', _kaiGreeting()) : _kaiHistory.map(m=>renderKaiBubble(m.role, m.content, m.data, m.type)).join('')}
+      </div>
+      <div class="kai-chips-row">
+        ${['🔥 Trending','🎯 Recommend','✍️ Write Post','🏷 Hashtags','📊 My Analytics','👥 Who to Follow'].map(chip=>
+          `<button class="kai-chip" onclick="sendKaiMessage('${chip.replace(/^[^\s]+\s/,'')}')">${chip}</button>`
+        ).join('')}
+      </div>
+      <div class="kai-input-row">
+        <input class="kai-input" id="kaiInput" placeholder="Ask KAI anything about the platform…"
+          onkeydown="if(event.key==='Enter') sendKaiMessage()">
+        <button class="kai-send-btn" onclick="sendKaiMessage()">✦</button>
+      </div>
+    </div>`;
+}
+
+function _kaiGreeting(){
+  const me = state.profilesMap[state.user?.id]||{};
+  const h = new Date().getHours();
+  const greet = h<12?'Good morning':'h<18'?'Good afternoon':'Good evening';
+  const lv = getLevelInfo(me.reputation||0);
+  return `Hey @${me.username||'there'}! I'm **KAI**, the KUDASAI Platform Intelligence Engine. 🌐\n\nYou're a **${lv.name} (Lv.${lv.level})**${me.streak_days>1?` with a 🔥 ${me.streak_days}-day streak`:''}.\n\nI can help you discover content, get recommendations, write posts, analyze your performance, find communities, and navigate the entire KUDASAI ecosystem.\n\nWhat would you like to explore today?`;
+}
+
+const sendKaiMessage = safe(async(preset)=>{
+  const input = $('kaiInput');
+  const text  = (preset||input?.value||'').trim();
+  if(!text) return;
+  if(input) input.value = '';
+
+  _kaiHistory.push({ role:'user', content: text, type:'text' });
+
+  const msgs = $('kaiMessages');
+  if(msgs){
+    msgs.innerHTML += renderKaiBubble('user', text, null, 'text');
+    msgs.innerHTML += `<div class="kai-msg-wrap kai-msg-kai" id="kaiTyping"><div class="kai-avatar-sm"></div><div class="kai-bubble kai-typing"><span></span><span></span><span></span></div></div>`;
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  const result = await KAI.handleQuery(text);
+
+  const typing = document.getElementById('kaiTyping');
+  if(typing) typing.remove();
+
+  _kaiHistory.push({ role:'kai', content: result.content, data: result.data, type: result.type });
+
+  if(msgs){
+    msgs.innerHTML += renderKaiBubble('kai', result.content, result.data, result.type);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+});
+
+function renderKaiBubble(role, content, data, type){
+  const isKai = role === 'kai';
+  const avatar = isKai ? `<div class="kai-avatar-sm"></div>` : '';
+  const md = (content||'').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  let dataHtml = '';
+
+  if(type==='trends' && data){
+    dataHtml = `
+      <div class="kai-card-section">
+        ${data.hotPosts?.slice(0,3).map(p=>`
+          <div class="kai-mini-post" onclick="openPost('${p.id}')">
+            <div class="kai-mini-post-user">@${escHtml(state.profilesMap[p.user_id]?.username||'user')}</div>
+            <div class="kai-mini-post-text">${escHtml((p.content||'').slice(0,70))}…</div>
+            <div class="kai-mini-post-stats">❤️ ${p.likes||0}</div>
+          </div>`).join('')||''}
+        <div class="kai-tag-chips">
+          ${(data.trendingTags||[]).map(t=>`<span class="kai-tag-chip" onclick="handleSearch('${t.tag}')">${t.tag}</span>`).join('')}
+        </div>
+      </div>`;
+  } else if(type==='recs' && data){
+    dataHtml = `<div class="kai-card-section">
+      ${(data.users||[]).map(u=>`
+        <div class="kai-mini-user" onclick="goProfile('${u.user_id}')">
+          <div class="kai-mini-user-av">${(u.username||'?')[0].toUpperCase()}</div>
+          <div class="kai-mini-user-info"><div class="kai-mini-uname">@${escHtml(u.username||'user')}</div><div class="kai-mini-ubio">${escHtml((u.bio||'').slice(0,40))}</div></div>
+          <button class="kai-mini-follow-btn" onclick="event.stopPropagation();toggleFollow('${u.user_id}')">+ Follow</button>
+        </div>`).join('')}
+      ${(data.communities||[]).map(c=>`
+        <div class="kai-mini-comm" onclick="goComm('${c.id}')">
+          <div class="kai-mini-comm-av">${c.name[0]}</div>
+          <div><div class="kai-mini-uname">${escHtml(c.name)}</div><div class="kai-mini-ubio">${c.member_count||0} members</div></div>
+          <button class="kai-mini-follow-btn" onclick="event.stopPropagation();toggleCommJoin('${c.id}',this)">Join</button>
+        </div>`).join('')}
+    </div>`;
+  } else if(type==='search' && data){
+    dataHtml = `<div class="kai-card-section">
+      ${(data.posts||[]).slice(0,3).map(p=>`
+        <div class="kai-mini-post" onclick="openPost('${p.id}')">
+          <div class="kai-mini-post-user">@${escHtml(state.profilesMap[p.user_id]?.username||'user')}</div>
+          <div class="kai-mini-post-text">${escHtml((p.content||'').slice(0,70))}</div>
+          <div class="kai-mini-post-stats">❤️ ${p.likes||0}</div>
+        </div>`).join('')}
+      ${(data.users||[]).slice(0,3).map(u=>`
+        <div class="kai-mini-user" onclick="goProfile('${u.user_id}')">
+          <div class="kai-mini-user-av">${(u.username||'?')[0].toUpperCase()}</div>
+          <div class="kai-mini-user-info"><div class="kai-mini-uname">@${escHtml(u.username||'user')}</div><div class="kai-mini-ubio">${escHtml((u.bio||'').slice(0,40))}</div></div>
+        </div>`).join('')}
+      ${(data.communities||[]).slice(0,2).map(c=>`
+        <div class="kai-mini-comm" onclick="goComm('${c.id}')">
+          <div class="kai-mini-comm-av">${c.name[0]}</div>
+          <div><div class="kai-mini-uname">${escHtml(c.name)}</div><div class="kai-mini-ubio">${c.member_count||0} members</div></div>
+        </div>`).join('')}
+    </div>`;
+  } else if(type==='drafts' && data){
+    dataHtml = `<div class="kai-card-section">
+      ${(data.drafts||[]).map((d,i)=>`
+        <div class="kai-draft-card" onclick="useDraft('${escHtml(d).replace(/'/g,"\\'")}')">
+          <div class="kai-draft-num">${i+1}</div>
+          <div class="kai-draft-text">${escHtml(d)}</div>
+          <div class="kai-draft-use">Use ↗</div>
+        </div>`).join('')}
+    </div>`;
+  } else if(type==='hashtags' && data){
+    dataHtml = `<div class="kai-tag-chips" style="margin-top:8px">
+      ${data.map(t=>`<span class="kai-tag-chip" onclick="copyHashtag('${t}')">${t}</span>`).join('')}
+    </div>`;
+  } else if(type==='insights' && data){
+    dataHtml = `<div class="kai-card-section">
+      <div class="kai-insight-grid">
+        <div class="kai-insight-item"><div class="kai-insight-val">${data.posts}</div><div class="kai-insight-lbl">Posts</div></div>
+        <div class="kai-insight-item"><div class="kai-insight-val">${data.totalLikes}</div><div class="kai-insight-lbl">Likes</div></div>
+        <div class="kai-insight-item"><div class="kai-insight-val">${data.followers}</div><div class="kai-insight-lbl">Followers</div></div>
+        <div class="kai-insight-item"><div class="kai-insight-val">${data.engRate}%</div><div class="kai-insight-lbl">Eng. Rate</div></div>
+      </div>
+      ${data.bestHour!=null?`<div class="kai-insight-tip">⏰ Best time to post: <strong>${data.bestHour}:00</strong></div>`:''}
+      <button class="cs-ai-btn" onclick="creatorDashboard()" style="margin-top:8px">Full Creator Studio →</button>
+    </div>`;
+  } else if(type==='bios' && data){
+    dataHtml = `<div class="kai-card-section">
+      ${data.map((b,i)=>`<div class="kai-draft-card" onclick="copyBio('${escHtml(b).replace(/'/g,"\\'")}')">
+        <div class="kai-draft-num">${i+1}</div>
+        <div class="kai-draft-text">${escHtml(b)}</div>
+        <div class="kai-draft-use">Copy ↗</div>
+      </div>`).join('')}
+    </div>`;
+  } else if(type==='users' && data){
+    dataHtml = `<div class="kai-card-section">
+      ${(data||[]).map(u=>`
+        <div class="kai-mini-user" onclick="goProfile('${u.user_id}')">
+          <div class="kai-mini-user-av">${(u.username||'?')[0].toUpperCase()}</div>
+          <div class="kai-mini-user-info"><div class="kai-mini-uname">@${escHtml(u.username||'user')}</div><div class="kai-mini-ubio">${escHtml((u.bio||'').slice(0,40))}</div></div>
+          <button class="kai-mini-follow-btn" onclick="event.stopPropagation();toggleFollow('${u.user_id}')">+ Follow</button>
+        </div>`).join('')}
+    </div>`;
+  } else if(type==='communities' && data){
+    dataHtml = `<div class="kai-card-section">
+      ${(data||[]).map(c=>`
+        <div class="kai-mini-comm" onclick="goComm('${c.id}')">
+          <div class="kai-mini-comm-av">${c.name[0]}</div>
+          <div><div class="kai-mini-uname">${escHtml(c.name)}</div><div class="kai-mini-ubio">${c.member_count||0} members</div></div>
+          <button class="kai-mini-follow-btn" onclick="event.stopPropagation();toggleCommJoin('${c.id}',this)">Join</button>
+        </div>`).join('')}
+    </div>`;
+  } else if(type==='help'){
+    dataHtml = `<div class="kai-help-grid">
+      ${[['🔥 Trending','Show what\'s hot right now'],['🎯 Recommend','Posts & people for you'],
+         ['✍️ Write Post','Draft ideas on any topic'],['🏷 Hashtags','Tags for your content'],
+         ['👥 Who to Follow','Suggested profiles'],['📊 Analytics','Your performance data'],
+         ['🏘 Communities','Find groups to join'],['🔍 Search','Find anything on the platform']
+        ].map(([t,d])=>`<div class="kai-help-card" onclick="sendKaiMessage('${t.replace(/^[^\s]+\s/,'')}')"><div class="kai-help-icon">${t.split(' ')[0]}</div><div><div class="kai-help-title">${t.replace(/^\S+\s/,'')}</div><div class="kai-help-desc">${d}</div></div></div>`).join('')}
+    </div>`;
+  }
+
+  return `<div class="kai-msg-wrap ${isKai?'kai-msg-kai':'kai-msg-user'}">
+    ${avatar}
+    <div class="kai-bubble ${isKai?'kai-bubble-kai':'kai-bubble-user'}">
+      ${md?`<div class="kai-bubble-text">${md}</div>`:''}
+      ${dataHtml}
+    </div>
+  </div>`;
+}
+
+async function renderKaiTrends(){
+  const c = $('kaiContent');
+  if(!c) return;
+  c.innerHTML = `<div style="padding:30px;text-align:center;color:rgba(255,255,255,0.35)">Loading trends…</div>`;
+  const t = await KAI.getTrends();
+  c.innerHTML = `
+    <div class="kai-section-title">🔥 Trending Tags (Last 48h)</div>
+    <div class="kai-trend-tags">
+      ${(t.trendingTags||[]).map((x,i)=>`
+        <div class="kai-trend-tag-card" onclick="handleSearch('${x.tag}')">
+          <div class="kai-trend-rank">#${i+1}</div>
+          <div class="kai-trend-tag-name">${x.tag}</div>
+          <div class="kai-trend-heat"><div class="kai-trend-heat-fill" style="width:${Math.round((x.score/((t.trendingTags[0]?.score||1)))*100)}%"></div></div>
+        </div>`).join('')||'<div class="empty-state" style="padding:20px">No trends yet</div>'}
+    </div>
+    <div class="kai-section-title">⚡ Hot Posts Right Now</div>
+    <div>${(t.hotPosts||[]).slice(0,5).map(p=>postCard(p)).join('')||'<div class="empty-state">No trending posts</div>'}</div>
+    <div class="kai-section-title">🏘 Top Communities</div>
+    <div style="padding:0 0 8px">${(t.risingComms||[]).map(c=>renderCommCard(c)).join('')}</div>
+    <div class="kai-section-title">⭐ Top Creators</div>
+    <div class="kai-creators-row">
+      ${(t.topCreators||[]).map(u=>`
+        <div class="kai-creator-card" onclick="goProfile('${u.user_id}')">
+          <div class="kai-creator-av">${(u.username||'?')[0].toUpperCase()}</div>
+          <div class="kai-creator-name">@${escHtml(u.username||'user')}</div>
+          ${u.is_creator?`<span class="creator-badge" style="font-size:9px">Creator</span>`:''}
+          ${renderLevelBadge(u.reputation, true)}
+        </div>`).join('')}
+    </div>`;
+}
+
+async function renderKaiDiscover(){
+  const c = $('kaiContent');
+  if(!c) return;
+  c.innerHTML = `<div style="padding:30px;text-align:center;color:rgba(255,255,255,0.35)">Building your recommendations…</div>`;
+  const r = await KAI.getRecommendations();
+  await Promise.all((r.posts||[]).map(p=>ensureProfile(p.user_id)));
+  c.innerHTML = `
+    <div class="kai-section-title">✨ Recommended For You</div>
+    <div>${(r.posts||[]).slice(0,6).map(p=>postCard(p)).join('')||'<div class="empty-state" style="padding:20px">Follow more people to get recommendations</div>'}</div>
+    <div class="kai-section-title">👥 People to Follow</div>
+    <div class="kai-card-section" style="padding:0 0 8px">
+      ${(r.users||[]).map(u=>`
+        <div class="kai-mini-user" onclick="goProfile('${u.user_id}')">
+          <div class="kai-mini-user-av">${(u.username||'?')[0].toUpperCase()}</div>
+          <div class="kai-mini-user-info"><div class="kai-mini-uname">@${escHtml(u.username||'user')}</div><div class="kai-mini-ubio">${escHtml((u.bio||'').slice(0,45))}</div></div>
+          <button class="kai-mini-follow-btn" onclick="event.stopPropagation();toggleFollow('${u.user_id}')">+ Follow</button>
+        </div>`).join('')||'<div class="empty-state" style="padding:12px">No suggestions right now</div>'}
+    </div>
+    <div class="kai-section-title">🏘 Communities to Join</div>
+    <div style="padding:0 0 16px">${(r.communities||[]).map(c=>renderCommCard(c)).join('')||'<div class="empty-state" style="padding:12px">Run the migration to enable communities</div>'}</div>`;
+}
+
+async function renderKaiInsights(){
+  const c = $('kaiContent');
+  if(!c) return;
+  c.innerHTML = `<div style="padding:30px;text-align:center;color:rgba(255,255,255,0.35)">Analyzing your activity…</div>`;
+  const me = state.profilesMap[state.user?.id]||{};
+  const ins = await KAI.getCreatorInsights(state.user.id);
+  const lv = getLevelInfo(me.reputation||0);
+  c.innerHTML = `
+    <div class="kai-insights-wrap">
+      <div class="kai-insight-hero">
+        <div class="kai-logo-ring" style="width:60px;height:60px;margin:0 auto 12px"><div class="kai-logo-inner" style="font-size:20px">K</div></div>
+        <div class="kai-insight-name">@${escHtml(me.username||'user')}</div>
+        <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-top:6px">
+          ${me.is_creator?`<span class="creator-badge">🎨 Creator</span>`:''}
+          ${renderLevelBadge(me.reputation)}
+          ${(me.streak_days||0)>1?`<span class="streak-bar">🔥 ${me.streak_days}d</span>`:''}
+        </div>
+      </div>
+      <div class="cs-stat-grid" style="margin:12px 0">
+        <div class="cs-stat"><div class="cs-stat-val">${ins.posts}</div><div class="cs-stat-lbl">Posts</div></div>
+        <div class="cs-stat"><div class="cs-stat-val">${ins.totalLikes}</div><div class="cs-stat-lbl">Likes</div></div>
+        <div class="cs-stat"><div class="cs-stat-val">${ins.followers}</div><div class="cs-stat-lbl">Followers</div></div>
+        <div class="cs-stat"><div class="cs-stat-val">${ins.engRate}%</div><div class="cs-stat-lbl">Eng. Rate</div></div>
+      </div>
+      <div class="kai-section-title" style="padding-top:4px">🧠 KAI Analysis</div>
+      <div class="kai-analysis-cards">
+        <div class="kai-analysis-card">
+          <div class="kai-analysis-icon">⏰</div>
+          <div><strong>Best posting time:</strong> ${ins.bestHour!=null?`${ins.bestHour}:00 – ${parseInt(ins.bestHour)+1}:00`:'Post more to unlock'}</div>
+        </div>
+        <div class="kai-analysis-card">
+          <div class="kai-analysis-icon">📈</div>
+          <div><strong>Avg likes per post:</strong> ${ins.avgLikes}</div>
+        </div>
+        <div class="kai-analysis-card">
+          <div class="kai-analysis-icon">🎯</div>
+          <div><strong>XP to next level:</strong> ${lv.next!=null?`${lv.next - (me.reputation||0)} XP`:'Max level!'}</div>
+        </div>
+        <div class="kai-analysis-card">
+          <div class="kai-analysis-icon">🔥</div>
+          <div><strong>Streak status:</strong> ${(me.streak_days||0)>0?`${me.streak_days}-day streak active!`:'Login daily to build your streak'}</div>
+        </div>
+      </div>
+      <div style="padding:16px">
+        <button class="cs-ai-btn" onclick="creatorDashboard()" style="width:100%;margin-bottom:8px">📊 Full Creator Studio</button>
+        ${!me.is_creator?`<button class="cs-ai-btn" onclick="becomeCreator()" style="width:100%;background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(236,72,153,.15));border-color:rgba(168,85,247,.35);color:#c084fc">🎨 Activate Creator Mode</button>`:''}
+      </div>
+    </div>`;
+}
+
+// ── Utility functions for AI actions ──────────────────────────────
+function useDraft(text){
+  goHome(); showComposer(true);
+  setTimeout(()=>{
+    const ta = $('postInput');
+    if(ta){ ta.value = text; ta.dispatchEvent(new Event('input')); ta.focus(); }
+  }, 300);
+  showToast('Draft loaded into composer ✓');
+}
+function copyHashtag(tag){
+  navigator.clipboard?.writeText(tag).then(()=>showToast(`Copied ${tag}`)).catch(()=>showToast(tag));
+}
+function copyBio(text){
+  navigator.clipboard?.writeText(text).then(()=>showToast('Bio copied to clipboard!')).catch(()=>showToast('Bio: '+text));
 }

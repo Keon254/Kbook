@@ -1,0 +1,345 @@
+KUDASAI AI OS — PLATFORM INTELLIGENCE ENGINE v2.0
+
+Build Kudasai AI as the operating intelligence of the entire Kudasai ecosystem.
+
+DO NOT build a basic chatbot.
+DO NOT build a simple assistant.
+
+Kudasai AI must function as:
+
+* Platform Brain
+* Discovery Engine
+* Recommendation Engine
+* Moderation Engine
+* Analytics Engine
+* Creator Assistant
+* Community Assistant
+* Search Engine
+* Memory System
+* Knowledge Engine
+
+The AI should feel alive and deeply integrated into the platform.
+
+═══════════════════════════════════════════════
+AI OPERATING SYSTEM
+═══════════════════════════════════════════════
+
+Create a centralized AI architecture.
+
+Core Modules:
+
+* Memory Layer
+* Knowledge Layer
+* Retrieval Layer
+* Recommendation Layer
+* Moderation Layer
+* Analytics Layer
+* Trend Detection Layer
+* Creator Intelligence Layer
+* Search Layer
+* Learning Layer
+
+All modules must communicate together.
+
+The AI should continuously improve recommendations and understanding using platform activity.
+
+═══════════════════════════════════════════════
+MULTI-LAYER MEMORY SYSTEM
+═══════════════════════════════════════════════
+
+Short-Term Memory
+
+Store:
+
+* current conversation
+* recent searches
+* current tasks
+* active communities
+* current session activity
+
+Medium-Term Memory
+
+Store:
+
+* recent interests
+* frequently visited profiles
+* recently viewed posts
+* interaction patterns
+* favorite topics
+
+Long-Term Memory
+
+Store:
+
+* interests
+* creator preferences
+* community preferences
+* posting habits
+* engagement behavior
+* saved content
+* reputation history
+
+Memory Requirements:
+
+* searchable
+* editable
+* privacy-aware
+* encrypted
+* fast retrieval
+* scalable
+
+═══════════════════════════════════════════════
+KNOWLEDGE GRAPH ENGINE
+═══════════════════════════════════════════════
+
+Build an AI knowledge graph.
+
+Relationships:
+
+User ↔ Community
+
+User ↔ Creator
+
+User ↔ Topic
+
+User ↔ Hashtag
+
+Post ↔ Community
+
+Post ↔ Topic
+
+Creator ↔ Audience
+
+Community ↔ Trends
+
+The AI should understand relationships rather than only raw data.
+
+═══════════════════════════════════════════════
+SEMANTIC SEARCH ENGINE
+═══════════════════════════════════════════════
+
+Implement vector-based semantic search.
+
+Capabilities:
+
+* natural language search
+* meaning-based retrieval
+* contextual understanding
+* personalized ranking
+
+Examples:
+
+"Show active anime communities."
+
+"Find RPG discussions."
+
+"Find people interested in fantasy worlds."
+
+"Show creators similar to users I follow."
+
+The search should understand intent.
+
+═══════════════════════════════════════════════
+INTELLIGENT RECOMMENDATION ENGINE
+═══════════════════════════════════════════════
+
+Recommend:
+
+* communities
+* creators
+* conversations
+* hashtags
+* posts
+* events
+* stories
+
+Use:
+
+* interests
+* activity
+* follows
+* engagement patterns
+* saved content
+* trending activity
+
+Recommendations must adapt in real time.
+
+═══════════════════════════════════════════════
+TREND DETECTION ENGINE
+═══════════════════════════════════════════════
+
+Detect:
+
+* rising creators
+* rising communities
+* viral posts
+* emerging hashtags
+* discussion spikes
+
+Generate:
+
+* Trending Dashboard
+* Heat Maps
+* Activity Graphs
+* Trend Forecasts
+
+═══════════════════════════════════════════════
+ADVANCED MODERATION AI
+═══════════════════════════════════════════════
+
+Detect:
+
+* spam
+* scams
+* harassment
+* hate content
+* impersonation
+* bot activity
+* fake engagement
+* coordinated abuse
+
+Generate:
+
+* risk scores
+* trust scores
+* moderation suggestions
+* automated review queues
+
+Provide explainable moderation decisions.
+
+═══════════════════════════════════════════════
+CREATOR AI STUDIO
+═══════════════════════════════════════════════
+
+Provide creators with:
+
+* audience analytics
+* best posting times
+* trend opportunities
+* content suggestions
+* title generation
+* hashtag generation
+* engagement forecasts
+
+Creator Intelligence Dashboard:
+
+* audience growth
+* retention
+* engagement score
+* trend alignment
+
+═══════════════════════════════════════════════
+AI CONTENT ASSISTANT
+═══════════════════════════════════════════════
+
+Assist users by generating:
+
+* post drafts
+* replies
+* hashtags
+* summaries
+* profile bios
+* community descriptions
+
+Improve:
+
+* grammar
+* readability
+* engagement potential
+
+═══════════════════════════════════════════════
+COMMUNITY INTELLIGENCE
+═══════════════════════════════════════════════
+
+AI should manage community insights.
+
+Show:
+
+* growth trends
+* active members
+* engagement levels
+* topic clusters
+* trending discussions
+
+Provide moderators with AI insights.
+
+═══════════════════════════════════════════════
+AI DISCOVERY EXPERIENCE
+═══════════════════════════════════════════════
+
+Create:
+
+* AI Search Bar
+* AI Explore Page
+* AI Discovery Feed
+* AI Recommendation Panel
+* AI Assistant Button
+* AI Creator Dashboard
+* AI Insights Dashboard
+
+Style:
+
+* futuristic
+* premium
+* immersive
+* elegant
+
+═══════════════════════════════════════════════
+ARCHITECTURE REQUIREMENTS
+═══════════════════════════════════════════════
+
+Implement real systems:
+
+* vector indexing
+* embeddings support
+* retrieval layer
+* memory layer
+* recommendation engine
+* analytics engine
+* moderation engine
+
+Prepare for:
+
+* future LLM integration
+* future multimodal AI
+* future voice assistant
+* future image understanding
+* future custom Kudasai model training
+
+═══════════════════════════════════════════════
+PERFORMANCE
+═══════════════════════════════════════════════
+
+Requirements:
+
+* low latency
+* efficient indexing
+* realtime updates
+* scalable architecture
+* optimized database access
+
+═══════════════════════════════════════════════
+INTEGRATION
+═══════════════════════════════════════════════
+
+Integrate deeply with:
+
+* profiles
+* posts
+* communities
+* messages
+* stories
+* notifications
+* followers
+* creator dashboards
+* analytics systems
+
+═══════════════════════════════════════════════
+FINAL GOAL
+═══════════════════════════════════════════════
+
+Kudasai AI should become the central intelligence layer of the platform.
+
+Users should feel like the platform understands them, helps them discover content, grow communities, create better content, and navigate the entire ecosystem through an intelligent AI experience.
+
+Design the architecture so that future custom AI model training can be added without rebuilding the system.
