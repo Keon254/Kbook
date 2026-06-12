@@ -269,10 +269,14 @@
         </div>
       </div>
 
+      <!-- IMAGE URL (shown/hidden by toggle) -->
+      <div id="imageUrlWrap" style="display:none;padding:4px 0 8px">
+        <input class="comment-input" id="postImageUrl" placeholder="Paste image URL…" style="width:100%;font-size:13px">
+      </div>
+
       <div class="composer-actions">
-        <label class="file-label">📷 Photo <input type="file" id="imageInput" accept="image/*" multiple style="display:none"></label>
+        <button class="file-label" onclick="toggleImageUrl()" type="button" title="Attach image URL">🔗 Image</button>
         <label class="file-label">🎥 Video <input type="file" id="videoInput" accept="video/*" style="display:none"></label>
-        <label class="file-label" id="audioLabel">🎵 Audio <input type="file" id="audioInput" accept="audio/*" style="display:none" onchange="onAudioSelected(this)"></label>
         <button class="file-label" id="pollToggleBtn" onclick="togglePollBuilder()" type="button">📊 Poll</button>
         <button class="file-label" id="threadToggleBtn" onclick="toggleThreadBuilder()" type="button">🧵 Thread</button>
         <button class="file-label" id="emojiBtn" onclick="toggleEmoji()" type="button">😊</button>

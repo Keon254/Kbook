@@ -125,6 +125,11 @@ async function bootstrap() {
   await loadFeed();
   setupInfiniteScroll();
   startRealtime();
+  // Run these in parallel — they don't depend on each other
+  loadNotifBadge();
+  loadDMBadge();
+  loadRightbarWidgets();
+  loadStoriesBar();
 }
 
 // ── Auth ──────────────────────────────────────
@@ -174,12 +179,22 @@ async function loadFeed(append = false) {
   }
 
   const from = state.page * PAGE_SIZE;
-  const { data, error } = await db
-    .from('posts')
-    .select('*, profiles(username, avatar_url)')
-    .order('created_at', { ascending: false })
-    .range(from, from + PAGE_SIZE - 1);
+  let query;
 
+  if (state.tab === 'following' && state.user) {
+    const { data: follows } = await db.from('follows').select('following_id').eq('follower_id', state.user.id);
+    const ids = (follows||[]).map(f => f.following_id);
+    if (!ids.length) {
+      state.loading = false;
+      if (!append) $('feed').innerHTML = '<div style="text-align:center;padding:60px;color:#555">Follow some people to see their posts here.</div>';
+      return;
+    }
+    query = db.from('posts').select('*, profiles(username, avatar_url)').in('user_id', ids).order('created_at', { ascending: false }).range(from, from + PAGE_SIZE - 1);
+  } else {
+    query = db.from('posts').select('*, profiles(username, avatar_url)').order('created_at', { ascending: false }).range(from, from + PAGE_SIZE - 1);
+  }
+
+  const { data, error } = await query;
   state.loading = false;
 
   if (error) {
@@ -204,11 +219,31 @@ function renderPost(p) {
     ? `<img src="${esc(p.profiles.avatar_url)}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0">`
     : `<div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#a855f7);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:17px;flex-shrink:0">${uname[0].toUpperCase()}</div>`;
 
-  const time   = new Date(p.created_at).toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
-  const media  = p.image_url
+  const time  = new Date(p.created_at).toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  const media = p.image_url
     ? `<img src="${esc(p.image_url)}" style="width:100%;border-radius:14px;margin-top:10px;max-height:420px;object-fit:cover;cursor:pointer" onclick="openLightbox('${esc(p.image_url)}')">`
     : p.video_url
     ? `<video src="${esc(p.video_url)}" controls style="width:100%;border-radius:14px;margin-top:10px"></video>`
+    : '';
+
+  const pollHtml = (() => {
+    if (!p.poll_options || !Array.isArray(p.poll_options) || !p.poll_options.length) return '';
+    const total = p.poll_options.reduce((s, o) => s + (o.votes||0), 0);
+    return '<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">' +
+      p.poll_options.map((o, i) => {
+        const pct = total ? Math.round((o.votes||0)/total*100) : 0;
+        return `<div onclick="votePoll('${p.id}',${i})" style="cursor:pointer;border-radius:10px;overflow:hidden;border:1px solid rgba(0,212,255,0.25);position:relative;height:36px;display:flex;align-items:center;padding:0 12px;font-size:13px">
+          <div style="position:absolute;left:0;top:0;height:100%;width:${pct}%;background:rgba(0,212,255,0.12);transition:width .4s"></div>
+          <span style="position:relative;z-index:1;flex:1">${esc(o.text||'')}</span>
+          <span style="position:relative;z-index:1;color:var(--accent);font-weight:700">${pct}%</span>
+        </div>`;
+      }).join('') +
+      `<div style="font-size:11px;color:#555;margin-top:2px">${total} vote${total!==1?'s':''}</div></div>`;
+  })();
+
+  const isOwn    = p.user_id === state.user?.id;
+  const deleteBtn = isOwn
+    ? `<button onclick="deletePost('${p.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:13px;padding:4px 0;transition:color .2s;margin-left:auto" onmouseover="this.style.color='#f55'" onmouseout="this.style.color='#666'" title="Delete post">🗑</button>`
     : '';
 
   return `<div class="post-card" id="post-${p.id}" style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06)">
@@ -220,12 +255,14 @@ function renderPost(p) {
           <span style="color:#444;font-size:12px">${esc(time)}</span>
         </div>
         <div style="margin-top:6px;line-height:1.6;word-break:break-word;font-size:15px">${esc(p.content || '')}</div>
-        ${media}
-        <div style="display:flex;gap:24px;margin-top:12px">
+        ${media}${pollHtml}
+        <div style="display:flex;gap:20px;margin-top:12px;align-items:center">
           <button onclick="toggleLike('${p.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:13px;padding:4px 0;transition:color .2s" onmouseover="this.style.color='#e05'" onmouseout="this.style.color='#666'">❤️ <span id="likes-${p.id}">${p.likes_count || 0}</span></button>
-          <button onclick="openPost('${p.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:13px;padding:4px 0;transition:color .2s" onmouseover="this.style.color='#00d4ff'" onmouseout="this.style.color='#666'">💬 ${p.comments_count || 0}</button>
-          <button onclick="repost('${p.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:13px;padding:4px 0;transition:color .2s" onmouseover="this.style.color='#0f0'" onmouseout="this.style.color='#666'">🔁 ${p.reposts_count || 0}</button>
-          <button onclick="bookmark('${p.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:13px;padding:4px 0;transition:color .2s" onmouseover="this.style.color='#fa0'" onmouseout="this.style.color='#666'">🔖</button>
+          <button onclick="openPost('${p.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:13px;padding:4px 0;transition:color .2s" onmouseover="this.style.color='#00d4ff'" onmouseout="this.style.color='#666'">💬 <span id="comments-${p.id}">${p.comments_count || 0}</span></button>
+          <button onclick="repost('${p.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:13px;padding:4px 0;transition:color .2s" onmouseover="this.style.color='#0f0'" onmouseout="this.style.color='#666'">🔁 <span id="reposts-${p.id}">${p.reposts_count || 0}</span></button>
+          <button onclick="bookmark('${p.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:13px;padding:4px 0;transition:color .2s" onmouseover="this.style.color='#fa0'" onmouseout="this.style.color='#666'" title="Bookmark">🔖</button>
+          <button onclick="sharePost('${p.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:13px;padding:4px 0;transition:color .2s" onmouseover="this.style.color='#ccc'" onmouseout="this.style.color='#666'" title="Share">↗</button>
+          ${deleteBtn}
         </div>
       </div>
     </div>
@@ -258,10 +295,29 @@ async function submitPost() {
   if (!state.user) { alert('Please log in first.'); return; }
   const btn = $('postBtn');
   btn.disabled = true; btn.textContent = 'Posting…';
-  const { error } = await db.from('posts').insert([{ user_id: state.user.id, content }]);
+
+  const postData = { user_id: state.user.id, content };
+
+  // Image URL attachment
+  const imgUrl = $('postImageUrl')?.value.trim();
+  if (imgUrl) postData.image_url = imgUrl;
+
+  // Poll options
+  const pollBuilder = $('pollBuilder');
+  if (pollBuilder && pollBuilder.style.display !== 'none') {
+    const opts = Array.from($('pollOptionsList').querySelectorAll('input'))
+      .map(i => i.value.trim()).filter(Boolean);
+    if (opts.length >= 2) {
+      postData.poll_options = opts.map(text => ({ text, votes: 0 }));
+    }
+  }
+
+  const { error } = await db.from('posts').insert([postData]);
   btn.disabled = false; btn.textContent = 'Post';
   if (error) { alert(error.message); return; }
   $('postInput').value = '';
+  if ($('postImageUrl')) $('postImageUrl').value = '';
+  if ($('pollBuilder')) $('pollBuilder').style.display = 'none';
   localStorage.removeItem('kd_draft');
   await loadFeed();
 }
@@ -570,13 +626,19 @@ async function dmUserSearch(val) {
     </div>`).join('');
 }
 
+let _dmChannel = null;
 async function openDM(toId, toName) {
   _activeDM = toId;
+  // Unsubscribe from any previous DM channel
+  if (_dmChannel) { try { db.removeChannel(_dmChannel); } catch(_) {} _dmChannel = null; }
+
   showSection(`
     <div style="display:flex;flex-direction:column;height:calc(100vh - 140px)">
       <div style="padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px">
         <button onclick="goMessages()" style="background:none;border:none;color:#888;cursor:pointer;font-size:18px">←</button>
+        <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#a855f7);display:flex;align-items:center;justify-content:center;font-weight:700;color:#000;font-size:14px">${toName[0].toUpperCase()}</div>
         <span style="font-weight:700">@${esc(toName)}</span>
+        <span id="dmTypingIndicator" style="font-size:12px;color:#555;margin-left:4px"></span>
       </div>
       <div id="dmThread" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px">
         <div style="text-align:center;color:#555;font-size:13px">Loading…</div>
@@ -586,7 +648,27 @@ async function openDM(toId, toName) {
         <button onclick="sendDM()" style="padding:8px 18px;border-radius:20px;border:none;background:var(--accent);color:#000;font-weight:700;cursor:pointer">Send</button>
       </div>
     </div>`, 'messages');
-  loadDMThread(toId);
+  await loadDMThread(toId);
+
+  // Real-time DM subscription
+  if (_CREDS_OK) {
+    _dmChannel = db.channel('dm-' + [state.user.id, toId].sort().join('-'))
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+        const m = payload.new;
+        const relevant = (m.sender_id === state.user.id && m.receiver_id === toId) ||
+                         (m.sender_id === toId && m.receiver_id === state.user.id);
+        if (relevant) {
+          const el = $('dmThread');
+          if (el) {
+            const mine = m.sender_id === state.user.id;
+            el.insertAdjacentHTML('beforeend', `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'}">
+              <div style="max-width:72%;padding:10px 14px;border-radius:18px;background:${mine?'var(--accent)':'rgba(255,255,255,0.08)'};color:${mine?'#000':'#fff'};font-size:14px">${esc(m.content||'')}</div>
+            </div>`);
+            el.scrollTop = el.scrollHeight;
+          }
+        }
+      }).subscribe();
+  }
 }
 
 async function loadDMThread(toId) {
@@ -642,7 +724,31 @@ async function joinCommunity(communityId) {
   await db.from('community_members').insert([{ community_id: communityId, user_id: state.user.id }]);
 }
 
-function openCommunity(id, name) { goCommunities(); }
+async function openCommunity(id, name) {
+  showSection(`<div style="padding:48px;text-align:center;color:#555">Loading ${esc(name)}…</div>`, 'communities');
+  const [{ data: posts }, { data: members }] = await Promise.all([
+    db.from('posts').select('*, profiles(username,avatar_url)').eq('community_id', id).order('created_at', { ascending: false }).limit(20),
+    db.from('community_members').select('id').eq('community_id', id)
+  ]);
+
+  const postRows = (posts||[]).length
+    ? (posts||[]).map(p => renderPost(p)).join('')
+    : '<div style="padding:40px;text-align:center;color:#555">No posts in this community yet. Be first!</div>';
+
+  const html = pageWrap(`
+    <div style="padding:12px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <button onclick="goCommunities()" style="background:none;border:none;color:#888;cursor:pointer;font-size:18px">←</button>
+      <div>
+        <div style="font-weight:800;font-size:16px">${esc(name)}</div>
+        <div style="font-size:12px;color:#555">${(members||[]).length} members</div>
+      </div>
+      <button onclick="joinCommunity('${esc(id)}')" style="margin-left:auto;padding:6px 16px;border-radius:16px;border:none;background:var(--accent);color:#000;cursor:pointer;font-size:12px;font-weight:700">Join</button>
+    </div>
+    ${sectionHeader('Posts')}
+    ${postRows}
+  `);
+  showSection(html, 'communities');
+}
 
 // ── Jobs ──────────────────────────────────────
 async function goJobs() {
@@ -651,14 +757,22 @@ async function goJobs() {
 
   const cards = (data||[]).map(j => `
     <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06)">
-      <div style="font-weight:700;font-size:15px">${esc(j.title||'Untitled')}</div>
-      <div style="font-size:13px;color:var(--accent);margin-top:2px">${esc(j.company||j.profiles?.username||'')}</div>
-      <div style="font-size:13px;color:#666;margin-top:4px">${esc(j.location||'Remote')} · ${esc(j.type||'Full-time')}</div>
-      <div style="font-size:13px;color:#888;margin-top:6px;line-height:1.5">${esc((j.description||'').slice(0,140))}${(j.description||'').length>140?'…':''}</div>
-    </div>`).join('') || '<div style="padding:60px;text-align:center;color:#555">No job listings yet.</div>';
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-weight:700;font-size:15px">${esc(j.title||'Untitled')}</div>
+          <div style="font-size:13px;color:var(--accent);margin-top:2px">${esc(j.company||j.profiles?.username||'')}</div>
+          <div style="font-size:13px;color:#666;margin-top:4px">${esc(j.location||'Remote')} · ${esc(j.type||'Full-time')}</div>
+          <div style="font-size:13px;color:#888;margin-top:6px;line-height:1.5">${esc((j.description||'').slice(0,140))}${(j.description||'').length>140?'…':''}</div>
+        </div>
+        ${j.apply_url ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener" style="flex-shrink:0;padding:7px 14px;border-radius:14px;border:1px solid rgba(0,212,255,0.4);color:var(--accent);text-decoration:none;font-size:12px;font-weight:600;white-space:nowrap">Apply →</a>` : ''}
+      </div>
+    </div>`).join('') || '<div style="padding:40px;text-align:center;color:#555">No job listings yet.<br><span style="font-size:13px">Be the first to post one!</span></div>';
 
   showSection(pageWrap(`
-    ${sectionHeader('💼 Jobs')}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 8px">
+      <div style="font-weight:800;font-size:17px;color:var(--accent)">💼 Jobs</div>
+      <button onclick="showPostJobForm()" style="padding:7px 16px;border-radius:16px;border:none;background:var(--accent);color:#000;font-weight:700;cursor:pointer;font-size:12px">+ Post a Job</button>
+    </div>
     ${cards}
   `), 'jobs');
 }
@@ -923,18 +1037,321 @@ function closeLightbox() { $('lightbox').style.display = 'none'; }
 function galleryPrev()   {}
 function galleryNext()   {}
 
+// ── Composer image URL toggle ─────────────────
+function toggleImageUrl() {
+  const w = $('imageUrlWrap');
+  if (!w) return;
+  const showing = w.style.display !== 'none';
+  w.style.display = showing ? 'none' : '';
+  if (!showing) setTimeout(() => $('postImageUrl')?.focus(), 50);
+}
+
+// ── Notification badge ────────────────────────
+async function loadNotifBadge() {
+  if (!state.user) return;
+  const { count } = await db.from('notifications').select('id', { count: 'exact', head: true })
+    .eq('user_id', state.user.id).eq('read', false);
+  if (count > 0) {
+    const b1 = $('notifBadge'), b2 = $('mnotifBadge');
+    if (b1) { b1.textContent = count > 9 ? '9+' : count; b1.style.display = ''; }
+    if (b2) { b2.style.display = ''; }
+  }
+}
+
+// ── DM badge ──────────────────────────────────
+async function loadDMBadge() {
+  if (!state.user) return;
+  const { count } = await db.from('messages').select('id', { count: 'exact', head: true })
+    .eq('receiver_id', state.user.id).eq('read', false);
+  if (count > 0) {
+    const b1 = $('dmBadge'), b2 = $('mdmBadge');
+    if (b1) { b1.textContent = count > 9 ? '9+' : count; b1.style.display = ''; }
+    if (b2) { b2.style.display = ''; }
+  }
+}
+
+// ── Delete post ───────────────────────────────
+async function deletePost(postId) {
+  if (!confirm('Delete this post?')) return;
+  await db.from('posts').delete().eq('id', postId).eq('user_id', state.user.id);
+  const el = $('post-' + postId);
+  if (el) { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }
+}
+
+// ── Share post ────────────────────────────────
+function sharePost(postId) {
+  const url = `${location.origin}?post=${postId}`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => showToast('🔗 Link copied!'));
+  } else {
+    prompt('Copy this link:', url);
+  }
+}
+
+// ── Toast ─────────────────────────────────────
+function showToast(msg, duration = 2500) {
+  const c = $('notifToastContainer');
+  if (!c) return;
+  const t = document.createElement('div');
+  t.className = 'notif-toast';
+  t.textContent = msg;
+  t.style.cssText = 'padding:10px 18px;margin-bottom:8px;border-radius:12px;background:rgba(0,212,255,0.15);border:1px solid rgba(0,212,255,0.3);color:#fff;font-size:14px;backdrop-filter:blur(12px);animation:fadeIn .2s ease';
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, duration);
+}
+
+// ── Vote on poll ──────────────────────────────
+async function votePoll(postId, optionIndex) {
+  if (!state.user) { alert('Log in to vote.'); return; }
+  const { data: post } = await db.from('posts').select('poll_options').eq('id', postId).maybeSingle();
+  if (!post?.poll_options) return;
+  const opts = [...post.poll_options];
+  opts[optionIndex] = { ...opts[optionIndex], votes: (opts[optionIndex].votes || 0) + 1 };
+  await db.from('posts').update({ poll_options: opts }).eq('id', postId);
+  // Refresh just this post card
+  const { data: updated } = await db.from('posts').select('*, profiles(username,avatar_url)').eq('id', postId).maybeSingle();
+  const el = $('post-' + postId);
+  if (el && updated) el.outerHTML = renderPost(updated);
+}
+
+// ── Repost toggle ─────────────────────────────
+async function repost(postId) {
+  if (!state.user) { alert('Log in to repost.'); return; }
+  const { data } = await db.from('reposts').select('id').eq('post_id', postId).eq('user_id', state.user.id).maybeSingle();
+  const el = $('reposts-' + postId);
+  if (data) {
+    await db.from('reposts').delete().eq('id', data.id);
+    if (el) el.textContent = Math.max(0, parseInt(el.textContent || '0') - 1);
+    showToast('🔁 Repost removed');
+  } else {
+    await db.from('reposts').insert([{ post_id: postId, user_id: state.user.id }]);
+    if (el) el.textContent = parseInt(el.textContent || '0') + 1;
+    showToast('🔁 Reposted!');
+  }
+}
+
+// ── Rightbar widgets ──────────────────────────
+async function loadRightbarWidgets() {
+  // Trending hashtags/topics
+  const trending = $('trendingList');
+  if (trending) {
+    const { data } = await db.from('posts').select('content').order('likes_count', { ascending: false }).limit(20);
+    const tags = {};
+    (data||[]).forEach(p => {
+      (p.content||'').match(/#\w+/g)?.forEach(t => { tags[t] = (tags[t]||0) + 1; });
+    });
+    const sorted = Object.entries(tags).sort((a,b) => b[1]-a[1]).slice(0,5);
+    trending.innerHTML = sorted.length
+      ? sorted.map(([tag, cnt]) => `<div onclick="runExploreSearch('${esc(tag)}')" style="padding:6px 0;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.04)" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color=''"><span>${esc(tag)}</span><span style="color:#555;font-size:11px">${cnt} posts</span></div>`).join('')
+      : '<p style="color:#555;font-size:13px">Post with #hashtags to see trends</p>';
+  }
+
+  // Who to follow
+  const wtf = $('whoToFollow');
+  if (wtf && state.user) {
+    const { data: follows } = await db.from('follows').select('following_id').eq('follower_id', state.user.id);
+    const followed = new Set((follows||[]).map(f => f.following_id));
+    followed.add(state.user.id);
+    const { data: users } = await db.from('profiles').select('*').limit(20);
+    const suggestions = (users||[]).filter(u => !followed.has(u.user_id)).slice(0,3);
+    wtf.innerHTML = suggestions.length
+      ? suggestions.map(u => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#a855f7);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px;cursor:pointer;flex-shrink:0" onclick="viewProfile('${esc(u.user_id)}')">${(u.username||'U')[0].toUpperCase()}</div>
+          <div style="flex:1;min-width:0;cursor:pointer" onclick="viewProfile('${esc(u.user_id)}')"><div style="font-size:13px;font-weight:600">@${esc(u.username||'user')}</div></div>
+          <button onclick="followUser('${esc(u.user_id)}')" style="padding:4px 12px;border-radius:14px;border:1px solid rgba(0,212,255,0.4);background:transparent;color:var(--accent);cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap">Follow</button>
+        </div>`).join('')
+      : '<p style="color:#555;font-size:13px">You\'re following everyone!</p>';
+  }
+
+  // Active creators
+  const creators = $('trendingCreators');
+  if (creators) {
+    const { data } = await db.from('posts').select('user_id, profiles(username)').order('created_at', { ascending: false }).limit(30);
+    const counts = {};
+    (data||[]).forEach(p => {
+      const name = p.profiles?.username || 'user';
+      counts[p.user_id] = counts[p.user_id] || { name, count: 0 };
+      counts[p.user_id].count++;
+    });
+    const top = Object.entries(counts).sort((a,b) => b[1].count - a[1].count).slice(0,3);
+    creators.innerHTML = top.length
+      ? top.map(([uid, { name, count }]) => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer" onclick="viewProfile('${esc(uid)}')">
+          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#a855f7,#00d4ff);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:12px">${name[0].toUpperCase()}</div>
+          <div style="flex:1;font-size:13px">@${esc(name)}</div>
+          <span style="font-size:11px;color:#555">${count} posts</span>
+        </div>`).join('')
+      : '<p style="color:#555;font-size:13px">No activity yet</p>';
+  }
+}
+
 // ── Stories ───────────────────────────────────
-function addStory()                { $('storyImgInput').click(); }
-async function uploadStory(input)  { alert('Story upload coming soon!'); }
-function closeStoryViewer()        { $('storyViewer').style.display = 'none'; }
-function prevStory()               {}
-function nextStory()               {}
+let _stories = [], _storyIdx = 0;
 
-// ── Follow Modal ──────────────────────────────
+function addStory() { $('storyImgInput').click(); }
+
+async function uploadStory(input) {
+  if (!input.files?.[0] || !state.user) return;
+  const file = input.files[0];
+  // Use object URL as preview (no storage bucket required)
+  const url = URL.createObjectURL(file);
+  const caption = prompt('Add a caption (optional):') || '';
+  const { error } = await db.from('stories').insert([{
+    user_id: state.user.id,
+    image_url: url,
+    caption,
+    expires_at: new Date(Date.now() + 24*60*60*1000).toISOString()
+  }]);
+  if (error) {
+    // stories table might not exist — show URL in profile story slot gracefully
+    showToast('📸 Story preview (not saved — run migration to enable)');
+  } else {
+    showToast('📸 Story posted!');
+    loadStoriesBar();
+  }
+  input.value = '';
+}
+
+async function loadStoriesBar() {
+  const bar = $('storiesBar');
+  if (!bar || !state.user) return;
+  bar.style.display = '';
+  const { data } = await db.from('stories')
+    .select('*, profiles(username,avatar_url)')
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(20);
+  _stories = data || [];
+  const list = $('storiesList');
+  if (!list) return;
+  list.innerHTML = _stories.map((s, i) => {
+    const name = s.profiles?.username || 'user';
+    const isOwn = s.user_id === state.user.id;
+    return `<div class="story-item" onclick="openStory(${i})" style="flex-shrink:0;text-align:center;cursor:pointer">
+      <div class="story-ring"><div class="story-avatar-inner" style="${isOwn ? 'border:2px solid var(--accent);' : ''}">${name[0].toUpperCase()}</div></div>
+      <div class="story-label">@${esc(name.slice(0,8))}</div>
+    </div>`;
+  }).join('');
+}
+
+function openStory(idx) {
+  if (!_stories.length) return;
+  _storyIdx = idx;
+  renderStoryViewer();
+  $('storyViewer').style.display = 'flex';
+}
+
+function renderStoryViewer() {
+  const s = _stories[_storyIdx];
+  if (!s) { closeStoryViewer(); return; }
+  const img = $('storyViewerImg');
+  const name = $('storyViewerName');
+  const time = $('storyViewerTime');
+  const cap  = $('storyViewerCaption');
+  if (img)  img.src = s.image_url || '';
+  if (name) name.textContent = '@' + (s.profiles?.username || 'user');
+  if (time) time.textContent = new Date(s.created_at).toLocaleString(undefined, { hour:'2-digit', minute:'2-digit' });
+  if (cap)  cap.textContent  = s.caption || '';
+  // Progress bars
+  const pw = $('storyProgressWrap');
+  if (pw) pw.innerHTML = _stories.map((_, i) =>
+    `<div style="flex:1;height:3px;border-radius:2px;background:${i < _storyIdx ? 'rgba(255,255,255,0.6)' : i === _storyIdx ? 'var(--accent)' : 'rgba(255,255,255,0.2)'}"></div>`
+  ).join('');
+}
+
+function closeStoryViewer() { $('storyViewer').style.display = 'none'; }
+function prevStory() { if (_storyIdx > 0) { _storyIdx--; renderStoryViewer(); } }
+function nextStory() { if (_storyIdx < _stories.length - 1) { _storyIdx++; renderStoryViewer(); } else closeStoryViewer(); }
+
+// ── Follow modal (followers / following list) ─
+async function showFollowModal(userId, type) {
+  const modal = $('followModal');
+  if (!modal) return;
+  const title = $('followModalTitle');
+  const list  = $('followModalList');
+  if (title) title.textContent = type === 'followers' ? 'Followers' : 'Following';
+  if (list)  list.innerHTML = '<div style="padding:20px;text-align:center;color:#555">Loading…</div>';
+  modal.style.display = 'flex';
+
+  let data;
+  if (type === 'followers') {
+    ({ data } = await db.from('follows').select('profiles!follows_follower_id_fkey(user_id,username)').eq('following_id', userId));
+    data = (data||[]).map(r => r.profiles);
+  } else {
+    ({ data } = await db.from('follows').select('profiles!follows_following_id_fkey(user_id,username)').eq('follower_id', userId));
+    data = (data||[]).map(r => r.profiles);
+  }
+
+  if (!list) return;
+  if (!data?.length) { list.innerHTML = '<div style="padding:20px;text-align:center;color:#555">None yet.</div>'; return; }
+  list.innerHTML = data.map(u => `
+    <div onclick="closeFollowModal();viewProfile('${esc(u?.user_id||'')}');" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer">
+      <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#a855f7);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:14px">${(u?.username||'U')[0].toUpperCase()}</div>
+      <span style="font-weight:600">@${esc(u?.username||'user')}</span>
+    </div>`).join('');
+  list.dataset.all = JSON.stringify(data);
+}
+
 function closeFollowModal(e) { if (!e || e.target.id === 'followModal') $('followModal').style.display = 'none'; }
-function filterFollowList(q) {}
 
-// ── Mobile ────────────────────────────────────
+function filterFollowList(q) {
+  const list = $('followModalList');
+  if (!list) return;
+  try {
+    const all = JSON.parse(list.dataset.all || '[]');
+    const filtered = q ? all.filter(u => (u?.username||'').toLowerCase().includes(q.toLowerCase())) : all;
+    list.innerHTML = filtered.map(u => `
+      <div onclick="closeFollowModal();viewProfile('${esc(u?.user_id||'')}');" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#a855f7);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:14px">${(u?.username||'U')[0].toUpperCase()}</div>
+        <span style="font-weight:600">@${esc(u?.username||'user')}</span>
+      </div>`).join('') || '<div style="padding:20px;color:#555;text-align:center">No results.</div>';
+  } catch(_) {}
+}
+
+// ── Job post form ─────────────────────────────
+function showPostJobForm() {
+  showSection(pageWrap(`
+    <div style="padding:12px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <button onclick="goJobs()" style="background:none;border:none;color:#888;cursor:pointer;font-size:18px">←</button>
+      <span style="font-weight:800">Post a Job</span>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <input class="comment-input" id="jobTitle"    placeholder="Job title *" style="width:100%">
+      <input class="comment-input" id="jobCompany"  placeholder="Company name *" style="width:100%">
+      <input class="comment-input" id="jobLocation" placeholder="Location (e.g. Remote, Lagos)" style="width:100%">
+      <select class="comment-input" id="jobType" style="width:100%;background:#111;color:#fff">
+        <option value="Full-time">Full-time</option>
+        <option value="Part-time">Part-time</option>
+        <option value="Contract">Contract</option>
+        <option value="Freelance">Freelance</option>
+        <option value="Internship">Internship</option>
+      </select>
+      <textarea class="comment-input" id="jobDescription" placeholder="Job description *" rows="5" style="width:100%;resize:vertical"></textarea>
+      <input class="comment-input" id="jobUrl" placeholder="Apply link (URL, optional)" style="width:100%">
+      <button onclick="submitJob()" style="padding:14px;border-radius:14px;border:none;background:var(--accent);color:#000;font-weight:800;cursor:pointer;font-size:15px">Post Job Listing</button>
+    </div>
+  `), 'jobs');
+}
+
+async function submitJob() {
+  const title   = $('jobTitle')?.value.trim();
+  const company = $('jobCompany')?.value.trim();
+  const desc    = $('jobDescription')?.value.trim();
+  if (!title || !company || !desc) { alert('Please fill in title, company, and description.'); return; }
+  const { error } = await db.from('jobs').insert([{
+    user_id:     state.user.id,
+    title,
+    company,
+    location:    $('jobLocation')?.value.trim() || 'Remote',
+    type:        $('jobType')?.value || 'Full-time',
+    description: desc,
+    apply_url:   $('jobUrl')?.value.trim() || null
+  }]);
+  if (error) { alert(error.message); return; }
+  showToast('💼 Job posted!');
+  goJobs();
+}
+
+// ── Stories ───────────────────────────────────
 function mobileNewPost() {
   $('mainCol')?.scrollTo({ top: 0, behavior: 'smooth' });
   setTimeout(() => $('postInput')?.focus(), 300);
