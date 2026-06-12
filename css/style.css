@@ -4414,6 +4414,8 @@ audio::-webkit-media-controls-panel { background: rgba(0,212,255,0.08); }
    ════════════════════════════════════════════════════════════ */
 .legal-body {
   min-height: 100vh;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   background: radial-gradient(ellipse at 20% 10%, rgba(0,212,255,0.04) 0%, transparent 50%),
               radial-gradient(ellipse at 80% 80%, rgba(123,94,167,0.05) 0%, transparent 50%),
               var(--bg);
@@ -4421,6 +4423,55 @@ audio::-webkit-media-controls-panel { background: rgba(0,212,255,0.08); }
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ── Legal TOC ─────────────────────────────────────── */
+.legal-toc {
+  max-width: 860px; margin: 0 auto 28px; padding: 0 24px;
+}
+.legal-toc-inner {
+  background: rgba(0,212,255,0.04);
+  border: 1px solid rgba(0,212,255,0.1);
+  border-radius: 16px; padding: 20px 24px;
+}
+.legal-toc-inner h3 {
+  font-size: 11px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: rgba(0,212,255,.6); margin-bottom: 12px;
+}
+.legal-toc-inner ol {
+  padding-left: 18px; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 24px;
+}
+.legal-toc-inner li { font-size: 13px; color: rgba(255,255,255,.5); }
+.legal-toc-inner a { color: rgba(255,255,255,.55); text-decoration: none; transition: color .15s; }
+.legal-toc-inner a:hover { color: #00d4ff; }
+
+/* ── Legal highlight box ─────────────────────────── */
+.legal-highlight {
+  background: rgba(0,212,255,0.06); border-left: 3px solid #00d4ff;
+  border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0;
+  font-size: 13px; color: rgba(255,255,255,.75); line-height: 1.65;
+}
+.legal-highlight.warn {
+  background: rgba(255,180,0,0.06); border-color: #f0b400; color: rgba(255,255,255,.7);
+}
+
+/* ── Legal last-updated strip ────────────────────── */
+.legal-meta {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  max-width: 860px; margin: 0 auto 24px; padding: 0 24px;
+  font-size: 12px; color: rgba(255,255,255,.35);
+}
+.legal-meta span { display: flex; align-items: center; gap: 5px; }
+
+/* ── Confirm signup button ───────────────────────── */
+#confirmSignupBtn {
+  width: 100%; padding: 13px;
+  background: linear-gradient(135deg, #00b4d8, #0077a8);
+  color: #fff; border: none; border-radius: 14px;
+  font-weight: 800; font-size: 14px; cursor: pointer;
+  transition: opacity .15s, transform .12s;
+}
+#confirmSignupBtn:hover { opacity: .9; transform: translateY(-1px); }
+#confirmSignupBtn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 .legal-header {
   position: sticky; top: 0; z-index: 100;
   display: flex; align-items: center; justify-content: space-between;

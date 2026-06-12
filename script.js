@@ -53,10 +53,11 @@ const esc = s => { const d = document.createElement('div'); d.textContent = s; r
 // ── Boot ─────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   // Wire up buttons
-  $('loginBtn')   ?.addEventListener('click', login);
-  $('signupBtn')  ?.addEventListener('click', signup);
-  $('postBtn')    ?.addEventListener('click', submitPost);
-  $('postInput')  ?.addEventListener('input',  saveDraft);
+  $('loginBtn')         ?.addEventListener('click', login);
+  $('signupBtn')        ?.addEventListener('click', showSignupMode);
+  $('confirmSignupBtn') ?.addEventListener('click', signup);
+  $('postBtn')          ?.addEventListener('click', submitPost);
+  $('postInput')        ?.addEventListener('input',  saveDraft);
 
   // Keyboard shortcut: Ctrl+K
   document.addEventListener('keydown', e => {
@@ -92,6 +93,20 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   hideSplash();
   showLanding();
+
+  // Show a notice if Supabase isn't configured (e.g. cloned from GitHub without a server)
+  if (!_CREDS_OK) {
+    setTimeout(() => {
+      const msg = $('authMsg');
+      if (msg) {
+        msg.style.display = '';
+        msg.style.background = 'rgba(255,180,0,0.1)';
+        msg.style.border = '1px solid rgba(255,180,0,0.3)';
+        msg.style.color = '#f0b400';
+        msg.textContent = '⚠️ Running without a server — login is unavailable. Visit the live app at kudasai.replit.app to sign in.';
+      }
+    }, 500);
+  }
 });
 
 function hideSplash() {
@@ -132,31 +147,144 @@ async function bootstrap() {
   loadStoriesBar();
 }
 
+// ── Auth helpers ──────────────────────────────
+function authMsg(msg, type = 'error') {
+  const el = $('authMsg');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? '' : 'none';
+  el.style.background = type === 'error'
+    ? 'rgba(255,60,60,0.12)' : 'rgba(0,212,255,0.12)';
+  el.style.border = type === 'error'
+    ? '1px solid rgba(255,60,60,0.3)' : '1px solid rgba(0,212,255,0.3)';
+  el.style.color  = type === 'error' ? '#f88' : '#00d4ff';
+}
+
+function setAuthBtn(btnId, loading, text) {
+  const btn = $(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.textContent = loading ? '⏳ ' + text : text;
+}
+
+function togglePasswordVisibility() {
+  const pw  = $('password');
+  const btn = $('pwToggleBtn');
+  if (!pw) return;
+  const isHidden = pw.type === 'password';
+  pw.type  = isHidden ? 'text' : 'password';
+  if (btn) btn.textContent = isHidden ? '🙈' : '👁';
+}
+
+function showSignupMode() {
+  authMsg('');
+  const tc  = $('termsCheckWrap');
+  const csb = $('confirmSignupBtn');
+  const sb  = $('signupBtn');
+  const lb  = $('loginBtn');
+  if (tc)  tc.style.display  = '';
+  if (csb) csb.style.display = '';
+  if (sb)  sb.style.display  = 'none';
+  if (lb)  lb.style.display  = 'none';
+}
+
+function cancelSignupMode() {
+  const tc  = $('termsCheckWrap');
+  const csb = $('confirmSignupBtn');
+  const sb  = $('signupBtn');
+  const lb  = $('loginBtn');
+  if (tc)  tc.style.display  = 'none';
+  if (csb) csb.style.display = 'none';
+  if (sb)  sb.style.display  = '';
+  if (lb)  lb.style.display  = '';
+}
+
 // ── Auth ──────────────────────────────────────
 async function loginWithGoogle() {
-  const { error } = await db.auth.signInWithOAuth({ provider: 'google' });
-  if (error) alert(error.message);
+  authMsg('');
+  setAuthBtn('googleBtn', true, 'Connecting to Google…');
+  const { error } = await db.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin }
+  });
+  setAuthBtn('googleBtn', false, 'Continue with Google');
+  if (error) authMsg(error.message);
 }
 
 async function login() {
-  const { data, error } = await db.auth.signInWithPassword({
-    email: $('email').value.trim(),
-    password: $('password').value
-  });
-  if (error) { alert(error.message); return; }
+  authMsg('');
+  const email = $('email')?.value.trim();
+  const pw    = $('password')?.value;
+  if (!email || !pw) { authMsg('Please enter your email and password.'); return; }
+  setAuthBtn('loginBtn', true, 'Signing in…');
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pw });
+  setAuthBtn('loginBtn', false, 'Sign In');
+  if (error) {
+    const msg = error.message.includes('Invalid login credentials')
+      ? 'Incorrect email or password. Please try again.'
+      : error.message;
+    authMsg(msg);
+    return;
+  }
+  cancelSignupMode();
   state.user = data.user;
   await bootstrap();
 }
 
 async function signup() {
-  const email = $('email').value.trim();
-  const { data, error } = await db.auth.signUp({ email, password: $('password').value });
-  if (error) { alert(error.message); return; }
+  authMsg('');
+  const email = $('email')?.value.trim();
+  const pw    = $('password')?.value;
+  if (!email || !pw) { authMsg('Please enter your email and password.'); return; }
+  if (pw.length < 6) { authMsg('Password must be at least 6 characters.'); return; }
+  if (!$('termsCheck')?.checked) {
+    authMsg('Please accept the Terms of Service and Privacy Policy to continue.');
+    return;
+  }
+  setAuthBtn('confirmSignupBtn', true, 'Creating account…');
+  const { data, error } = await db.auth.signUp({ email, password: pw });
+  setAuthBtn('confirmSignupBtn', false, '✓ Confirm — Create My Account');
+  if (error) { authMsg(error.message); return; }
   if (data?.user) {
-    await db.from('profiles').insert([{ user_id: data.user.id, username: email.split('@')[0], balance: 0 }]);
-    alert('Account created! Check your email to confirm.');
+    const username = email.split('@')[0].replace(/[^a-z0-9_]/gi, '').slice(0, 24) || 'user';
+    await db.from('profiles').insert([{ user_id: data.user.id, username, balance: 0 }]);
+    if (data.session) {
+      cancelSignupMode();
+      state.user = data.user;
+      await bootstrap();
+    } else {
+      authMsg('✅ Account created! Please check your email to confirm, then sign in.', 'success');
+      cancelSignupMode();
+    }
   }
 }
+
+async function forgotPassword() {
+  authMsg('');
+  const email = $('email')?.value.trim();
+  if (!email) { authMsg('Enter your email address above first.'); return; }
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '?reset=1'
+  });
+  if (error) { authMsg(error.message); return; }
+  authMsg('✅ Password reset email sent — check your inbox.', 'success');
+}
+
+// ── Cookie consent ────────────────────────────
+function acceptCookies() {
+  localStorage.setItem('kd_cookies', '1');
+  const b = $('cookieBanner');
+  if (b) { b.style.opacity = '0'; b.style.transition = 'opacity .3s'; setTimeout(() => b.style.display = 'none', 300); }
+}
+
+function showCookieBanner() {
+  if (localStorage.getItem('kd_cookies')) return;
+  const b = $('cookieBanner');
+  if (b) b.style.display = 'flex';
+}
+
+// Delay cookie banner by 2s after page load
+setTimeout(showCookieBanner, 2000);
 
 // ── Profile ───────────────────────────────────
 async function loadProfile() {
