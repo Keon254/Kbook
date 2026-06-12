@@ -94,19 +94,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   hideSplash();
   showLanding();
 
-  // Show a notice if Supabase isn't configured (e.g. cloned from GitHub without a server)
-  if (!_CREDS_OK) {
-    setTimeout(() => {
-      const msg = $('authMsg');
-      if (msg) {
-        msg.style.display = '';
-        msg.style.background = 'rgba(255,180,0,0.1)';
-        msg.style.border = '1px solid rgba(255,180,0,0.3)';
-        msg.style.color = '#f0b400';
-        msg.textContent = '⚠️ Running without a server — login is unavailable. Visit the live app at kudasai.replit.app to sign in.';
-      }
-    }, 500);
-  }
 });
 
 function hideSplash() {
