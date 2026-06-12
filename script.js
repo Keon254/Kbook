@@ -3,8 +3,8 @@
 // ═══════════════════════════════════════════
 
 const { createClient } = supabase;
-const _SUPA_URL = window.https://zoipwzvfkbzszpiectzb.supabase.co || '';
-const _SUPA_KEY = window.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4 || '';
+const _SUPA_URL = window.SUPABASE_URL  || '';
+const _SUPA_KEY = window.SUPABASE_ANON_KEY || '';
 const _CREDS_OK = Boolean(_SUPA_URL && _SUPA_KEY);
 
 console.log('[KUDASAI] SUPABASE_URL set:', !!_SUPA_URL);
@@ -52,14 +52,28 @@ const esc = s => { const d = document.createElement('div'); d.textContent = s; r
 
 // ── Boot ─────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
-  // Wire up buttons
+  const ks = window.KS;
+
+  // ① Arm the 5-second splash safety net FIRST
+  ks?.armSplashTimeout();
+  ks?.step('DOMReady', 'ok', 'DOMContentLoaded fired');
+
+  // ② Validate DOM and config
+  ks?.validateDOM();
+  ks?.checkConfig();
+  ks?.initOfflineDetection();
+
+  // ③ Run deployment file check (non-blocking)
+  ks?.validateDeployment();
+
+  // ④ Wire up buttons
   $('loginBtn')         ?.addEventListener('click', login);
   $('signupBtn')        ?.addEventListener('click', showSignupMode);
   $('confirmSignupBtn') ?.addEventListener('click', signup);
   $('postBtn')          ?.addEventListener('click', submitPost);
   $('postInput')        ?.addEventListener('input',  saveDraft);
 
-  // Keyboard shortcut: Ctrl+K
+  // Keyboard shortcuts
   document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openPalette(); }
     if (e.key === 'Escape') { closePalette(); closePostModal(); closeEditModal(); closeLightbox(); }
@@ -69,18 +83,28 @@ window.addEventListener('DOMContentLoaded', async () => {
   const draft = localStorage.getItem('kd_draft');
   if (draft && $('postInput')) $('postInput').value = draft;
 
-  // Check existing session
+  // ⑤ Check for existing Supabase session
+  ks?.step('SupabaseInit', _CREDS_OK ? 'ok' : 'warn', _CREDS_OK ? 'Client ready' : 'No credentials — offline mode');
+
   try {
-    const { data } = await db.auth.getSession();
-    if (data?.session?.user) {
+    ks?.step('SessionCheck', 'ok', 'Checking existing session…');
+    const { data, error } = await db.auth.getSession();
+    if (error) {
+      ks?.step('SessionCheck', 'warn', error.message);
+    } else if (data?.session?.user) {
+      ks?.step('SessionCheck', 'ok', 'Session restored — bootstrapping app');
       state.user = data.session.user;
       hideSplash();
       await bootstrap();
       return;
+    } else {
+      ks?.step('SessionCheck', 'ok', 'No active session — showing landing');
     }
-  } catch (_) {}
+  } catch (err) {
+    ks?.step('SessionCheck', 'fail', err?.message || 'Session check threw');
+  }
 
-  // Auth state changes
+  // ⑥ Listen for future auth state changes
   db.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN' && session) {
       state.user = session.user;
@@ -91,9 +115,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // ⑦ No session — show landing page
   hideSplash();
   showLanding();
-
 });
 
 function hideSplash() {
@@ -121,17 +145,34 @@ function enterApp() {
 }
 
 async function bootstrap() {
+  const ks = window.KS;
   hide('landingPage'); hide('authScreen');
   show('app', 'grid'); show('feedTabs'); show('composer');
-  await loadProfile();
-  await loadFeed();
+
+  try {
+    ks?.step('ProfileLoad', 'ok', 'Loading profile…');
+    await loadProfile();
+    ks?.step('ProfileLoad', 'ok', 'Profile loaded');
+  } catch (e) {
+    ks?.step('ProfileLoad', 'warn', e?.message || 'Profile load failed');
+  }
+
+  try {
+    ks?.step('FeedLoad', 'ok', 'Loading feed…');
+    await loadFeed();
+    ks?.step('FeedLoad', 'ok', 'Feed loaded');
+  } catch (e) {
+    ks?.step('FeedLoad', 'fail', e?.message || 'Feed load failed');
+  }
+
   setupInfiniteScroll();
   startRealtime();
-  // Run these in parallel — they don't depend on each other
   loadNotifBadge();
   loadDMBadge();
   loadRightbarWidgets();
   loadStoriesBar();
+
+  ks?.markComplete();
 }
 
 // ── Auth helpers ──────────────────────────────

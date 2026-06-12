@@ -1,0 +1,130 @@
+KUDASAI CRITICAL STARTUP FIX + FEATURE EXPANSION
+
+FIRST PRIORITY: FIX THE INFINITE LOADING SCREEN.
+
+Current issue:
+The KUDASAI splash screen keeps loading forever and never enters the app.
+
+DO NOT redesign the app.
+DO NOT replace the splash screen.
+DO NOT create fake placeholders.
+
+TASK 1 — FIND ROOT CAUSE
+
+Analyze:
+
+- DOMContentLoaded
+- hideSplash()
+- bootstrap()
+- loadProfile()
+- loadFeed()
+- db.auth.getSession()
+- db.auth.onAuthStateChange()
+- config.js
+- Supabase initialization
+- All startup promises
+
+Create logs for every startup step.
+
+Example:
+
+STARTUP STEP 1 COMPLETE
+STARTUP STEP 2 COMPLETE
+STARTUP STEP 3 FAILED
+
+Identify exactly where startup stops.
+
+TASK 2 — ELIMINATE INFINITE LOADING
+
+Requirements:
+
+- Splash screen must disappear after max 5 seconds.
+- If startup succeeds → enter app.
+- If startup fails → show error panel.
+- Never allow endless loading.
+
+Add:
+
+setTimeout(() => {
+  if (document.getElementById('splashScreen')) {
+    hideSplash();
+    showLanding();
+  }
+}, 5000);
+
+as a safety fallback.
+
+TASK 3 — FIX ALL STARTUP ERRORS
+
+Check:
+
+- Missing HTML elements
+- Missing IDs
+- Null element crashes
+- Supabase configuration
+- Missing config.js
+- 404 files
+- Broken promises
+- Network failures
+
+Convert unsafe code like:
+
+document.getElementById('app').style.display='grid'
+
+into safe code:
+
+const app = document.getElementById('app');
+if(app) app.style.display='grid';
+
+TASK 4 — FEATURE EXPANSION
+
+After startup is stable add:
+
+✓ Trending page
+✓ Suggested users
+✓ Who viewed profile
+✓ Follow suggestions
+✓ Community discovery
+✓ Creator verification badges
+✓ User levels
+✓ Reputation points
+✓ Post sharing
+✓ Rich hashtags
+✓ Poll voting
+✓ Story reactions
+✓ Profile cover photos
+✓ Saved drafts
+✓ Mention users with @username
+✓ Search communities
+✓ Search creators
+✓ Trending hashtags
+✓ Online status
+✓ Message reactions
+✓ Typing indicators
+✓ Followers list
+✓ Following list
+✓ Tap followers to see who follows who
+✓ Tap following to see who they follow
+✓ User badges
+✓ Daily streaks
+✓ Achievement system
+
+TASK 5 — PERFORMANCE
+
+- Lazy load feed
+- Optimize images
+- Reduce startup time
+- Prevent duplicate queries
+- Prevent memory leaks
+
+OUTPUT REQUIRED
+
+1. Root cause of loading issue.
+2. Files changed.
+3. Startup flow report.
+4. New features added.
+5. Verification that splash screen cannot loop forever.
+
+MOST IMPORTANT RULE:
+
+DO NOT ADD FEATURES UNTIL THE INFINITE LOADING SCREEN IS FIXED.

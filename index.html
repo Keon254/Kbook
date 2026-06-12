@@ -56,6 +56,7 @@
 <link rel="stylesheet" href="css/style.css">
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script src="config.js" onerror="window.SUPABASE_URL=window.SUPABASE_URL||'';window.SUPABASE_ANON_KEY=window.SUPABASE_ANON_KEY||'';window._configLoadError=true;console.warn('config.js failed to load');"></script>
+<script src="js/stability.js"></script>
 
 </head>
 <body>
@@ -72,6 +73,15 @@
     <div class="splash-wordmark">KUDASAI</div>
     <div class="splash-sub">The Social Platform of the Future</div>
     <div class="splash-progress"><div class="splash-progress-fill"></div></div>
+    <!-- Emergency recovery — appears after 4s if splash is still showing -->
+    <div id="splashRecovery" style="display:none;margin-top:28px;display:flex;flex-direction:column;align-items:center;gap:10px;opacity:0;transition:opacity .5s">
+      <p style="font-size:12px;color:rgba(255,255,255,0.3);margin:0">Taking longer than expected…</p>
+      <div style="display:flex;gap:10px">
+        <button onclick="window.KS?.retry()" style="padding:8px 20px;border-radius:20px;border:1px solid rgba(0,212,255,0.3);background:rgba(0,212,255,0.08);color:#00d4ff;cursor:pointer;font-size:12px;font-weight:700">↺ Retry</button>
+        <button onclick="window.KS?.enterOfflineMode()" style="padding:8px 20px;border-radius:20px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#666;cursor:pointer;font-size:12px">Offline Mode</button>
+        <button onclick="window.KS?.showDiagPanel()" style="padding:8px 20px;border-radius:20px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#666;cursor:pointer;font-size:12px">Diagnostics</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -440,6 +450,50 @@
 <!-- USER CONTEXT MENU -->
 <div id="userContextMenu" class="user-ctx-menu" style="display:none">
   <div id="ctxMenuItems"></div>
+</div>
+
+<!-- ═══ OFFLINE BANNER ════════════════════════════════════════ -->
+<div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9998;background:rgba(20,10,10,0.97);border-bottom:1px solid rgba(255,72,66,0.35);padding:10px 20px;align-items:center;gap:12px;backdrop-filter:blur(20px)">
+  <span style="font-size:16px">📡</span>
+  <span style="flex:1;font-size:13px;color:#f88;font-weight:600">You are offline — some features may be unavailable</span>
+  <button onclick="window.location.reload()" style="padding:5px 14px;border-radius:14px;border:1px solid rgba(255,72,66,0.3);background:transparent;color:#f88;cursor:pointer;font-size:12px">↺ Retry</button>
+</div>
+
+<!-- ═══ DIAGNOSTIC PANEL ══════════════════════════════════════ -->
+<div id="diagPanel" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.88);backdrop-filter:blur(24px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:rgba(8,8,16,0.98);border:1px solid rgba(0,212,255,0.15);border-radius:24px;width:100%;max-width:700px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(0,212,255,.5);margin-bottom:4px">KUDASAI</div>
+        <div style="font-size:18px;font-weight:900;color:#e8eaf0">Startup Diagnostics</div>
+      </div>
+      <button onclick="window.KS?.hideDiagPanel()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:50%;width:36px;height:36px;color:#888;cursor:pointer;font-size:16px">✕</button>
+    </div>
+
+    <!-- Body: score + steps side-by-side -->
+    <div style="display:flex;gap:0;flex:1;min-height:0">
+
+      <!-- Stability score -->
+      <div id="diagScore" style="width:220px;flex-shrink:0;padding:24px 20px;border-right:1px solid rgba(255,255,255,0.06)">
+        <div style="color:#555;font-size:12px;text-align:center">Loading…</div>
+      </div>
+
+      <!-- Step log -->
+      <div style="flex:1;padding:20px 24px;overflow-y:auto">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#555;margin-bottom:12px">Startup Steps</div>
+        <div id="diagBody"></div>
+      </div>
+    </div>
+
+    <!-- Footer actions -->
+    <div style="padding:16px 24px;border-top:1px solid rgba(255,255,255,0.06);display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="window.KS?.retry()" style="padding:10px 22px;border-radius:14px;border:none;background:linear-gradient(135deg,#00b4d8,#0077a8);color:#fff;font-weight:700;cursor:pointer;font-size:13px">↺ Retry / Reload</button>
+      <button onclick="window.KS?.enterOfflineMode()" style="padding:10px 22px;border-radius:14px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:#888;font-weight:600;cursor:pointer;font-size:13px">📡 Continue Offline</button>
+      <button onclick="window.KS?.hideDiagPanel()" style="padding:10px 22px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:#555;cursor:pointer;font-size:13px;margin-left:auto">Dismiss</button>
+    </div>
+  </div>
 </div>
 
 <script src="script.js"></script>
