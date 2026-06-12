@@ -3,8 +3,8 @@
 // ═══════════════════════════════════════════
 
 const { createClient } = supabase;
-const _SUPA_URL = window.https://zoipwzvfkbzszpiectzb.supabase.co  || '';
-const _SUPA_KEY = window.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvaXB3enZma2J6c3pwaWVjdHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5MjgsImV4cCI6MjA4Mjc2NTkyOH0.sML9ogavSmRiGkdsBuvoeLIaHRzyymGIDDhvXAPfHQ4 || '';
+const _SUPA_URL = window.SUPABASE_URL  || '';
+const _SUPA_KEY = window.SUPABASE_ANON_KEY || '';
 const _CREDS_OK = Boolean(_SUPA_URL && _SUPA_KEY);
 
 console.log('[KUDASAI] SUPABASE_URL set:', !!_SUPA_URL);
