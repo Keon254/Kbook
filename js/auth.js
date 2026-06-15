@@ -1,67 +1,63 @@
-const login = safe(async()=>{
+// ═════════════════════════════════════════════════════════════════════
+// KUDASAI — Auth Module (uses global db from script.js)
+// ═════════════════════════════════════════════════════════════════════
 
-  const { data,error } =
-  await db.auth.signInWithPassword({
+const _authLocalState = {
+  user: null,
+  profile: null
+};
 
-    email:$("email").value,
-    password:$("password").value
+// Get db reference (initialized in script.js)
+const _getDb = () => window.db;
 
-  });
+// Login helper
+const loginWithCreds = safe(async (email, password) => {
+  const db = _getDb();
+  if (!db) throw new Error('Database not initialized');
 
-  if(error) throw error;
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
+  if (error) throw error;
 
-  state.user = data.user;
-
-  await bootstrap();
+  _authLocalState.user = data.user;
+  return data.user;
 });
 
-const signup = safe(async()=>{
+// Signup helper
+const signupWithCreds = safe(async (email, password) => {
+  const db = _getDb();
+  if (!db) throw new Error('Database not initialized');
 
-  const email = $("email").value;
+  const { data, error } = await db.auth.signUp({ email, password });
+  if (error) throw error;
 
-  const { data,error } =
-  await db.auth.signUp({
+  if (data?.user) {
+    const username = email.split('@')[0].replace(/[^a-z0-9_]/gi, '').slice(0, 24) || 'user';
+    await db.from('profiles').insert([{
+      user_id: data.user.id,
+      username,
+      balance: 0
+    }]);
+  }
 
-    email,
-    password:$("password").value
-
-  });
-
-  if(error) throw error;
-
-  await db.from("profiles").insert([{
-    user_id:data.user.id,
-    username:email.split("@")[0],
-    balance:0
-  }]);
-
-  alert("Signup success");
+  return data;
 });
 
-async function bootstrap(){
+// Forgot password helper
+const resetPassword = safe(async (email) => {
+  const db = _getDb();
+  if (!db) throw new Error('Database not initialized');
 
-  $("authScreen").style.display = "none";
-  $("app").style.display = "grid";
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '?reset=1'
+  });
+  if (error) throw error;
+  return true;
+});
 
-  await loadProfile();
-  await loadFeed();
-
-  startRealtime();
-}
-
-async function loadProfile(){
-
-  const { data } = await db
-    .from("profiles")
-    .select("*")
-    .eq("user_id",state.user.id)
-    .maybeSingle();
-
-  state.profile = data;
-
-  $("userTag").textContent =
-    "@" + (data?.username || "user");
-
-  $("balanceText").textContent =
-    "K" + (data?.balance || 0);
-}
+// Export for use in script.js
+window.KASAuth = {
+  login: loginWithCreds,
+  signup: signupWithCreds,
+  resetPassword,
+  getState: () => ({ ..._authLocalState })
+};

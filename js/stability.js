@@ -1,26 +1,72 @@
 // ═══════════════════════════════════════════════════════════════════
-// KUDASAI — Stability & Recovery System v1.0
-// Startup logging · Splash timeout · Offline mode · Diagnostics · Health score
+// KUDASAI — Self-Healing Stability & Recovery System v2.0
+// • Startup logging • Splash timeout • Offline mode
+// • Auto-retry with exponential backoff
+// • Error boundary • Health monitoring • Self-fix diagnostics
 // ═══════════════════════════════════════════════════════════════════
 
 window.KS = (() => {
   const t0 = Date.now();
   const _steps = {};
   const _errors = [];
+  const _warnings = [];
+  const _retryQueue = [];
   let _splashTimer = null;
   let _startupComplete = false;
   let _offlineMode = false;
+  let _healthCheckInterval = null;
+  let _consecutiveFailures = 0;
+  const MAX_RETRIES = 3;
+  const HEALTH_CHECK_INTERVAL = 30000; // 30s
 
-  // ── Step logger ──────────────────────────────────────────────────
-  function step(name, status = 'ok', detail = '') {
+  // ── Step logger with self-healing ────────────────────────────────────
+  function step(name, status = 'ok', detail = '', retryFn = null) {
     const elapsed = Date.now() - t0;
-    _steps[name] = { status, detail, elapsed };
+    _steps[name] = { status, detail, elapsed, retries: 0 };
+
     const icons = { ok: '✓', warn: '⚠', fail: '✗', skip: '—' };
     const label = `[KUDASAI] ${icons[status] || '?'} ${name}${detail ? ' — ' + detail : ''} (${elapsed}ms)`;
-    if (status === 'fail') { console.error(label); _errors.push({ name, detail, elapsed }); }
-    else if (status === 'warn') console.warn(label);
-    else console.log(label);
+
+    if (status === 'fail') {
+      console.error(label);
+      _errors.push({ name, detail, elapsed, retryFn });
+      _consecutiveFailures++;
+
+      // Auto-schedule retry if function provided
+      if (retryFn && _steps[name].retries < MAX_RETRIES) {
+        scheduleRetry(name, retryFn);
+      }
+    } else if (status === 'warn') {
+      console.warn(label);
+      _warnings.push({ name, detail, elapsed });
+    } else {
+      console.log(label);
+      if (status === 'ok') _consecutiveFailures = Math.max(0, _consecutiveFailures - 1);
+    }
+
     _updateDiagPanel();
+    _checkCriticalFailures();
+  }
+
+  // ── Auto-retry with exponential backoff ──────────────────────────────
+  function scheduleRetry(name, fn, attempt = 0) {
+    if (attempt >= MAX_RETRIES) {
+      step(name, 'fail', 'Max retries exceeded', null);
+      return;
+    }
+
+    const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+    console.log(`[KUDASAI] 🔄 Scheduling retry for "${name}" in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+
+    setTimeout(async () => {
+      try {
+        if (_steps[name]) _steps[name].retries = attempt + 1;
+        await fn();
+        step(name, 'ok', `Recovered after ${attempt + 1} retry(es)`);
+      } catch (e) {
+        scheduleRetry(name, fn, attempt + 1);
+      }
+    }, delay);
   }
 
   // ── Splash safety timeout (5 s max) ─────────────────────────────
@@ -189,8 +235,113 @@ window.KS = (() => {
     else step('DeploymentValidation', 'ok', `${files.length} critical files reachable`);
   }
 
+  // ── Check critical failures & auto-trigger recovery ──────────────
+  function _checkCriticalFailures() {
+    // If too many consecutive failures, show diagnostics
+    if (_consecutiveFailures >= 3 && !_startupComplete) {
+      console.error('[KUDASAI] 🚨 Critical failure threshold reached');
+      showDiagPanel();
+    }
+
+    // If network is offline and we're waiting on something, suggest offline mode
+    if (_offlineMode && Object.values(_steps).some(s => s.status === 'fail' && s.detail?.includes('network'))) {
+      const banner = document.getElementById('offlineBanner');
+      if (banner) banner.style.display = 'flex';
+    }
+  }
+
+  // ── Periodic health monitoring ───────────────────────────────────
+  function startHealthMonitor() {
+    if (_healthCheckInterval) clearInterval(_healthCheckInterval);
+
+    _healthCheckInterval = setInterval(async () => {
+      if (_offlineMode || !_startupComplete) return;
+
+      // Check Supabase connection
+      try {
+        const { error } = await window.db?.from('profiles').select('user_id').limit(1) || { error: 'No DB' };
+        if (error && !_offlineMode) {
+          step('HealthCheck', 'warn', 'DB unreachable — may need reconnect');
+        }
+      } catch (e) {
+        step('HealthCheck', 'warn', 'Health ping failed: ' + e.message?.slice(0, 50));
+      }
+    }, HEALTH_CHECK_INTERVAL);
+  }
+
+  // ── Attempt automatic recovery ───────────────────────────────────
+  async function tryRecover(component) {
+    console.log(`[KUDASAI] 🔧 Attempting recovery for: ${component}`);
+
+    switch (component) {
+      case 'feed':
+        try {
+          if (typeof window.loadFeed === 'function') {
+            await window.loadFeed();
+            step('FeedRecovery', 'ok', 'Feed recovered');
+          }
+        } catch (e) {
+          step('FeedRecovery', 'fail', e.message);
+        }
+        break;
+
+      case 'auth':
+        try {
+          const { data } = await window.db?.auth.getSession() || { data: { session: null } };
+          if (data?.session) {
+            step('AuthRecovery', 'ok', 'Session restored');
+            return data.session;
+          }
+        } catch (e) {
+          step('AuthRecovery', 'fail', e.message);
+        }
+        break;
+
+      case 'realtime':
+        try {
+          if (typeof window.startRealtime === 'function') {
+            window.startRealtime();
+            step('RealtimeRecovery', 'ok', 'Realtime reconnected');
+          }
+        } catch (e) {
+          step('RealtimeRecovery', 'fail', e.message);
+        }
+        break;
+    }
+  }
+
+  // ── Error boundary for unhandled errors ──────────────────────────
+  function installErrorBoundary() {
+    window.addEventListener('error', (event) => {
+      const msg = event.message || 'Unknown error';
+      console.error('[KUDASAI] Uncaught error:', msg);
+
+      // Don't show diag for minor/script errors
+      if (msg.includes('Script error') || msg.includes('Extension')) return;
+
+      _errors.push({ name: 'UncaughtError', detail: msg.slice(0, 100), elapsed: Date.now() - t0 });
+      _updateDiagPanel();
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      const msg = event.reason?.message || String(event.reason);
+      console.error('[KUDASAI] Unhandled promise rejection:', msg);
+
+      _errors.push({ name: 'UnhandledRejection', detail: msg.slice(0, 100), elapsed: Date.now() - t0 });
+      _updateDiagPanel();
+
+      // If auth-related, try recovery
+      if (msg.toLowerCase().includes('auth') || msg.toLowerCase().includes('session')) {
+        tryRecover('auth');
+      }
+    });
+  }
+
   // ── Retry / offline mode ─────────────────────────────────────────
-  function retry() { hideDiagPanel(); window.location.reload(); }
+  function retry() {
+    hideDiagPanel();
+    window.location.reload();
+  }
 
   function enterOfflineMode() {
     hideDiagPanel();
@@ -206,8 +357,10 @@ window.KS = (() => {
     if (splash)  splash.style.display  = 'none';
   }
 
+  // ── Install error boundary immediately ──────────────────────────
+  installErrorBoundary();
+
   // ── Reveal emergency recovery buttons after 4 s ─────────────────
-  // (only if the splash screen is still visible at that point)
   setTimeout(() => {
     const splash    = document.getElementById('splashScreen');
     const recovery  = document.getElementById('splashRecovery');
@@ -220,6 +373,7 @@ window.KS = (() => {
   // ── Public API ───────────────────────────────────────────────────
   return {
     step,
+    scheduleRetry,
     armSplashTimeout,
     clearSplashTimeout,
     markComplete,
@@ -229,7 +383,13 @@ window.KS = (() => {
     validateDOM,
     checkConfig,
     validateDeployment,
+    startHealthMonitor,
+    tryRecover,
     retry,
     enterOfflineMode,
+    getErrors: () => [..._errors],
+    getWarnings: () => [..._warnings],
+    isOffline: () => _offlineMode,
+    isComplete: () => _startupComplete,
   };
 })();

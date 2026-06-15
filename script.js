@@ -14,6 +14,7 @@ console.log('[KUDASAI] Connected:', _CREDS_OK);
 let db;
 if (_CREDS_OK) {
   db = createClient(_SUPA_URL, _SUPA_KEY);
+  window.db = db; // Export for modules
 } else {
   const _noop = Promise.resolve({ data: null, error: { message: 'Supabase not configured.' } });
   const _proxy = new Proxy(function(){ return _proxy; }, {
@@ -171,6 +172,9 @@ async function bootstrap() {
   loadDMBadge();
   loadRightbarWidgets();
   loadStoriesBar();
+
+  // Start periodic health monitoring
+  ks?.startHealthMonitor?.();
 
   ks?.markComplete();
 }
