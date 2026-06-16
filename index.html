@@ -57,6 +57,26 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script src="config.js" onerror="window.SUPABASE_URL=window.SUPABASE_URL||'';window.SUPABASE_ANON_KEY=window.SUPABASE_ANON_KEY||'';window._configLoadError=true;console.warn('config.js failed to load');"></script>
 <script src="js/stability.js"></script>
+<script src="js/core.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/post.js"></script>
+<script src="js/likes.js"></script>
+<script src="js/comments.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/feed.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/realtime.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/jobs.js"></script>
+<script src="js/surveys.js"></script>
+<!-- KUDASAI OMEGA MODULES -->
+<script src="js/worlds.js"></script>
+<script src="js/progression.js"></script>
+<script src="js/messages.js"></script>
+<script src="js/kai.js"></script>
+<script src="js/events.js"></script>
+<script src="js/knowledge.js"></script>
+<script src="js/creator.js"></script>
 
 </head>
 <body>
@@ -243,9 +263,13 @@
     <div class="nav-item" id="nav-bookmarks" onclick="goBookmarks()"><span class="nav-icon">🔖</span><span class="nav-label">Bookmarks</span></div>
     <div class="nav-item" id="nav-messages" onclick="goMessages()" style="position:relative"><span class="nav-icon">💬</span><span class="nav-label">Messages</span><span id="dmBadge" class="notif-badge" style="display:none"></span></div>
     <div class="nav-item" id="nav-jobs" onclick="goJobs()"><span class="nav-icon">💼</span><span class="nav-label">Jobs</span></div>
+    <div class="nav-item" id="nav-worlds" onclick="goWorlds()"><span class="nav-icon">🌐</span><span class="nav-label">Worlds</span></div>
+    <div class="nav-item" id="nav-events" onclick="goEvents()"><span class="nav-icon">📅</span><span class="nav-label">Events</span></div>
+    <div class="nav-item" id="nav-knowledge" onclick="goKnowledge()"><span class="nav-icon">📖</span><span class="nav-label">Knowledge</span></div>
+    <div class="nav-item" id="nav-quests" onclick="goQuests()"><span class="nav-icon">⚔️</span><span class="nav-label">Quests</span></div>
+    <div class="nav-item" id="nav-creator" onclick="goCreator()"><span class="nav-icon">✨</span><span class="nav-label">Creator</span></div>
     <div class="nav-item" id="nav-kai" onclick="goKudasaiAI()"><span class="nav-icon" style="background:linear-gradient(135deg,#00d4ff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-style:normal">✦</span><span class="nav-label">KAI</span></div>
-    <div class="nav-item" id="nav-communities" onclick="goCommunities()"><span class="nav-icon">🏘</span><span class="nav-label">Communities</span></div>
-    <div class="nav-item" id="nav-surveys" onclick="goSurveys()"><span class="nav-icon">📋</span><span class="nav-label">Surveys</span></div>
+    <div class="nav-item" id="nav-jobs" onclick="goJobs()"><span class="nav-icon">💼</span><span class="nav-label">Jobs</span></div>
     <div class="nav-item" id="nav-settings" onclick="goSettings()"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
     <div class="nav-palette-btn" onclick="openPalette()" title="Command Palette (Ctrl+K)">⌘ K</div>
     <div class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">☀️ Light Mode</div>

@@ -1138,9 +1138,13 @@ const _cmds = [
   { label: '🔔 Notifications', fn: goNotifications },
   { label: '🔖 Bookmarks',     fn: goBookmarks },
   { label: '💬 Messages',      fn: goMessages },
+  { label: '🌐 Worlds',        fn: goWorlds },
+  { label: '📅 Events',        fn: goEvents },
+  { label: '📖 Knowledge',     fn: goKnowledge },
+  { label: '⚔️ Quests',        fn: goQuests },
+  { label: '✨ Creator Studio',fn: goCreator },
   { label: '✦  KAI',          fn: goKudasaiAI },
-  { label: '🏘 Communities',   fn: goCommunities },
-  { label: '📋 Surveys',       fn: goSurveys },
+  { label: '💼 Jobs',          fn: goJobs },
   { label: '⚙️ Settings',      fn: goSettings },
   { label: '☀️ Toggle Theme',  fn: toggleTheme },
 ];
@@ -1196,6 +1200,114 @@ function openLightbox(src) {
 function closeLightbox() { $('lightbox').style.display = 'none'; }
 function galleryPrev()   {}
 function galleryNext()   {}
+
+// ═════════════════════════════════════════════════════════════════════
+// KUDASAI OMEGA — New Navigation Functions
+// ═════════════════════════════════════════════════════════════════════
+
+// Worlds - Communities evolved
+function goWorlds() {
+  setActiveNav('worlds');
+  $('feedTabs').style.display  = 'none';
+  $('composer').style.display  = 'none';
+  $('storiesBar').style.display = 'none';
+  if (window.Worlds) {
+    Worlds.renderWorldsPage('feed');
+  } else {
+    $('feed').innerHTML = '<div style="text-align:center;padding:48px;color:#555">Worlds module loading...</div>';
+  }
+}
+
+// Events - Creator Events, Workshops, Livestreams
+function goEvents() {
+  setActiveNav('events');
+  $('feedTabs').style.display  = 'none';
+  $('composer').style.display  = 'none';
+  $('storiesBar').style.display = 'none';
+  if (window.Events) {
+    Events.showEvents();
+  } else {
+    $('feed').innerHTML = '<div style="text-align:center;padding:48px;color:#555">Events module loading...</div>';
+  }
+}
+
+// Knowledge - Articles, Tutorials, Guides
+function goKnowledge() {
+  setActiveNav('knowledge');
+  $('feedTabs').style.display  = 'none';
+  $('composer').style.display  = 'none';
+  $('storiesBar').style.display = 'none';
+  if (window.Knowledge) {
+    Knowledge.showKnowledge();
+  } else {
+    $('feed').innerHTML = '<div style="text-align:center;padding:48px;color:#555">Knowledge module loading...</div>';
+  }
+}
+
+// Quests - Daily, Weekly challenges with XP rewards
+function goQuests() {
+  setActiveNav('quests');
+  $('feedTabs').style.display  = 'none';
+  $('composer').style.display  = 'none';
+  $('storiesBar').style.display = 'none';
+  if (window.Progression) {
+    Progression.renderQuestsPanel('feed');
+  } else {
+    $('feed').innerHTML = '<div style="text-align:center;padding:48px;color:#555">Progression module loading...</div>';
+  }
+}
+
+// Creator Studio - Analytics Dashboard
+function goCreator() {
+  setActiveNav('creator');
+  $('feedTabs').style.display  = 'none';
+  $('composer').style.display  = 'none';
+  $('storiesBar').style.display = 'none';
+  if (window.CreatorStudio) {
+    CreatorStudio.render();
+  } else {
+    $('feed').innerHTML = '<div style="text-align:center;padding:48px;color:#555">Creator Studio loading...</div>';
+  }
+}
+
+// Messages - Full messaging system
+function goMessages() {
+  setActiveNav('messages');
+  $('feedTabs').style.display  = 'none';
+  $('composer').style.display  = 'none';
+  $('storiesBar').style.display = 'none';
+  if (window.Messaging) {
+    Messaging.renderConversationsList('feed');
+  } else {
+    // Fallback to original messages
+    $('feed').innerHTML = '<div style="text-align:center;padding:48px;color:#555">Messages loading...</div>';
+  }
+}
+
+// KAI - Intelligence Engine (enhanced)
+function goKudasaiAI() {
+  setActiveNav('kai');
+  $('feedTabs').style.display  = 'none';
+  $('composer').style.display  = 'none';
+  $('storiesBar').style.display = 'none';
+  if (window.KAI) {
+    KAI.renderKAIPanel('feed');
+  } else {
+    $('feed').innerHTML = '<div style="text-align:center;padding:48px;color:#555">KAI initializing...</div>';
+  }
+}
+
+// Helper function for old communities redirect
+function goCommunities() {
+  goWorlds();
+}
+
+// Helper to go to a specific world
+function goToWorld(worldId) {
+  if (window.Worlds) {
+    Worlds.openWorld(worldId);
+  }
+}
 
 // ── Composer image URL toggle ─────────────────
 function toggleImageUrl() {

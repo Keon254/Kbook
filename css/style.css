@@ -5587,4 +5587,239 @@ audio::-webkit-media-controls-panel { background: rgba(0,212,255,0.08); }
   0%,100% { box-shadow: 0 4px 20px rgba(0,180,216,0.4); }
   50%      { box-shadow: 0 4px 32px rgba(0,180,216,0.7); }
 }
+
+/* ═════════════════════════════════════════════════════════════════════
+   KUDASAI OMEGA — Glass Cards & Enhanced UI
+   ═════════════════════════════════════════════════════════════════════ */
+
+.glass-card {
+  background: rgba(10, 10, 18, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s var(--transition);
+}
+
+.glass-card:hover {
+  border-color: rgba(0, 212, 255, 0.15);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 212, 255, 0.08);
+}
+
+/* World Card Styles */
+.world-card {
+  transition: transform 0.3s var(--transition), box-shadow 0.3s var(--transition);
+}
+
+.world-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 212, 255, 0.1);
+}
+
+.world-card .world-banner {
+  height: 140px;
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.world-card .world-icon {
+  position: relative;
+  z-index: 2;
+}
+
+.world-join-btn:hover {
+  background: rgba(0, 212, 255, 0.2) !important;
+  border-color: rgba(0, 212, 255, 0.5) !important;
+}
+
+/* Quest & Achievement Cards */
+.quest-card, .achievement-card {
+  transition: all 0.3s var(--transition);
+}
+
+.quest-card:hover, .achievement-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(0, 212, 255, 0.2);
+}
+
+/* Event Cards */
+.event-card {
+  transition: transform 0.3s var(--transition), box-shadow 0.3s var(--transition);
+}
+
+.event-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Knowledge Article Cards */
+.article-card {
+  transition: transform 0.3s var(--transition), box-shadow 0.3s var(--transition);
+}
+
+.article-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 24px rgba(0, 212, 255, 0.08);
+}
+
+/* Creator Studio Styles */
+.creator-header, .stat-card, .section-card {
+  transition: all 0.3s var(--transition);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 212, 255, 0.15);
+}
+
+/* Message Bubbles */
+.message.own > div > div {
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.3), rgba(168, 85, 247, 0.3));
+}
+
+/* XP Toast Animation */
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.xp-toast, .quest-toast {
+  animation: slideUp 0.3s ease forwards;
+}
+
+/* KAI Chat Styles */
+.kai-message.assistant > div > div:last-child {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.kai-message.user > div {
+  justify-content: flex-end;
+}
+
+.kai-message.user > div > div {
+  background: linear-gradient(135deg, #00d4ff, #a855f7);
+  border-radius: 20px;
+  border-top-right-radius: 4px;
+}
+
+/* Chat Input Styles */
+#messageInput:focus, #kaiInput:focus {
+  outline: none;
+  border-color: rgba(0, 212, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+}
+
+/* Section Headers */
+.section-header {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  padding: 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Responsive Adjustments for Omega */
+@media (max-width: 768px) {
+  .worlds-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #articlesList {
+    grid-template-columns: 1fr !important;
+  }
+
+  .creator-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .creator-sections {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Loading States */
+.loading-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Glass Input Styles */
+input.comment-input:focus,
+textarea.comment-input:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(0, 212, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+}
+
+/* Profile Banner */
+.profile-banner {
+  height: 200px;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(168, 85, 247, 0.2));
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Tier Badges */
+.tier-badge {
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tier-bronze { background: linear-gradient(135deg, #cd7f32, #8b4513); color: #fff; }
+.tier-silver { background: linear-gradient(135deg, #c0c0c0, #808080); color: #000; }
+.tier-gold { background: linear-gradient(135deg, #ffd700, #daa520); color: #000; }
+.tier-platinum { background: linear-gradient(135deg, #e5e4e2, #b0c4de); color: #000; }
+.tier-diamond { background: linear-gradient(135deg, #b9f2ff, #00d4ff); color: #000; }
+
+/* Level Progress */
+.level-progress {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.level-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00d4ff, #a855f7);
+  transition: width 0.5s var(--transition);
+}
 @media (min-width: 768px) { .kai-fab { bottom: 24px; right: 24px; } }
