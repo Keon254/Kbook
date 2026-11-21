@@ -1,6 +1,6 @@
-// KUDASAI startup diagnostics and connectivity recovery.
-// A single Supabase/API failure must not replace the application with an
-// offline page. Connectivity hints are advisory; the UI remains available.
+// KUDASAI startup diagnostics and direct-entry recovery.
+// This module loads in <head> before script.js, so its DOM-ready listener can
+// replace the old welcome-only fallback before the application boots.
 window.KS = (() => {
   const startedAt = Date.now();
   const steps = {};
@@ -8,13 +8,93 @@ window.KS = (() => {
   const warnings = [];
   let offline = false;
   let complete = false;
-  let splashTimer = null;
   let healthTimer = null;
   let checking = false;
   const $ = id => document.getElementById(id);
 
+  // Keep the original nodes for compatibility, but remove their blocking
+  // presentation entirely. This preserves the app's visual system and pages.
+  const directEntryStyle = document.createElement('style');
+  directEntryStyle.textContent = '#splashScreen,#landingPage{display:none!important}';
+  (document.head || document.documentElement).appendChild(directEntryStyle);
+
+  function openPublicApp() {
+    const splash = $('splashScreen');
+    const landing = $('landingPage');
+    const auth = $('authScreen');
+    const app = $('app');
+    if (splash) splash.style.display = 'none';
+    if (landing) landing.style.display = 'none';
+    if (auth) auth.style.display = 'none';
+    if (app) app.style.display = 'grid';
+    const tabs = $('feedTabs');
+    const composer = $('composer');
+    if (tabs) tabs.style.display = '';
+    if (composer) composer.style.display = 'none';
+  }
+
+  function openAuth() {
+    const app = $('app');
+    const auth = $('authScreen');
+    const splash = $('splashScreen');
+    const landing = $('landingPage');
+    if (app) app.style.display = 'none';
+    if (splash) splash.style.display = 'none';
+    if (landing) landing.style.display = 'none';
+    if (auth) {
+      auth.style.display = 'flex';
+      auth.style.flexDirection = 'column';
+      auth.style.alignItems = 'center';
+      auth.style.justifyContent = 'center';
+    }
+  }
+
+  function installAuthEntryControls() {
+    const topbar = document.querySelector('.topbar');
+    if (topbar && !$('directEntryAuthButton')) {
+      const button = document.createElement('button');
+      button.id = 'directEntryAuthButton';
+      button.type = 'button';
+      button.textContent = 'Sign in';
+      button.setAttribute('aria-label', 'Sign in or create a KUDASAI account');
+      button.style.cssText = 'flex-shrink:0;padding:9px 16px;border:1px solid rgba(0,212,255,.35);border-radius:18px;background:rgba(0,212,255,.1);color:var(--accent);font:600 13px Inter,sans-serif;cursor:pointer';
+      button.addEventListener('click', openAuth);
+      topbar.appendChild(button);
+    }
+    const authBox = document.querySelector('#authScreen .auth-box');
+    if (authBox && !$('directEntryBackButton')) {
+      const button = document.createElement('button');
+      button.id = 'directEntryBackButton';
+      button.type = 'button';
+      button.textContent = '← Browse KUDASAI';
+      button.style.cssText = 'width:100%;margin-top:12px;padding:12px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:transparent;color:#aaa;font:600 14px Inter,sans-serif;cursor:pointer';
+      button.addEventListener('click', openPublicApp);
+      authBox.appendChild(button);
+    }
+  }
+
+  // script.js registers a later DOMContentLoaded listener. Override its old
+  // showLanding() fallback: public visitors see the actual live app/feed; auth
+  // remains reachable through the added Sign in button. Existing session
+  // restoration still calls bootstrap() and preserves all authenticated flows.
+  window.addEventListener('DOMContentLoaded', () => {
+    window.showLanding = openPublicApp;
+    window.enterApp = openAuth;
+    openPublicApp();
+    installAuthEntryControls();
+    step('DirectEntry', 'ok', 'Welcome and splash screens bypassed');
+    setTimeout(() => {
+      installAuthEntryControls();
+      try {
+        if (typeof window.loadFeed === 'function') void window.loadFeed();
+      } catch (error) {
+        step('PublicFeed', 'warn', error?.message || 'Public feed will retry when opened');
+      }
+    }, 0);
+  }, { once: true });
+
   function step(name, status = 'ok', detail = '') {
-    const entry = { status, detail: String(detail || ''), elapsed: Date.now() - startedAt, retries: 0 };
+    const entry = { status, detail: String(detail || ''), elapsed: Date.now() - startedAt };
     steps[name] = entry;
     const icon = status === 'ok' ? '✓' : status === 'warn' ? '⚠' : status === 'fail' ? '✗' : '—';
     const message = `[KUDASAI] ${icon} ${name}${entry.detail ? ` — ${entry.detail}` : ''} (${entry.elapsed}ms)`;
@@ -32,104 +112,68 @@ window.KS = (() => {
     banner.style.display = show ? 'flex' : 'none';
   }
 
-  function showLandingIfNeeded() {
-    const landing = $('landingPage');
-    const app = $('app');
-    const auth = $('authScreen');
-    if (app && getComputedStyle(app).display !== 'none') return;
-    if (auth && getComputedStyle(auth).display !== 'none') return;
-    if (landing) landing.style.display = '';
-  }
-
-  // Reachability means an HTTP response from the current origin OR Supabase.
-  // Auth/API HTTP error codes still prove the host is reachable. This avoids
-  // mistaking auth/RLS/schema errors for a device-wide network outage.
-  async function probeConnectivity(timeoutMs = 4500) {
+  async function probeConnectivity(timeoutMs = 4000) {
     const targets = [window.location.origin];
     if (window.SUPABASE_URL) targets.push(String(window.SUPABASE_URL).replace(/\/$/, ''));
     const results = await Promise.allSettled(targets.map(async target => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const response = await fetch(target, {
-          method: 'HEAD', mode: 'no-cors', cache: 'no-store',
-          signal: controller.signal, credentials: 'omit'
-        });
-        return { target, reachable: !!response };
+        const response = await fetch(target, { method: 'HEAD', mode: 'no-cors', cache: 'no-store', signal: controller.signal, credentials: 'omit' });
+        return !!response;
       } finally { clearTimeout(timer); }
     }));
-    return results.some(result => result.status === 'fulfilled' && result.value.reachable);
+    return results.some(result => result.status === 'fulfilled' && result.value);
   }
 
   async function verifyConnectivity() {
     if (checking) return false;
     checking = true;
     try {
-      // A browser online event plus any successful host probe is enough.
-      // navigator.onLine alone never switches KUDASAI into offline state.
       const reachable = await probeConnectivity();
       offline = !reachable;
       if (reachable) {
         setBanner(false);
         step('Network', 'ok', 'Website or Supabase host reachable');
       } else {
-        setBanner(true, 'Network check failed — KUDASAI is still available; online features will retry.');
-        step('Network', 'warn', 'Connectivity probes failed; app shell remains available');
+        setBanner(true, 'Limited connectivity — KUDASAI remains open; online features will retry.');
+        step('Network', 'warn', 'Connectivity probe failed; public app remains available');
       }
       return reachable;
     } catch (error) {
       offline = true;
-      setBanner(true, 'Network check failed — KUDASAI is still available; online features will retry.');
+      setBanner(true, 'Limited connectivity — KUDASAI remains open; online features will retry.');
       step('Network', 'warn', error?.message || 'Connectivity probe failed');
       return false;
     } finally { checking = false; }
   }
 
-  function clearSplashTimeout() { if (splashTimer) clearTimeout(splashTimer); splashTimer = null; }
-  function hideSplash() {
-    const splash = $('splashScreen');
-    if (!splash) return;
-    splash.style.transition = 'opacity .25s';
-    splash.style.opacity = '0';
-    setTimeout(() => { splash.style.display = 'none'; }, 260);
-  }
-  function forceExitSplash() {
-    hideSplash();
-    if (!complete) showLandingIfNeeded();
-  }
-  function armSplashTimeout() {
-    clearSplashTimeout();
-    splashTimer = setTimeout(() => {
-      step('SplashTimeout', 'warn', 'Startup took longer than expected; showing the app entry screen');
-      forceExitSplash();
-    }, 5000);
-  }
-  function markComplete() { complete = true; clearSplashTimeout(); step('StartupComplete', 'ok', `Total ${Date.now() - startedAt}ms`); }
+  // Deprecated splash APIs are retained as no-ops for existing callers.
+  function clearSplashTimeout() {}
+  function armSplashTimeout() { if ($('splashScreen')) $('splashScreen').style.display = 'none'; }
+  function markComplete() { complete = true; step('StartupComplete', 'ok', `Total ${Date.now() - startedAt}ms`); }
   function validateDOM() {
-    const required = ['splashScreen', 'landingPage', 'authScreen', 'app', 'feed', 'postInput'];
+    const required = ['authScreen', 'app', 'feed', 'postInput'];
     const missing = required.filter(id => !$(id));
     step('DOMValidation', missing.length ? 'warn' : 'ok', missing.length ? `Missing: ${missing.join(', ')}` : `${required.length} core elements present`);
   }
   function checkConfig() {
     const validUrl = /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(window.SUPABASE_URL || '');
     const hasKey = !!String(window.SUPABASE_ANON_KEY || '').trim();
-    step('ConfigLoad', validUrl && hasKey ? 'ok' : 'warn', validUrl && hasKey ? 'Supabase URL and publishable key present' : 'Supabase unavailable; public app shell remains usable');
+    step('ConfigLoad', validUrl && hasKey ? 'ok' : 'warn', validUrl && hasKey ? 'Supabase URL and publishable key present' : 'Supabase unavailable; public app remains usable');
   }
   async function validateDeployment() {
-    const checks = ['css/style.css', 'script.js', 'config.js'];
-    const results = await Promise.allSettled(checks.map(async file => {
-      const response = await fetch(new URL(file, document.baseURI), { method: 'HEAD', cache: 'no-store' });
-      return { file, ok: response.ok };
+    const assets = ['css/style.css', 'script.js', 'config.js'];
+    const results = await Promise.allSettled(assets.map(async asset => {
+      const response = await fetch(new URL(asset, document.baseURI), { method: 'HEAD', cache: 'no-store' });
+      return { asset, ok: response.ok };
     }));
-    const failed = results.filter(result => result.status === 'fulfilled' && !result.value.ok).map(result => result.value.file);
-    const rejected = results.filter(result => result.status === 'rejected');
+    const failed = results.filter(result => result.status === 'fulfilled' && !result.value.ok).map(result => result.value.asset);
     if (failed.length) step('DeploymentValidation', 'warn', `Unavailable assets: ${failed.join(', ')}`);
-    else if (rejected.length) step('DeploymentValidation', 'warn', 'Asset reachability could not be verified; continuing startup');
-    else step('DeploymentValidation', 'ok', `${checks.length} core assets reachable`);
+    else if (results.some(result => result.status === 'rejected')) step('DeploymentValidation', 'warn', 'Could not verify assets; continuing startup');
+    else step('DeploymentValidation', 'ok', `${assets.length} core assets reachable`);
   }
   function initOfflineDetection() {
-    // Do not act on navigator.onLine alone: mobile browsers, captive portals,
-    // VPNs, and sleep/wake can produce misleading online/offline events.
     window.addEventListener('offline', () => { void verifyConnectivity(); });
     window.addEventListener('online', () => { void verifyConnectivity(); });
     void verifyConnectivity();
@@ -137,27 +181,17 @@ window.KS = (() => {
   async function retry() {
     const button = document.querySelector('#diagPanel button[onclick*="retry"]');
     if (button) { button.disabled = true; button.textContent = 'Checking connection…'; }
-    step('Retry', 'warn', 'Checking website and Supabase reachability');
     const reachable = await verifyConnectivity();
-    if (reachable) {
-      hideDiagPanel();
-      // A reload reruns Supabase client/session initialization from clean state.
-      window.location.reload();
-      return;
-    }
-    setBanner(true, 'Still cannot reach the network. The public KUDASAI entry page remains available.');
-    showLandingIfNeeded();
-    step('Retry', 'warn', 'No host responded; app entry remains available');
+    if (reachable) { hideDiagPanel(); window.location.reload(); return; }
+    openPublicApp();
+    setBanner(true, 'Still cannot reach a network host. KUDASAI remains open.');
     if (button) { button.disabled = false; button.textContent = '↺ Retry Connection'; }
   }
   function enterOfflineMode() {
-    // Degraded connectivity is a banner state, never a separate page that hides
-    // the existing application or landing/auth UI.
     offline = true;
     setBanner(true, 'Limited connectivity — KUDASAI remains open; online features may retry.');
-    showLandingIfNeeded();
-    hideSplash();
-    step('OfflineMode', 'warn', 'Degraded-network banner enabled without hiding the application');
+    openPublicApp();
+    step('OfflineMode', 'warn', 'Non-blocking network banner enabled');
   }
   function showDiagPanel() { const panel = $('diagPanel'); if (panel) { panel.style.display = 'flex'; renderDiagnostics(); } }
   function hideDiagPanel() { const panel = $('diagPanel'); if (panel) panel.style.display = 'none'; }
@@ -176,10 +210,7 @@ window.KS = (() => {
     healthTimer = setInterval(async () => {
       if (!window.db || !window.SUPABASE_URL) return;
       try {
-        const result = await Promise.race([
-          window.db.from('profiles').select('user_id').limit(1),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
-        ]);
+        const result = await Promise.race([window.db.from('profiles').select('user_id').limit(1), new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))]);
         if (result.error) step('SupabaseHealth', 'warn', result.error.message);
         else if (offline) void verifyConnectivity();
       } catch (error) { step('SupabaseHealth', 'warn', error?.message || 'Health check failed'); }
@@ -190,13 +221,11 @@ window.KS = (() => {
     if (component === 'feed' && typeof window.loadFeed === 'function') return window.loadFeed();
     if (component === 'realtime' && typeof window.startRealtime === 'function') return window.startRealtime();
   }
-
   window.addEventListener('unhandledrejection', event => {
     const detail = event.reason?.message || String(event.reason || 'Unknown rejection');
     console.error('[KUDASAI] Unhandled promise rejection:', detail);
     errors.push({ name: 'UnhandledRejection', detail, elapsed: Date.now() - startedAt });
     renderDiagnostics();
-    // An API rejection is not evidence that the whole device is offline.
   });
 
   return {
