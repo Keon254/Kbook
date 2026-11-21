@@ -1,395 +1,209 @@
-// ═══════════════════════════════════════════════════════════════════
-// KUDASAI — Self-Healing Stability & Recovery System v2.0
-// • Startup logging • Splash timeout • Offline mode
-// • Auto-retry with exponential backoff
-// • Error boundary • Health monitoring • Self-fix diagnostics
-// ═══════════════════════════════════════════════════════════════════
-
+// KUDASAI startup diagnostics and connectivity recovery.
+// A single Supabase/API failure must not replace the application with an
+// offline page. Connectivity hints are advisory; the UI remains available.
 window.KS = (() => {
-  const t0 = Date.now();
-  const _steps = {};
-  const _errors = [];
-  const _warnings = [];
-  const _retryQueue = [];
-  let _splashTimer = null;
-  let _startupComplete = false;
-  let _offlineMode = false;
-  let _healthCheckInterval = null;
-  let _consecutiveFailures = 0;
-  const MAX_RETRIES = 3;
-  const HEALTH_CHECK_INTERVAL = 30000; // 30s
+  const startedAt = Date.now();
+  const steps = {};
+  const errors = [];
+  const warnings = [];
+  let offline = false;
+  let complete = false;
+  let splashTimer = null;
+  let healthTimer = null;
+  let checking = false;
+  const $ = id => document.getElementById(id);
 
-  // ── Step logger with self-healing ────────────────────────────────────
-  function step(name, status = 'ok', detail = '', retryFn = null) {
-    const elapsed = Date.now() - t0;
-    _steps[name] = { status, detail, elapsed, retries: 0 };
-
-    const icons = { ok: '✓', warn: '⚠', fail: '✗', skip: '—' };
-    const label = `[KUDASAI] ${icons[status] || '?'} ${name}${detail ? ' — ' + detail : ''} (${elapsed}ms)`;
-
-    if (status === 'fail') {
-      console.error(label);
-      _errors.push({ name, detail, elapsed, retryFn });
-      _consecutiveFailures++;
-
-      // Auto-schedule retry if function provided
-      if (retryFn && _steps[name].retries < MAX_RETRIES) {
-        scheduleRetry(name, retryFn);
-      }
-    } else if (status === 'warn') {
-      console.warn(label);
-      _warnings.push({ name, detail, elapsed });
-    } else {
-      console.log(label);
-      if (status === 'ok') _consecutiveFailures = Math.max(0, _consecutiveFailures - 1);
-    }
-
-    _updateDiagPanel();
-    _checkCriticalFailures();
+  function step(name, status = 'ok', detail = '') {
+    const entry = { status, detail: String(detail || ''), elapsed: Date.now() - startedAt, retries: 0 };
+    steps[name] = entry;
+    const icon = status === 'ok' ? '✓' : status === 'warn' ? '⚠' : status === 'fail' ? '✗' : '—';
+    const message = `[KUDASAI] ${icon} ${name}${entry.detail ? ` — ${entry.detail}` : ''} (${entry.elapsed}ms)`;
+    if (status === 'fail') { console.error(message); errors.push({ name, detail: entry.detail, elapsed: entry.elapsed }); }
+    else if (status === 'warn') { console.warn(message); warnings.push({ name, detail: entry.detail, elapsed: entry.elapsed }); }
+    else console.info(message);
+    renderDiagnostics();
   }
 
-  // ── Auto-retry with exponential backoff ──────────────────────────────
-  function scheduleRetry(name, fn, attempt = 0) {
-    if (attempt >= MAX_RETRIES) {
-      step(name, 'fail', 'Max retries exceeded', null);
-      return;
-    }
+  function setBanner(show, text) {
+    const banner = $('offlineBanner');
+    if (!banner) return;
+    const label = banner.querySelector('span:nth-child(2)');
+    if (label && text) label.textContent = text;
+    banner.style.display = show ? 'flex' : 'none';
+  }
 
-    const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
-    console.log(`[KUDASAI] 🔄 Scheduling retry for "${name}" in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+  function showLandingIfNeeded() {
+    const landing = $('landingPage');
+    const app = $('app');
+    const auth = $('authScreen');
+    if (app && getComputedStyle(app).display !== 'none') return;
+    if (auth && getComputedStyle(auth).display !== 'none') return;
+    if (landing) landing.style.display = '';
+  }
 
-    setTimeout(async () => {
+  // Reachability means an HTTP response from the current origin OR Supabase.
+  // Auth/API HTTP error codes still prove the host is reachable. This avoids
+  // mistaking auth/RLS/schema errors for a device-wide network outage.
+  async function probeConnectivity(timeoutMs = 4500) {
+    const targets = [window.location.origin];
+    if (window.SUPABASE_URL) targets.push(String(window.SUPABASE_URL).replace(/\/$/, ''));
+    const results = await Promise.allSettled(targets.map(async target => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        if (_steps[name]) _steps[name].retries = attempt + 1;
-        await fn();
-        step(name, 'ok', `Recovered after ${attempt + 1} retry(es)`);
-      } catch (e) {
-        scheduleRetry(name, fn, attempt + 1);
-      }
-    }, delay);
+        const response = await fetch(target, {
+          method: 'HEAD', mode: 'no-cors', cache: 'no-store',
+          signal: controller.signal, credentials: 'omit'
+        });
+        return { target, reachable: !!response };
+      } finally { clearTimeout(timer); }
+    }));
+    return results.some(result => result.status === 'fulfilled' && result.value.reachable);
   }
 
-  // ── Splash safety timeout (5 s max) ─────────────────────────────
+  async function verifyConnectivity() {
+    if (checking) return false;
+    checking = true;
+    try {
+      // A browser online event plus any successful host probe is enough.
+      // navigator.onLine alone never switches KUDASAI into offline state.
+      const reachable = await probeConnectivity();
+      offline = !reachable;
+      if (reachable) {
+        setBanner(false);
+        step('Network', 'ok', 'Website or Supabase host reachable');
+      } else {
+        setBanner(true, 'Network check failed — KUDASAI is still available; online features will retry.');
+        step('Network', 'warn', 'Connectivity probes failed; app shell remains available');
+      }
+      return reachable;
+    } catch (error) {
+      offline = true;
+      setBanner(true, 'Network check failed — KUDASAI is still available; online features will retry.');
+      step('Network', 'warn', error?.message || 'Connectivity probe failed');
+      return false;
+    } finally { checking = false; }
+  }
+
+  function clearSplashTimeout() { if (splashTimer) clearTimeout(splashTimer); splashTimer = null; }
+  function hideSplash() {
+    const splash = $('splashScreen');
+    if (!splash) return;
+    splash.style.transition = 'opacity .25s';
+    splash.style.opacity = '0';
+    setTimeout(() => { splash.style.display = 'none'; }, 260);
+  }
+  function forceExitSplash() {
+    hideSplash();
+    if (!complete) showLandingIfNeeded();
+  }
   function armSplashTimeout() {
     clearSplashTimeout();
-    _splashTimer = setTimeout(() => {
-      const splash = document.getElementById('splashScreen');
-      if (!splash || splash.style.display === 'none') return;
-      console.warn('[KUDASAI] ⏱ Splash timeout (5s) — forcing exit');
-      step('SplashTimeout', 'warn', 'Forced after 5 s — startup hung');
-      _forceExitSplash();
+    splashTimer = setTimeout(() => {
+      step('SplashTimeout', 'warn', 'Startup took longer than expected; showing the app entry screen');
+      forceExitSplash();
     }, 5000);
   }
-
-  function clearSplashTimeout() {
-    if (_splashTimer) { clearTimeout(_splashTimer); _splashTimer = null; }
-  }
-
-  function _forceExitSplash() {
-    // Fade out splash
-    const splash = document.getElementById('splashScreen');
-    if (splash) {
-      splash.style.transition = 'opacity 0.3s';
-      splash.style.opacity = '0';
-      setTimeout(() => { if (splash) splash.style.display = 'none'; }, 300);
-    }
-    // Fall back to landing if no session was bootstrapped
-    if (!_startupComplete) {
-      const landing = document.getElementById('landingPage');
-      const app     = document.getElementById('app');
-      const auth    = document.getElementById('authScreen');
-      if (landing) { landing.style.display = ''; }
-      if (app)     { app.style.display     = 'none'; }
-      if (auth)    { auth.style.display    = 'none'; }
-      // Show diagnostic panel if there are failures
-      if (_errors.length > 0) setTimeout(showDiagPanel, 700);
-    }
-  }
-
-  // ── Offline detection ────────────────────────────────────────────
-  function initOfflineDetection() {
-    function onOffline() {
-      if (_offlineMode) return;
-      _offlineMode = true;
-      const b = document.getElementById('offlineBanner');
-      if (b) { b.style.display = 'flex'; b.style.opacity = '0'; requestAnimationFrame(() => { b.style.transition = 'opacity .3s'; b.style.opacity = '1'; }); }
-      step('Network', 'warn', 'Connection lost — offline mode');
-    }
-    function onOnline() {
-      if (!_offlineMode) return;
-      _offlineMode = false;
-      const b = document.getElementById('offlineBanner');
-      if (b) { b.style.transition = 'opacity .4s'; b.style.opacity = '0'; setTimeout(() => { b.style.display = 'none'; b.style.opacity = '1'; }, 400); }
-      step('Network', 'ok', 'Connection restored');
-      // Auto-dismiss network step after 3s so score updates
-      setTimeout(_updateDiagPanel, 3100);
-    }
-    window.addEventListener('offline', onOffline);
-    window.addEventListener('online',  onOnline);
-    if (!navigator.onLine) onOffline();
-  }
-
-  // ── Diagnostic panel ─────────────────────────────────────────────
-  function showDiagPanel() {
-    const panel = document.getElementById('diagPanel');
-    if (panel) { panel.style.display = 'flex'; _renderDiag(); }
-  }
-
-  function hideDiagPanel() {
-    const panel = document.getElementById('diagPanel');
-    if (panel) panel.style.display = 'none';
-  }
-
-  function _renderDiag() {
-    const body = document.getElementById('diagBody');
-    if (!body) return;
-    const rows = Object.entries(_steps).map(([name, s]) => {
-      const color = s.status === 'ok' ? '#00e676' : s.status === 'warn' ? '#ffab40' : '#ef5350';
-      const icon  = s.status === 'ok' ? '✓' : s.status === 'warn' ? '⚠' : '✗';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px">
-        <span style="color:${color};font-size:14px;width:16px;flex-shrink:0">${icon}</span>
-        <span style="flex:1;color:#ccc;font-weight:500">${name}</span>
-        <span style="color:#555;font-size:11px;flex-shrink:0">${s.elapsed}ms</span>
-        ${s.detail ? `<span style="color:#666;font-size:11px;flex-shrink:0;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.detail}">${s.detail}</span>` : ''}
-      </div>`;
-    });
-    body.innerHTML = rows.length
-      ? rows.join('')
-      : '<div style="color:#555;padding:16px 0;text-align:center;font-size:13px">No startup steps recorded yet.</div>';
-    _renderScore();
-  }
-
-  function _updateDiagPanel() {
-    const panel = document.getElementById('diagPanel');
-    if (panel && panel.style.display !== 'none') _renderDiag();
-  }
-
-  // ── Production Stability Score ───────────────────────────────────
-  function _renderScore() {
-    const scoreEl = document.getElementById('diagScore');
-    if (!scoreEl) return;
-
-    const checks = {
-      'Startup Health':  _steps['DOMReady']?.status       === 'ok',
-      'Config Health':   _steps['ConfigLoad']?.status     === 'ok',
-      'Supabase Health': _steps['SupabaseInit']?.status   === 'ok',
-      'Auth Health':     _steps['SessionCheck']?.status   !== 'fail',
-      'Feed Health':     _steps['FeedLoad']?.status       === 'ok',
-      'Network Health':  !_offlineMode,
-      'DOM Health':      _steps['DOMValidation']?.status  === 'ok',
-    };
-    const passed = Object.values(checks).filter(Boolean).length;
-    const total  = Object.keys(checks).length;
-    const pct    = Math.round(passed / total * 100);
-    const col    = pct >= 85 ? '#00e676' : pct >= 55 ? '#ffab40' : '#ef5350';
-    const grade  = pct >= 85 ? 'Excellent' : pct >= 70 ? 'Good' : pct >= 50 ? 'Fair' : 'Critical';
-
-    scoreEl.innerHTML = `
-      <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#555;margin-bottom:10px">Production Stability Score</div>
-      <div style="font-size:52px;font-weight:900;color:${col};line-height:1;margin-bottom:4px">${pct}<span style="font-size:22px">%</span></div>
-      <div style="font-size:13px;color:${col};font-weight:700;margin-bottom:4px">${grade}</div>
-      <div style="font-size:11px;color:#555;margin-bottom:16px">${passed} of ${total} systems healthy</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${Object.entries(checks).map(([label, ok]) => `
-          <div style="display:flex;align-items:center;gap:8px;font-size:12px">
-            <span style="color:${ok ? '#00e676' : '#ef5350'};flex-shrink:0">${ok ? '●' : '●'}</span>
-            <span style="color:${ok ? '#aaa' : '#f88'}">${label}</span>
-            <span style="margin-left:auto;color:${ok ? '#555' : '#f55'};font-size:11px;font-weight:600">${ok ? 'OK' : 'FAIL'}</span>
-          </div>`).join('')}
-      </div>`;
-  }
-
-  // ── Mark startup complete ────────────────────────────────────────
-  function markComplete() {
-    _startupComplete = true;
-    clearSplashTimeout();
-    step('StartupComplete', 'ok', `Total ${Date.now() - t0}ms`);
-  }
-
-  // ── Validate DOM ─────────────────────────────────────────────────
+  function markComplete() { complete = true; clearSplashTimeout(); step('StartupComplete', 'ok', `Total ${Date.now() - startedAt}ms`); }
   function validateDOM() {
-    const critical = ['splashScreen', 'landingPage', 'authScreen', 'app', 'feed', 'postInput'];
-    const missing  = critical.filter(id => !document.getElementById(id));
-    if (missing.length) step('DOMValidation', 'fail', 'Missing IDs: ' + missing.join(', '));
-    else step('DOMValidation', 'ok', `${critical.length} critical elements present`);
+    const required = ['splashScreen', 'landingPage', 'authScreen', 'app', 'feed', 'postInput'];
+    const missing = required.filter(id => !$(id));
+    step('DOMValidation', missing.length ? 'warn' : 'ok', missing.length ? `Missing: ${missing.join(', ')}` : `${required.length} core elements present`);
   }
-
-  // ── Check config.js ──────────────────────────────────────────────
   function checkConfig() {
-    const hasUrl = !!window.SUPABASE_URL?.trim();
-    const hasKey = !!window.SUPABASE_ANON_KEY?.trim();
-    if (hasUrl && hasKey) step('ConfigLoad', 'ok', 'URL + ANON_KEY present');
-    else step('ConfigLoad', 'warn', `URL:${hasUrl ? '✓' : '✗'} KEY:${hasKey ? '✓' : '✗'} — check config.js`);
+    const validUrl = /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(window.SUPABASE_URL || '');
+    const hasKey = !!String(window.SUPABASE_ANON_KEY || '').trim();
+    step('ConfigLoad', validUrl && hasKey ? 'ok' : 'warn', validUrl && hasKey ? 'Supabase URL and publishable key present' : 'Supabase unavailable; public app shell remains usable');
   }
-
-  // ── Deployment validation ────────────────────────────────────────
   async function validateDeployment() {
-    const files = ['css/style.css', 'script.js', 'config.js'];
-    const results = await Promise.allSettled(
-      files.map(f => fetch(f, { method: 'HEAD' }).then(r => ({ f, ok: r.ok, status: r.status })))
-    );
-    const failed = results
-      .filter(r => r.status === 'fulfilled' && !r.value.ok)
-      .map(r => r.value.f);
-    if (failed.length) step('DeploymentValidation', 'fail', '404: ' + failed.join(', '));
-    else step('DeploymentValidation', 'ok', `${files.length} critical files reachable`);
+    const checks = ['css/style.css', 'script.js', 'config.js'];
+    const results = await Promise.allSettled(checks.map(async file => {
+      const response = await fetch(new URL(file, document.baseURI), { method: 'HEAD', cache: 'no-store' });
+      return { file, ok: response.ok };
+    }));
+    const failed = results.filter(result => result.status === 'fulfilled' && !result.value.ok).map(result => result.value.file);
+    const rejected = results.filter(result => result.status === 'rejected');
+    if (failed.length) step('DeploymentValidation', 'warn', `Unavailable assets: ${failed.join(', ')}`);
+    else if (rejected.length) step('DeploymentValidation', 'warn', 'Asset reachability could not be verified; continuing startup');
+    else step('DeploymentValidation', 'ok', `${checks.length} core assets reachable`);
   }
-
-  // ── Check critical failures & auto-trigger recovery ──────────────
-  function _checkCriticalFailures() {
-    // If too many consecutive failures, show diagnostics
-    if (_consecutiveFailures >= 3 && !_startupComplete) {
-      console.error('[KUDASAI] 🚨 Critical failure threshold reached');
-      showDiagPanel();
+  function initOfflineDetection() {
+    // Do not act on navigator.onLine alone: mobile browsers, captive portals,
+    // VPNs, and sleep/wake can produce misleading online/offline events.
+    window.addEventListener('offline', () => { void verifyConnectivity(); });
+    window.addEventListener('online', () => { void verifyConnectivity(); });
+    void verifyConnectivity();
+  }
+  async function retry() {
+    const button = document.querySelector('#diagPanel button[onclick*="retry"]');
+    if (button) { button.disabled = true; button.textContent = 'Checking connection…'; }
+    step('Retry', 'warn', 'Checking website and Supabase reachability');
+    const reachable = await verifyConnectivity();
+    if (reachable) {
+      hideDiagPanel();
+      // A reload reruns Supabase client/session initialization from clean state.
+      window.location.reload();
+      return;
     }
-
-    // If network is offline and we're waiting on something, suggest offline mode
-    if (_offlineMode && Object.values(_steps).some(s => s.status === 'fail' && s.detail?.includes('network'))) {
-      const banner = document.getElementById('offlineBanner');
-      if (banner) banner.style.display = 'flex';
-    }
+    setBanner(true, 'Still cannot reach the network. The public KUDASAI entry page remains available.');
+    showLandingIfNeeded();
+    step('Retry', 'warn', 'No host responded; app entry remains available');
+    if (button) { button.disabled = false; button.textContent = '↺ Retry Connection'; }
   }
-
-  // ── Periodic health monitoring ───────────────────────────────────
-  function startHealthMonitor() {
-    if (_healthCheckInterval) clearInterval(_healthCheckInterval);
-
-    _healthCheckInterval = setInterval(async () => {
-      if (_offlineMode || !_startupComplete) return;
-
-      // Check Supabase connection
-      try {
-        const { error } = await window.db?.from('profiles').select('user_id').limit(1) || { error: 'No DB' };
-        if (error && !_offlineMode) {
-          step('HealthCheck', 'warn', 'DB unreachable — may need reconnect');
-        }
-      } catch (e) {
-        step('HealthCheck', 'warn', 'Health ping failed: ' + e.message?.slice(0, 50));
-      }
-    }, HEALTH_CHECK_INTERVAL);
-  }
-
-  // ── Attempt automatic recovery ───────────────────────────────────
-  async function tryRecover(component) {
-    console.log(`[KUDASAI] 🔧 Attempting recovery for: ${component}`);
-
-    switch (component) {
-      case 'feed':
-        try {
-          if (typeof window.loadFeed === 'function') {
-            await window.loadFeed();
-            step('FeedRecovery', 'ok', 'Feed recovered');
-          }
-        } catch (e) {
-          step('FeedRecovery', 'fail', e.message);
-        }
-        break;
-
-      case 'auth':
-        try {
-          const { data } = await window.db?.auth.getSession() || { data: { session: null } };
-          if (data?.session) {
-            step('AuthRecovery', 'ok', 'Session restored');
-            return data.session;
-          }
-        } catch (e) {
-          step('AuthRecovery', 'fail', e.message);
-        }
-        break;
-
-      case 'realtime':
-        try {
-          if (typeof window.startRealtime === 'function') {
-            window.startRealtime();
-            step('RealtimeRecovery', 'ok', 'Realtime reconnected');
-          }
-        } catch (e) {
-          step('RealtimeRecovery', 'fail', e.message);
-        }
-        break;
-    }
-  }
-
-  // ── Error boundary for unhandled errors ──────────────────────────
-  function installErrorBoundary() {
-    window.addEventListener('error', (event) => {
-      const msg = event.message || 'Unknown error';
-      console.error('[KUDASAI] Uncaught error:', msg);
-
-      // Don't show diag for minor/script errors
-      if (msg.includes('Script error') || msg.includes('Extension')) return;
-
-      _errors.push({ name: 'UncaughtError', detail: msg.slice(0, 100), elapsed: Date.now() - t0 });
-      _updateDiagPanel();
-    });
-
-    window.addEventListener('unhandledrejection', (event) => {
-      const msg = event.reason?.message || String(event.reason);
-      console.error('[KUDASAI] Unhandled promise rejection:', msg);
-
-      _errors.push({ name: 'UnhandledRejection', detail: msg.slice(0, 100), elapsed: Date.now() - t0 });
-      _updateDiagPanel();
-
-      // If auth-related, try recovery
-      if (msg.toLowerCase().includes('auth') || msg.toLowerCase().includes('session')) {
-        tryRecover('auth');
-      }
-    });
-  }
-
-  // ── Retry / offline mode ─────────────────────────────────────────
-  function retry() {
-    hideDiagPanel();
-    window.location.reload();
-  }
-
   function enterOfflineMode() {
-    hideDiagPanel();
-    _offlineMode = true;
-    const b = document.getElementById('offlineBanner');
-    if (b) b.style.display = 'flex';
-    // Show landing so the user at least sees the app shell
-    const landing = document.getElementById('landingPage');
-    const app     = document.getElementById('app');
-    if (landing) landing.style.display = '';
-    if (app)     app.style.display     = 'none';
-    const splash = document.getElementById('splashScreen');
-    if (splash)  splash.style.display  = 'none';
+    // Degraded connectivity is a banner state, never a separate page that hides
+    // the existing application or landing/auth UI.
+    offline = true;
+    setBanner(true, 'Limited connectivity — KUDASAI remains open; online features may retry.');
+    showLandingIfNeeded();
+    hideSplash();
+    step('OfflineMode', 'warn', 'Degraded-network banner enabled without hiding the application');
+  }
+  function showDiagPanel() { const panel = $('diagPanel'); if (panel) { panel.style.display = 'flex'; renderDiagnostics(); } }
+  function hideDiagPanel() { const panel = $('diagPanel'); if (panel) panel.style.display = 'none'; }
+  function renderDiagnostics() {
+    const body = $('diagBody');
+    if (body) body.innerHTML = Object.entries(steps).map(([name, value]) => `<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px"><b style="color:${value.status === 'ok' ? '#00e676' : value.status === 'warn' ? '#ffab40' : '#ef5350'}">${value.status === 'ok' ? '✓' : value.status === 'warn' ? '⚠' : '✗'}</b><span style="color:#ccc;flex:1">${name}</span><span style="color:#777">${value.detail}</span></div>`).join('');
+    const score = $('diagScore');
+    if (score) {
+      const checks = [steps.DOMReady?.status === 'ok', steps.ConfigLoad?.status === 'ok', steps.SupabaseInit?.status === 'ok', steps.SessionCheck?.status !== 'fail', steps.FeedLoad?.status === 'ok', !offline, steps.DOMValidation?.status !== 'fail'];
+      const passed = checks.filter(Boolean).length;
+      score.innerHTML = `<div style="color:#888;font-size:12px">Startup status</div><strong style="font-size:42px;color:${passed >= 5 ? '#00e676' : '#ffab40'}">${Math.round(passed / checks.length * 100)}%</strong><div style="color:#888">${passed} checks healthy</div>`;
+    }
+  }
+  function startHealthMonitor() {
+    if (healthTimer) clearInterval(healthTimer);
+    healthTimer = setInterval(async () => {
+      if (!window.db || !window.SUPABASE_URL) return;
+      try {
+        const result = await Promise.race([
+          window.db.from('profiles').select('user_id').limit(1),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+        ]);
+        if (result.error) step('SupabaseHealth', 'warn', result.error.message);
+        else if (offline) void verifyConnectivity();
+      } catch (error) { step('SupabaseHealth', 'warn', error?.message || 'Health check failed'); }
+    }, 30000);
+  }
+  async function tryRecover(component) {
+    if (component === 'auth') return window.db?.auth.getSession();
+    if (component === 'feed' && typeof window.loadFeed === 'function') return window.loadFeed();
+    if (component === 'realtime' && typeof window.startRealtime === 'function') return window.startRealtime();
   }
 
-  // ── Install error boundary immediately ──────────────────────────
-  installErrorBoundary();
+  window.addEventListener('unhandledrejection', event => {
+    const detail = event.reason?.message || String(event.reason || 'Unknown rejection');
+    console.error('[KUDASAI] Unhandled promise rejection:', detail);
+    errors.push({ name: 'UnhandledRejection', detail, elapsed: Date.now() - startedAt });
+    renderDiagnostics();
+    // An API rejection is not evidence that the whole device is offline.
+  });
 
-  // ── Reveal emergency recovery buttons after 4 s ─────────────────
-  setTimeout(() => {
-    const splash    = document.getElementById('splashScreen');
-    const recovery  = document.getElementById('splashRecovery');
-    if (splash && splash.style.display !== 'none' && splash.style.opacity !== '0' && recovery) {
-      recovery.style.display = 'flex';
-      requestAnimationFrame(() => { recovery.style.opacity = '1'; });
-    }
-  }, 4000);
-
-  // ── Public API ───────────────────────────────────────────────────
   return {
-    step,
-    scheduleRetry,
-    armSplashTimeout,
-    clearSplashTimeout,
-    markComplete,
-    initOfflineDetection,
-    showDiagPanel,
-    hideDiagPanel,
-    validateDOM,
-    checkConfig,
-    validateDeployment,
-    startHealthMonitor,
-    tryRecover,
-    retry,
-    enterOfflineMode,
-    getErrors: () => [..._errors],
-    getWarnings: () => [..._warnings],
-    isOffline: () => _offlineMode,
-    isComplete: () => _startupComplete,
+    step, armSplashTimeout, clearSplashTimeout, markComplete, initOfflineDetection,
+    showDiagPanel, hideDiagPanel, validateDOM, checkConfig, validateDeployment,
+    startHealthMonitor, tryRecover, retry, enterOfflineMode, probeConnectivity,
+    getErrors: () => [...errors], getWarnings: () => [...warnings],
+    isOffline: () => offline, isComplete: () => complete
   };
 })();
